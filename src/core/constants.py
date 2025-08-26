@@ -1,0 +1,100 @@
+"""
+Constants used throughout GenreDiscern.
+"""
+
+# Audio processing constants
+SAMPLE_RATE = 22050
+HOP_LENGTH = 512
+N_FFT = 2048
+DEFAULT_N_MFCC = 13  # Default number of MFCC coefficients
+MIN_AUDIO_DURATION = 0.1  # Minimum audio duration in seconds
+MAX_AUDIO_DURATION = 30.0  # Maximum audio duration in seconds
+
+# Legacy audio constants (for backward compatibility)
+MFCC_COEFFICIENTS = 13  # Number of MFCC coefficients (legacy, use DEFAULT_N_MFCC)
+DEFAULT_SAMPLE_RATE = 22050
+DEFAULT_SONG_LENGTH = 30  # seconds
+DEFAULT_N_FFT = 2048
+DEFAULT_HOP_LENGTH = 512
+DEFAULT_SEGMENT_LENGTH = 30
+
+# Model Constants
+DEFAULT_NUM_CLASSES = 10  # Default number of output classes
+DEFAULT_BATCH_SIZE = 64
+DEFAULT_HIDDEN_SIZE = 32
+DEFAULT_NUM_LAYERS = 1
+DEFAULT_DROPOUT = 0.1
+DEFAULT_LEARNING_RATE = 0.01
+DEFAULT_NUM_EPOCHS = 100
+DEFAULT_EARLY_STOPPING_PATIENCE = 10
+DEFAULT_WEIGHT_DECAY = 1e-5
+DEFAULT_OPTIMIZER = "adam"
+DEFAULT_LOSS_FUNCTION = "crossentropy"
+DEFAULT_LR_SCHEDULER = True
+
+# Training Constants
+DEFAULT_VALIDATION_SPLIT = 0.2
+DEFAULT_RANDOM_SEED = 42
+DEFAULT_NUM_WORKERS = 4
+DEFAULT_CHECKPOINT_INTERVAL = 10
+DEFAULT_LOG_INTERVAL = 100
+DEFAULT_PATIENCE = 10
+DEFAULT_DEVICE = "auto"
+DEFAULT_PIN_MEMORY = True
+DEFAULT_SAVE_BEST_MODEL = True
+DEFAULT_SAVE_CHECKPOINTS = True
+DEFAULT_EARLY_STOPPING = True
+
+# Data Split Constants
+DEFAULT_TRAIN_SIZE = 0.7
+DEFAULT_VAL_SIZE = 0.15
+DEFAULT_TEST_SIZE = 0.15
+
+# Audio File Extensions
+AUDIO_EXTENSIONS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg', '.aac'}
+
+# Plot Constants
+DEFAULT_FIGURE_WIDTH = 10
+DEFAULT_FIGURE_HEIGHT = 6
+DEFAULT_DPI = 300
+
+# File Size Constants
+BYTES_PER_KB = 1024.0
+BYTES_PER_MB = 1024.0 * 1024.0
+BYTES_PER_GB = 1024.0 * 1024.0 * 1024.0
+
+# Exit Codes
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+EXIT_INTERRUPT = 2
+EXIT_FILE_NOT_FOUND = 3
+EXIT_EVALUATION_FAILED = 4
+
+# GTZAN Genre Names
+GTZAN_GENRES = [
+    'blues', 'classical', 'country', 'disco', 
+    'hiphop', 'jazz', 'metal', 'pop', 'reggae', 'rock'
+]
+
+# Model Architecture Constants
+DEFAULT_FC_HIDDEN_DIMS = [512, 256, 128]  # Default FC hidden layer dimensions
+DEFAULT_FC_DROPOUT = 0.3  # Default FC dropout rate
+DEFAULT_CNN_DROPOUT = 0.2  # Default CNN dropout rate
+DEFAULT_TRANSFORMER_HEADS = 8
+DEFAULT_TRANSFORMER_FF_DIM = 128
+DEFAULT_XLSTM_DROPOUT = 0.3
+
+# Data Processing Constants
+DEFAULT_AUGMENTATION_FACTOR = 2
+DEFAULT_NOISE_STD = 0.01
+DEFAULT_FEATURE_CLIP_MIN = -10
+DEFAULT_FEATURE_CLIP_MAX = 10
+DEFAULT_EPSILON = 1e-8
+
+# UI Constants (for any remaining GUI elements)
+DEFAULT_WINDOW_WIDTH = 600
+DEFAULT_WINDOW_HEIGHT = 400
+DEFAULT_WINDOW_X = 100
+DEFAULT_WINDOW_Y = 100
+DEFAULT_BUTTON_WIDTH = 100
+DEFAULT_BUTTON_HEIGHT = 30 

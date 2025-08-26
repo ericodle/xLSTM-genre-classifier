@@ -1,0 +1,27 @@
+env/
+output/
+mfccs/
+
+# Training and model outputs
+*.pth
+*.onnx
+*.bin
+*.ckpt
+training_plots/
+evaluation_results/
+gridsearch/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+.benchmarks/
+.mypy_cache/
+
+# Additional Python cache patterns
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
