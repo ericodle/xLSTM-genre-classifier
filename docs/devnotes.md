@@ -95,10 +95,13 @@ python src/main.py train --data /home/eo/Documents/FMA_full.csv --model FC --out
 ### Training Output
 
 Each training run generates:
-- `best_model.pth` - PyTorch checkpoint (for continued training)
-- `model.onnx` - ONNX model (for evaluation and deployment)
+- `best_model.onnx` - ONNX model (primary format for deployment and evaluation)
+- `best_model_metadata.json` - Model configuration and training history
+- `best_model_training_metadata.json` - Training-specific metadata (epochs, config, etc.)
 - `training_plots/` - Training visualization plots
 - `evaluation_results/` - Comprehensive evaluation metrics
+
+**Note**: The system now uses ONNX as the primary model format for better cross-platform compatibility and deployment flexibility.
 
 ## Hyperparameter Grid Search
 

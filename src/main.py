@@ -6,6 +6,7 @@ import sys
 import os
 import argparse
 import logging
+import warnings
 from pathlib import Path
 import json
 import numpy as np
@@ -16,6 +17,9 @@ from scipy.stats import ks_2samp
 import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Optional, Dict, Any
+
+# Suppress sklearn warnings about undefined metrics
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn.metrics')
 
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -256,47 +260,40 @@ def run_automatic_evaluation(trainer, data_path, output_dir, model_type, logger)
         eval_output_dir = Path(output_dir) / f"{model_type.lower()}_evaluation_results"
         eval_output_dir.mkdir(exist_ok=True)
         
-        # Load the trained model (use ONNX if available, otherwise PyTorch checkpoint)
-        onnx_path = Path(output_dir) / "model.onnx"
-        if onnx_path.exists():
-            logger.info("Using ONNX model for evaluation")
-            import onnxruntime as ort
-            session = ort.InferenceSession(str(onnx_path))
-            
-            # Detect model type from ONNX
-            input_shape = session.get_inputs()[0].shape
-            if len(input_shape) == 4:
-                detected_type = 'CNN'
-            elif len(input_shape) == 3:
-                detected_type = 'RNN'
-            else:
-                detected_type = 'FC'
-            
-            # Create ONNX wrapper
-            class ONNXModelWrapper:
-                def __init__(self, session, model_type):
-                    self.session = session
-                    self.model_type = model_type
-                    self.eval = lambda: None
-                    
-                def __call__(self, x):
-                    if isinstance(x, torch.Tensor):
-                        x = x.detach().cpu().numpy()
-                    return torch.from_numpy(self.session.run(['output'], {'input': x})[0])
-            
-            model = ONNXModelWrapper(session, detected_type)
-            is_onnx = True
+        # Load the trained ONNX model
+        onnx_path = Path(output_dir) / "best_model.onnx"
+        if not onnx_path.exists():
+            # Fallback to model.onnx if best_model.onnx doesn't exist
+            onnx_path = Path(output_dir) / "model.onnx"
+            if not onnx_path.exists():
+                raise FileNotFoundError(f"No ONNX model found in {output_dir}")
+        
+        logger.info("Using ONNX model for evaluation")
+        import onnxruntime as ort
+        session = ort.InferenceSession(str(onnx_path))
+        
+        # Detect model type from ONNX
+        input_shape = session.get_inputs()[0].shape
+        if len(input_shape) == 4:
+            detected_type = 'CNN'
+        elif len(input_shape) == 3:
+            detected_type = 'RNN'
         else:
-            logger.info("Using PyTorch checkpoint for evaluation")
-            checkpoint_path = Path(output_dir) / "best_model.pth"
-            checkpoint = torch.load(checkpoint_path, map_location='cpu')
-            
-            # Recreate model and load state dict
-            from models import get_model
-            model = get_model(model_type)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            model.eval()
-            is_onnx = False
+            detected_type = 'FC'
+        
+        # Create ONNX wrapper
+        class ONNXModelWrapper:
+            def __init__(self, session, model_type):
+                self.session = session
+                self.model_type = model_type
+                self.eval = lambda: None
+                
+            def __call__(self, x):
+                if isinstance(x, torch.Tensor):
+                    x = x.detach().cpu().numpy()
+                return torch.from_numpy(self.session.run(['output'], {'input': x})[0])
+        
+        model = ONNXModelWrapper(session, detected_type)
         
         # Load MFCC data
         logger.info("Loading MFCC data for evaluation...")
@@ -449,16 +446,16 @@ def run_automatic_evaluation(trainer, data_path, output_dir, model_type, logger)
                 features = np.array(features)
                 labels = np.array(labels)
         
-        # Preprocess features based on model type
-        if is_onnx and model.model_type == 'CNN':
+        # Preprocess features based on ONNX model type
+        if model.model_type == 'CNN':
             # Reshape to 4D for CNN
             if len(features.shape) == 3:
                 features = features.reshape(features.shape[0], 1, features.shape[1], features.shape[2])
-        elif is_onnx and model.model_type == 'RNN':
+        elif model.model_type == 'RNN':
             # Keep 3D for RNN
             pass
         else:
-            # For PyTorch models, use existing preprocessing
+            # For FC models, flatten to 2D
             if len(features.shape) == 3:
                 features = features.reshape(features.shape[0], -1)
         
@@ -503,7 +500,7 @@ def run_automatic_evaluation(trainer, data_path, output_dir, model_type, logger)
             f.write(f"ROC AUC Score: {results['roc_auc']:.4f}\n\n")
             
             f.write("Classification Report:\n")
-            f.write(classification_report(results['y_true'], results['y_pred'], target_names=mapping))
+            f.write(classification_report(results['y_true'], results['y_pred'], target_names=mapping, zero_division=0))
             
             f.write(f"\nKS Test Statistics:\n")
             for i, ks_stat in enumerate(results['ks_stats']):
@@ -526,37 +523,25 @@ def run_automatic_evaluation(trainer, data_path, output_dir, model_type, logger)
 
 
 def evaluate_model(model, test_loader, class_names):
-    """Evaluate the model and return results."""
-    # Only call eval() for PyTorch models
-    if not hasattr(model, 'eval'):
-        pass  # ONNX models don't have eval()
-    else:
-        model.eval()
-    
+    """Evaluate the ONNX model and return results."""
     y_true = []
     y_pred = []
     y_probs = []
     
-    with torch.no_grad():
-        for data, target in test_loader:
-            # Forward pass - handle both PyTorch and ONNX models
-            if hasattr(model, 'model_type'):  # ONNX model wrapper
-                # Convert to numpy for ONNX
-                data_np = data.detach().cpu().numpy()
-                output = model.session.run(['output'], {'input': data_np})[0]
-                output = torch.from_numpy(output)
-            else:
-                # PyTorch model
-                output = model(data)
-            
-            # Get probabilities and predictions
-            probs = torch.softmax(output, dim=1)
-            pred = torch.argmax(probs, dim=1)
-            
-            # Store results
-            y_true.append(target.numpy())
-            y_pred.append(pred.numpy())
-            y_probs.append(probs.numpy())
+    for data, target in test_loader:
+        # Forward pass with ONNX model
+        data_np = data.detach().cpu().numpy()
+        output = model.session.run(['output'], {'input': data_np})[0]
+        output = torch.from_numpy(output)
+        
+        # Get probabilities and predictions
+        probs = torch.softmax(output, dim=1)
+        pred = torch.argmax(probs, dim=1)
+        
+        # Store results
+        y_true.append(target.numpy())
+        y_pred.append(pred.numpy())
+        y_probs.append(probs.numpy())
     
     # Concatenate all batches
     y_true = np.concatenate(y_true)
@@ -567,7 +552,7 @@ def evaluate_model(model, test_loader, class_names):
     accuracy = (y_true == y_pred).mean()
     
     # Classification report
-    classification_rep = classification_report(y_true, y_pred, target_names=class_names, output_dict=True)
+    classification_rep = classification_report(y_true, y_pred, target_names=class_names, output_dict=True, zero_division=0)
     
     # Confusion matrix
     cm = confusion_matrix(y_true, y_pred)

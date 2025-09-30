@@ -79,13 +79,13 @@ class TestCLIParser:
         # Test valid evaluate command
         args = parser.parse_args([
             'evaluate',
-            '--model', '/path/to/model.pth',
+            '--model', '/path/to/model.onnx',
             '--data', '/path/to/features.json',
             '--output', '/path/to/output'
         ])
         
         assert args.command == 'evaluate'
-        assert args.model == '/path/to/model.pth'
+        assert args.model == '/path/to/model.onnx'
         assert args.data == '/path/to/features.json'
         assert args.output == '/path/to/output'
     

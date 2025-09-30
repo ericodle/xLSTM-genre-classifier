@@ -113,7 +113,7 @@ class TestModelTrainer:
         assert len(history['val_loss']) > 0
         
         # Check that model files were created
-        assert (Path(temp_dir) / 'best_model.pth').exists()
+        assert (Path(temp_dir) / 'best_model.onnx').exists()
         assert (Path(temp_dir) / 'model.onnx').exists()
     
     def test_trainer_cnn_training(self, sample_config, sample_mfcc_data, temp_dir):
@@ -134,7 +134,7 @@ class TestModelTrainer:
         assert len(history['train_loss']) > 0
         
         # Check that model files were created
-        assert (Path(temp_dir) / 'best_model.pth').exists()
+        assert (Path(temp_dir) / 'best_model.onnx').exists()
         assert (Path(temp_dir) / 'model.onnx').exists()
     
     def test_trainer_xlstm_training(self, sample_config, sample_mfcc_data, temp_dir):
@@ -155,7 +155,7 @@ class TestModelTrainer:
         assert len(history['train_loss']) > 0
         
         # Check that model files were created
-        assert (Path(temp_dir) / 'best_model.pth').exists()
+        assert (Path(temp_dir) / 'best_model.onnx').exists()
         assert (Path(temp_dir) / 'model.onnx').exists()
     
     def test_onnx_export(self, sample_config, sample_mfcc_data, temp_dir):
@@ -234,16 +234,29 @@ class TestModelTrainer:
         trainer.train()
         
         # Check checkpoint file
-        checkpoint_path = Path(temp_dir) / 'best_model.pth'
+        checkpoint_path = Path(temp_dir) / 'best_model.onnx'
         assert checkpoint_path.exists()
         
-        # Load checkpoint and verify contents
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
-        assert 'model_state_dict' in checkpoint
-        assert 'optimizer_state_dict' in checkpoint
-        assert 'best_val_loss' in checkpoint
-        assert 'training_history' in checkpoint
-        assert 'config' in checkpoint
+        # Verify ONNX model and metadata files exist
+        metadata_path = Path(temp_dir) / 'best_model_metadata.json'
+        training_metadata_path = Path(temp_dir) / 'best_model_training_metadata.json'
+        
+        assert metadata_path.exists()
+        assert training_metadata_path.exists()
+        
+        # Load and verify metadata
+        import json
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+        assert 'model_config' in metadata
+        assert 'training_history' in metadata
+        assert 'is_trained' in metadata
+        
+        with open(training_metadata_path, 'r') as f:
+            training_metadata = json.load(f)
+        assert 'epoch' in training_metadata
+        assert 'best_val_loss' in training_metadata
+        assert 'config' in training_metadata
 
 
 class TestAutomaticEvaluation:

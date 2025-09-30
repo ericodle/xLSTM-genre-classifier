@@ -3,8 +3,8 @@ output/
 mfccs/
 
 # Training and model outputs
-*.pth
-*.onnx
+# ONNX models are now tracked in git for deployment
+# *.onnx
 *.bin
 *.ckpt
 training_plots/

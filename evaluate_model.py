@@ -7,6 +7,7 @@ This script evaluates a trained model against the entire dataset.
 import sys
 import os
 import json
+import warnings
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -15,95 +16,37 @@ import seaborn as sns
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 from scipy.stats import ks_2samp
 
+# Suppress sklearn warnings about undefined metrics
+warnings.filterwarnings('ignore', category=UserWarning, module='sklearn.metrics')
+
 # Add src directory to path
 sys.path.insert(0, 'src')
 
 def load_model(model_path):
-    """Load a trained model from checkpoint or ONNX file."""
-    # Check if it's an ONNX file
-    if model_path.endswith('.onnx'):
-        try:
-            import onnxruntime as ort
-            print("Loading ONNX model...")
-            session = ort.InferenceSession(model_path)
-            
-            # Detect model type from ONNX model structure
-            model_type = detect_onnx_model_type(session)
-            print(f"Detected {model_type} model from ONNX")
-            
-            return session, model_type
-        except ImportError:
-            print("ONNX Runtime not available, falling back to PyTorch")
-        except Exception as e:
-            print(f"ONNX loading failed: {e}")
-            print("Falling back to PyTorch")
-    
-    # Try to load as PyTorch checkpoint
-    checkpoint = torch.load(model_path, map_location='cpu')
-    
-    if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
-        # It's a checkpoint, need to create model and load state dict
-        from src.models import get_model
-        
-        # Try to detect model type from the state dict keys
-        state_dict = checkpoint['model_state_dict']
-        
-        # Check for different model architectures
-        if 'rnn.weight_ih_l0' in state_dict:
-            # GRU or LSTM model
-            # Calculate dimensions from state dict
-            input_dim = state_dict['rnn.weight_ih_l0'].shape[1]  # 13
-            # For GRU: weight_ih_l0 has shape [3*hidden_dim, input_dim] (3 gates)
-            # For LSTM: weight_ih_l0 has shape [4*hidden_dim, input_dim] (4 gates)
-            # Let's check which one it is
-            total_gates = state_dict['rnn.weight_ih_l0'].shape[0]
-            if total_gates % 3 == 0:
-                # GRU model
-                hidden_dim = total_gates // 3
-                model_type = 'GRU'
-            elif total_gates % 4 == 0:
-                # LSTM model
-                hidden_dim = total_gates // 4
-                model_type = 'LSTM'
-            else:
-                # Unknown, assume GRU
-                hidden_dim = total_gates // 3
-                model_type = 'GRU'
-            
-            output_dim = state_dict['fc.weight'].shape[0]  # 10
-            
-            try:
-                if model_type == 'GRU':
-                    model = get_model('GRU', input_dim=input_dim, hidden_dim=hidden_dim, num_layers=1, output_dim=output_dim, dropout=0.0)
-                    print(f"Created GRU model with input_dim={input_dim}, hidden_dim={hidden_dim}, output_dim={output_dim}")
-                else:
-                    model = get_model('LSTM', input_dim=input_dim, hidden_dim=hidden_dim, num_layers=1, output_dim=output_dim, dropout=0.0)
-                    print(f"Created LSTM model with input_dim={input_dim}, hidden_dim={hidden_dim}, output_dim={output_dim}")
-            except Exception as e:
-                print(f"Error creating {model_type} model: {e}")
-                # Fallback to FC model
-                model = get_model('FC')
-                print("Fallback to FC model")
-        elif 'conv_layers.0.weight' in state_dict:
-            # CNN model - always use the new architecture
-            print("Detected CNN model - using new dynamic architecture")
-            model = get_model('CNN')
+    """Load a trained model from ONNX file."""
+    # Ensure we're working with ONNX files
+    if not model_path.endswith('.onnx'):
+        # Try to find corresponding ONNX file
+        onnx_path = model_path.replace('.pth', '.onnx')
+        if os.path.exists(onnx_path):
+            model_path = onnx_path
         else:
-            # Default to FC model
-            model = get_model('FC')
-            print("Detected FC model")
-        
-        model.load_state_dict(checkpoint['model_state_dict'])
-        print("Loaded model from checkpoint")
-    else:
-        # Assume it's a direct model
-        model = checkpoint
-        print("Loaded direct model")
+            raise FileNotFoundError(f"ONNX model not found. Expected: {onnx_path}")
     
-    # Only call eval() for PyTorch models
-    if not hasattr(model, 'session'):
-        model.eval()
-    return model
+    try:
+        import onnxruntime as ort
+        print("Loading ONNX model...")
+        session = ort.InferenceSession(model_path)
+        
+        # Detect model type from ONNX model structure
+        model_type = detect_onnx_model_type(session)
+        print(f"Detected {model_type} model from ONNX")
+        
+        return session, model_type
+    except ImportError:
+        raise ImportError("ONNX Runtime not available. Install with: pip install onnxruntime")
+    except Exception as e:
+        raise RuntimeError(f"ONNX loading failed: {e}")
 
 def detect_onnx_model_type(session):
     """Detect model type from ONNX model structure."""
@@ -149,27 +92,55 @@ def load_mfcc_data(json_path):
     with open(json_path, 'r') as f:
         mfcc_data = json.load(f)
     
-    # Extract features and labels from the file path structure
-    features = []
-    labels = []
-    mapping = []
-    
-    for file_path, data_dict in mfcc_data.items():
-        # Extract genre from file path (e.g., "reggae/reggae.00044.wav" -> "reggae")
-        genre = file_path.split('/')[0]
+    # Check if it's the new format with features and labels arrays
+    if 'features' in mfcc_data and 'labels' in mfcc_data:
+        features_list = mfcc_data['features']
+        labels = np.array(mfcc_data['labels'])
         
-        if genre not in mapping:
-            mapping.append(genre)
+        # Pad features to the same length
+        max_length = max(len(f) for f in features_list)
+        padded_features = []
         
-        genre_idx = mapping.index(genre)
-        features.append(data_dict['mfcc'])
-        labels.append(genre_idx)
-    
-    # Convert to numpy arrays
-    features = np.array(features)
-    labels = np.array(labels)
-    
-    return features, labels, mapping
+        for feature in features_list:
+            if len(feature) < max_length:
+                # Pad with zeros
+                padding_needed = max_length - len(feature)
+                padded_feature = feature + [[0.0] * len(feature[0]) for _ in range(padding_needed)]
+                padded_features.append(padded_feature)
+            else:
+                padded_features.append(feature)
+        
+        features = np.array(padded_features)
+        
+        # Create mapping from unique labels and convert to integers
+        unique_labels = sorted(list(set(labels)))
+        mapping = unique_labels
+        label_to_idx = {label: idx for idx, label in enumerate(unique_labels)}
+        labels = np.array([label_to_idx[label] for label in labels])
+        
+        return features, labels, mapping
+    else:
+        # Old format - individual records
+        features = []
+        labels = []
+        mapping = []
+        
+        for file_path, data_dict in mfcc_data.items():
+            # Extract genre from file path (e.g., "reggae/reggae.00044.wav" -> "reggae")
+            genre = file_path.split('/')[0]
+            
+            if genre not in mapping:
+                mapping.append(genre)
+            
+            genre_idx = mapping.index(genre)
+            features.append(data_dict['mfcc'])
+            labels.append(genre_idx)
+        
+        # Convert to numpy arrays
+        features = np.array(features)
+        labels = np.array(labels)
+        
+        return features, labels, mapping
 
 def preprocess_features(features, flatten_for_rnn=False, is_cnn=False):
     """Preprocess features (normalization, reshaping, etc.)."""
@@ -213,37 +184,25 @@ class SimpleDataset(torch.utils.data.Dataset):
         return self.features[idx], self.labels[idx]
 
 def evaluate_model(model, test_loader, class_names):
-    """Evaluate the model and return results."""
-    # Only call eval() for PyTorch models
-    if not hasattr(model, 'eval'):
-        pass  # ONNX models don't have eval()
-    else:
-        model.eval()
-    
+    """Evaluate the ONNX model and return results."""
     y_true = []
     y_pred = []
     y_probs = []
     
-    with torch.no_grad():
-        for data, target in test_loader:
-            # Forward pass - handle both PyTorch and ONNX models
-            if hasattr(model, 'model_type'):  # ONNX model wrapper
-                # Convert to numpy for ONNX
-                data_np = data.detach().cpu().numpy()
-                output = model.session.run(['output'], {'input': data_np})[0]
-                output = torch.from_numpy(output)
-            else:
-                # PyTorch model
-                output = model(data)
-            
-            # Get probabilities and predictions
-            probs = torch.softmax(output, dim=1)
-            pred = torch.argmax(probs, dim=1)
-            
-            # Store results
-            y_true.append(target.numpy())
-            y_pred.append(pred.numpy())
-            y_probs.append(probs.numpy())
+    for data, target in test_loader:
+        # Forward pass with ONNX model
+        data_np = data.detach().cpu().numpy()
+        output = model.session.run(['output'], {'input': data_np})[0]
+        output = torch.from_numpy(output)
+        
+        # Get probabilities and predictions
+        probs = torch.softmax(output, dim=1)
+        pred = torch.argmax(probs, dim=1)
+        
+        # Store results
+        y_true.append(target.numpy())
+        y_pred.append(pred.numpy())
+        y_probs.append(probs.numpy())
     
     # Concatenate all batches
     y_true = np.concatenate(y_true)
@@ -254,7 +213,7 @@ def evaluate_model(model, test_loader, class_names):
     accuracy = (y_true == y_pred).mean()
     
     # Classification report
-    classification_rep = classification_report(y_true, y_pred, target_names=class_names, output_dict=True)
+    classification_rep = classification_report(y_true, y_pred, target_names=class_names, output_dict=True, zero_division=0)
     
     # Confusion matrix
     cm = confusion_matrix(y_true, y_pred)
@@ -341,7 +300,7 @@ def save_results(results, output_path):
         
         f.write("\nClassification Report:\n")
         f.write(classification_report(results['y_true'], results['y_pred'], 
-                                   target_names=[f"Class_{i}" for i in range(len(results['ks_stats']))]))
+                                   target_names=[f"Class_{i}" for i in range(len(results['ks_stats']))], zero_division=0))
     
     print(f"Results saved to {metrics_file}")
 
@@ -357,36 +316,22 @@ def main():
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
-    print("Loading model...")
-    result = load_model(model_path)
-    
-    # Handle different return types
-    if isinstance(result, tuple):
-        # ONNX model returned (session, model_type)
-        model, model_type = result
-        print(f"Using ONNX {model_type} model for evaluation")
-        model = create_onnx_wrapper(model, model_type)
-        is_onnx = True
-    else:
-        # PyTorch model returned
-        model = result
-        is_onnx = False
+    print("Loading ONNX model...")
+    session, model_type = load_model(model_path)
+    print(f"Using ONNX {model_type} model for evaluation")
+    model = create_onnx_wrapper(session, model_type)
     
     print("Loading data...")
     features, labels, mapping = load_mfcc_data(data_path)
     
     print("Preprocessing features...")
-    # Determine preprocessing based on model type
-    if is_onnx:
-        if model.model_type == 'CNN':
-            features = preprocess_features(features, flatten_for_rnn=False, is_cnn=True)
-        elif model.model_type == 'RNN':
-            features = preprocess_features(features, flatten_for_rnn=False, is_cnn=False)
-        else:  # FC model
-            features = preprocess_features(features, flatten_for_rnn=True, is_cnn=False)
-    else:
-        # PyTorch model - use existing logic
+    # Determine preprocessing based on ONNX model type
+    if model.model_type == 'CNN':
+        features = preprocess_features(features, flatten_for_rnn=False, is_cnn=True)
+    elif model.model_type == 'RNN':
         features = preprocess_features(features, flatten_for_rnn=False, is_cnn=False)
+    else:  # FC model
+        features = preprocess_features(features, flatten_for_rnn=True, is_cnn=False)
     
     print("Creating dataset...")
     dataset = SimpleDataset(features, labels)

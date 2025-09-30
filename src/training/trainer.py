@@ -382,7 +382,7 @@ class ModelTrainer:
             # Save best model
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
-                self._save_checkpoint('best_model.pth')
+                self._save_checkpoint('best_model.onnx')
                 
             # Early stopping check
             if self._should_stop_early():
@@ -484,76 +484,82 @@ class ModelTrainer:
         return all(recent_losses[i] >= recent_losses[i-1] for i in range(1, len(recent_losses)))
         
     def _save_checkpoint(self, filename: str):
-        """Save model checkpoint."""
-        checkpoint_path = self.output_dir / filename
+        """Save model as ONNX format."""
+        # Convert .pth to .onnx
+        if filename.endswith('.pth'):
+            filename = filename.replace('.pth', '.onnx')
         
-        checkpoint = {
+        onnx_path = self.output_dir / filename
+        
+        # Update model metadata
+        self.model.training_history = self.training_history
+        self.model.is_trained = True
+        
+        # Get input shape from sample data
+        sample_data = next(iter(self.train_loader))[0]
+        input_shape = self._get_input_shape(sample_data)
+        
+        # Save as ONNX using BaseModel method
+        # Temporarily move model to CPU for ONNX export
+        original_device = next(self.model.parameters()).device
+        self.model.cpu()
+        
+        try:
+            self.model.save_model(str(onnx_path), input_shape, save_optimizer=True, optimizer_state=self.optimizer.state_dict())
+        finally:
+            # Move model back to original device
+            self.model.to(original_device)
+        
+        # Save additional training metadata
+        def convert_config_to_dict(config):
+            """Convert config object to serializable dictionary."""
+            if hasattr(config, '__dict__'):
+                result = {}
+                for key, value in config.__dict__.items():
+                    if hasattr(value, '__dict__'):
+                        result[key] = convert_config_to_dict(value)
+                    else:
+                        result[key] = str(value) if not isinstance(value, (str, int, float, bool, list, dict, type(None))) else value
+                return result
+            else:
+                return str(config)
+        
+        training_metadata = {
             'epoch': self.current_epoch,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
             'best_val_loss': self.best_val_loss,
-            'training_history': self.training_history,
-            'config': self.config
+            'config': convert_config_to_dict(self.config)
         }
         
-        torch.save(checkpoint, checkpoint_path)
-        self.logger.info(f"Checkpoint saved: {checkpoint_path}")
+        metadata_path = onnx_path.parent / (onnx_path.stem + '_training_metadata.json')
+        with open(metadata_path, 'w') as f:
+            json.dump(training_metadata, f, indent=2)
         
-        # Also export to ONNX format for better compatibility
-        self._export_to_onnx()
+        self.logger.info(f"Model saved as ONNX: {onnx_path}")
+    
+    def _get_input_shape(self, sample_data):
+        """Get input shape for ONNX export based on model type."""
+        if hasattr(self.model, 'conv_layers'):
+            # CNN model - reshape to 4D (batch, channels, height, width)
+            if len(sample_data.shape) == 3:
+                # (batch, time_steps, features) -> (1, time_steps, features)
+                return (sample_data.shape[1], sample_data.shape[2])
+            else:
+                return sample_data.shape[1:]
+        elif hasattr(self.model, 'rnn') or hasattr(self.model, 'lstm') or hasattr(self.model, 'gru'):
+            # RNN models (LSTM, GRU) - keep 3D format (batch, time_steps, features)
+            return sample_data.shape[1:]
+        else:
+            # FC model - flatten to 2D (batch, features)
+            if len(sample_data.shape) == 3:
+                return (sample_data.shape[1] * sample_data.shape[2],)
+            else:
+                return sample_data.shape[1:]
         
     def _export_to_onnx(self):
-        """Export model to ONNX format for better compatibility."""
-        try:
-            # Move model to CPU for ONNX export
-            model_cpu = self.model.cpu()
-            
-            # Create a dummy input with the expected shape based on model type
-            sample_data = next(iter(self.train_loader))[0]
-            
-            if hasattr(self.model, 'conv_layers'):
-                # CNN model - reshape to 4D (batch, channels, height, width)
-                if len(sample_data.shape) == 3:
-                    # (batch, time_steps, features) -> (batch, 1, time_steps, features)
-                    dummy_input = sample_data[:1].unsqueeze(1)
-                else:
-                    dummy_input = sample_data[:1]
-            elif hasattr(self.model, 'rnn') or hasattr(self.model, 'lstm') or hasattr(self.model, 'gru'):
-                # RNN models (LSTM, GRU) - keep 3D format (batch, time_steps, features)
-                dummy_input = sample_data[:1]
-            else:
-                # FC model - flatten to 2D (batch, features)
-                if len(sample_data.shape) == 3:
-                    dummy_input = sample_data[:1].view(sample_data[:1].size(0), -1)
-                else:
-                    dummy_input = sample_data[:1]
-            
-            # Export to ONNX
-            onnx_path = self.output_dir / 'model.onnx'
-            torch.onnx.export(
-                model_cpu,
-                dummy_input,
-                onnx_path,
-                export_params=True,
-                opset_version=11,
-                do_constant_folding=True,
-                input_names=['input'],
-                output_names=['output'],
-                dynamic_axes={
-                    'input': {0: 'batch_size'},
-                    'output': {0: 'batch_size'}
-                }
-            )
-            self.logger.info(f"Model exported to ONNX: {onnx_path}")
-            
-            # Move model back to original device
-            self.model = self.model.to(self.device)
-            
-        except Exception as e:
-            self.logger.warning(f"ONNX export failed: {e}")
-            self.logger.warning("Continuing with PyTorch checkpoint only")
-            # Ensure model is back on original device
-            self.model = self.model.to(self.device)
+        """Export model to ONNX format - now handled by _save_checkpoint."""
+        # This method is now redundant since _save_checkpoint handles ONNX export
+        # Keeping for backward compatibility but delegating to _save_checkpoint
+        self._save_checkpoint('model.onnx')
         
     def _generate_training_plots(self):
         """Generate training visualization plots."""

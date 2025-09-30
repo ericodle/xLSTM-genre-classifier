@@ -482,7 +482,24 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             if vacc > best_acc:
                 trials = 0
                 best_acc = vacc
-                torch.save(model, os.path.join(output_directory, "model.bin"))
+                # Save as ONNX model
+                model.eval()
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                onnx_path = os.path.join(output_directory, "model.onnx")
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=['input'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'input': {0: 'batch_size'},
+                        'output': {0: 'batch_size'}
+                    }
+                )
                 print(f'Epoch {epoch} best model saved with val accuracy: {best_acc:2.2%}')
             else:
                 trials += 1
@@ -535,7 +552,24 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             if vacc > best_acc:
                 trials = 0
                 best_acc = vacc
-                torch.save(model, os.path.join(output_directory, "model.bin"))
+                # Save as ONNX model
+                model.eval()
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                onnx_path = os.path.join(output_directory, "model.onnx")
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=['input'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'input': {0: 'batch_size'},
+                        'output': {0: 'batch_size'}
+                    }
+                )
                 print(f'Epoch {epoch} best model saved with val accuracy: {best_acc:2.2%}')
             else:
                 trials += 1
@@ -583,7 +617,24 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             if vacc > best_acc:
                 trials = 0
                 best_acc = vacc
-                torch.save(model, os.path.join(output_directory, "model.bin"))
+                # Save as ONNX model
+                model.eval()
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                onnx_path = os.path.join(output_directory, "model.onnx")
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=['input'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'input': {0: 'batch_size'},
+                        'output': {0: 'batch_size'}
+                    }
+                )
                 print(f'Epoch {epoch} best model saved with val accuracy: {best_acc:2.2%}')
             else:
                 trials += 1
@@ -666,7 +717,24 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             if val_acc_epoch / 100 > best_acc:
                 trials = 0
                 best_acc = val_acc_epoch / 100
-                torch.save(model, os.path.join(output_directory, "model.bin"))
+                # Save as ONNX model
+                model.eval()
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                onnx_path = os.path.join(output_directory, "model.onnx")
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=['input'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'input': {0: 'batch_size'},
+                        'output': {0: 'batch_size'}
+                    }
+                )
                 print(f'Epoch {epoch} best model saved with val accuracy: {best_acc:.2%}')
             else:
                 trials += 1
@@ -714,7 +782,24 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             if vacc > best_acc:
                 trials = 0
                 best_acc = vacc
-                torch.save(model, os.path.join(output_directory, "model.bin"))
+                # Save as ONNX model
+                model.eval()
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                onnx_path = os.path.join(output_directory, "model.onnx")
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=['input'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'input': {0: 'batch_size'},
+                        'output': {0: 'batch_size'}
+                    }
+                )
                 print(f'Epoch {epoch} best model saved with val accuracy: {best_acc:2.2%}')
             else:
                 trials += 1
@@ -762,7 +847,24 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             if vacc > best_acc:
                 trials = 0
                 best_acc = vacc
-                torch.save(model, os.path.join(output_directory, "model.bin"))
+                # Save as ONNX model
+                model.eval()
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                onnx_path = os.path.join(output_directory, "model.onnx")
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=['input'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'input': {0: 'batch_size'},
+                        'output': {0: 'batch_size'}
+                    }
+                )
                 print(f'Epoch {epoch} best model saved with val accuracy: {best_acc:2.2%}')
             else:
                 trials += 1
@@ -810,7 +912,24 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             if vacc > best_acc:
                 trials = 0
                 best_acc = vacc
-                torch.save(model, os.path.join(output_directory, "model.bin"))
+                # Save as ONNX model
+                model.eval()
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                onnx_path = os.path.join(output_directory, "model.onnx")
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=['input'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'input': {0: 'batch_size'},
+                        'output': {0: 'batch_size'}
+                    }
+                )
                 print(f'Epoch {epoch} best model saved with val accuracy: {best_acc:2.2%}')
             else:
                 trials += 1
@@ -858,7 +977,24 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             if vacc > best_acc:
                 trials = 0
                 best_acc = vacc
-                torch.save(model, os.path.join(output_directory, "model.bin"))
+                # Save as ONNX model
+                model.eval()
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                onnx_path = os.path.join(output_directory, "model.onnx")
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=['input'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'input': {0: 'batch_size'},
+                        'output': {0: 'batch_size'}
+                    }
+                )
                 print(f'Epoch {epoch} best model saved with val accuracy: {best_acc:2.2%}')
             else:
                 trials += 1
@@ -906,7 +1042,24 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             if vacc > best_acc:
                 trials = 0
                 best_acc = vacc
-                torch.save(model, os.path.join(output_directory, "model.bin"))
+                # Save as ONNX model
+                model.eval()
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                onnx_path = os.path.join(output_directory, "model.onnx")
+                torch.onnx.export(
+                    model,
+                    dummy_input,
+                    onnx_path,
+                    export_params=True,
+                    opset_version=11,
+                    do_constant_folding=True,
+                    input_names=['input'],
+                    output_names=['output'],
+                    dynamic_axes={
+                        'input': {0: 'batch_size'},
+                        'output': {0: 'batch_size'}
+                    }
+                )
                 print(f'Epoch {epoch} best model saved with val accuracy: {best_acc:2.2%}')
             else:
                 trials += 1
