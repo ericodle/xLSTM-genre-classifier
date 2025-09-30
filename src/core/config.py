@@ -9,7 +9,7 @@ import json
 
 from .constants import (
     SAMPLE_RATE, HOP_LENGTH, N_FFT, DEFAULT_N_MFCC,
-    DEFAULT_BATCH_SIZE, DEFAULT_LEARNING_RATE, DEFAULT_NUM_EPOCHS, DEFAULT_VALIDATION_SPLIT,
+    DEFAULT_BATCH_SIZE, DEFAULT_LEARNING_RATE, DEFAULT_MAX_EPOCHS, DEFAULT_VALIDATION_SPLIT,
     DEFAULT_TEST_SIZE, DEFAULT_RANDOM_SEED, DEFAULT_EARLY_STOPPING_PATIENCE,
     MIN_AUDIO_DURATION, MAX_AUDIO_DURATION, DEFAULT_HIDDEN_SIZE, DEFAULT_NUM_LAYERS,
     DEFAULT_DROPOUT, DEFAULT_OPTIMIZER, DEFAULT_LOSS_FUNCTION, DEFAULT_WEIGHT_DECAY,
@@ -38,7 +38,7 @@ class ModelConfig:
     num_layers: int = DEFAULT_NUM_LAYERS
     dropout: float = DEFAULT_DROPOUT
     learning_rate: float = DEFAULT_LEARNING_RATE
-    num_epochs: int = DEFAULT_NUM_EPOCHS
+    max_epochs: int = DEFAULT_MAX_EPOCHS
     early_stopping_patience: int = DEFAULT_EARLY_STOPPING_PATIENCE
     validation_split: float = DEFAULT_VALIDATION_SPLIT
     optimizer: str = DEFAULT_OPTIMIZER
@@ -60,6 +60,8 @@ class TrainingConfig:
     random_seed: int = DEFAULT_RANDOM_SEED
     early_stopping: bool = DEFAULT_EARLY_STOPPING
     patience: int = DEFAULT_PATIENCE
+    improvement_threshold: float = 0.01  # 1% improvement threshold
+    improvement_window: int = 3  # Check improvement over 3 epochs
 
 
 @dataclass

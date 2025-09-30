@@ -350,10 +350,14 @@ class ModelTrainer:
             )
             
     def train(self) -> Dict:
-        """Execute the training loop."""
+        """Execute the training loop with dynamic early stopping."""
         self.logger.info("Starting training...")
+        self.logger.info(f"Early stopping: Will stop if validation accuracy doesn't improve by {self.config.training.improvement_threshold:.1%} over {self.config.training.improvement_window} epochs")
         
-        for epoch in range(self.config.model.num_epochs):
+        # Use configurable maximum epoch count
+        max_epochs = self.config.model.max_epochs
+        
+        for epoch in range(max_epochs):
             self.current_epoch = epoch + 1
             
             # Training phase
@@ -368,7 +372,7 @@ class ModelTrainer:
                 
             # Log progress
             self.logger.info(
-                f"Epoch {self.current_epoch}/{self.config.model.num_epochs} - "
+                f"Epoch {self.current_epoch}/{max_epochs} - "
                 f"Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f} - "
                 f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}"
             )
@@ -471,17 +475,29 @@ class ModelTrainer:
         return avg_loss, accuracy
         
     def _should_stop_early(self) -> bool:
-        """Check if early stopping should be triggered."""
+        """Check if early stopping should be triggered based on accuracy improvement."""
         if not self.config.training.early_stopping:
             return False
             
-        patience = self.config.training.patience
-        if len(self.training_history['val_loss']) < patience:
+        improvement_window = self.config.training.improvement_window
+        improvement_threshold = self.config.training.improvement_threshold
+        
+        # Need at least the improvement window epochs to check for improvement
+        if len(self.training_history['val_acc']) < improvement_window:
             return False
             
-        # Check if validation loss hasn't improved for patience epochs
-        recent_losses = self.training_history['val_loss'][-patience:]
-        return all(recent_losses[i] >= recent_losses[i-1] for i in range(1, len(recent_losses)))
+        # Check if validation accuracy hasn't improved by more than threshold over the window
+        recent_accuracies = self.training_history['val_acc'][-improvement_window:]
+        
+        # Calculate improvement from the beginning of the window to now
+        improvement = recent_accuracies[-1] - recent_accuracies[0]
+        
+        # Stop if improvement is less than the threshold
+        if improvement < improvement_threshold:
+            self.logger.info(f"Early stopping triggered: accuracy improved by only {improvement:.4f} over last {improvement_window} epochs (threshold: {improvement_threshold:.4f})")
+            return True
+            
+        return False
         
     def _save_checkpoint(self, filename: str):
         """Save model as ONNX format."""

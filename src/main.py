@@ -109,7 +109,7 @@ Examples:
     train_parser.add_argument('--model', required=True, help='Model type to train')
     train_parser.add_argument('--output', required=True, help='Output directory for training results')
     train_parser.add_argument('--config', help='Path to configuration file')
-    train_parser.add_argument('--epochs', type=int, help='Number of training epochs')
+    train_parser.add_argument('--epochs', type=int, help='Maximum number of training epochs (early stopping will likely end training sooner)')
     train_parser.add_argument('--batch-size', type=int, help='Batch size for training')
     
     # Global options
@@ -222,7 +222,7 @@ def train_model(args, config, logger):
         
         # Override config with command line arguments
         if args.epochs:
-            config.model.num_epochs = args.epochs
+            config.model.max_epochs = args.epochs
         if args.batch_size:
             config.model.batch_size = args.batch_size
         
