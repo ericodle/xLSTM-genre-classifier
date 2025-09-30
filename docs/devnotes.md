@@ -19,8 +19,7 @@ pip install -r requirements-test.txt  # For testing
 
 ### Run Tests
 ```bash
-python -m pytest tests/ -v
-python run_tests.py  # Alternative test runner
+python run_tests.py
 ```
 
 ## MFCC Configuration

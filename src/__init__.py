@@ -15,7 +15,7 @@ from .training.trainer import ModelTrainer
 
 __all__ = [
     "Config",
-    "get_model", 
+    "get_model",
     "MFCCExtractor",
     "ModelTrainer",
-] 
+]

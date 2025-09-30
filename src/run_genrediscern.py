@@ -4,7 +4,15 @@
 
 import sys
 import os
-from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QFileDialog, QLineEdit, QInputDialog
+from PyQt5.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QLabel,
+    QPushButton,
+    QFileDialog,
+    QLineEdit,
+    QInputDialog,
+)
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 import MFCC_extraction, train_model
@@ -42,13 +50,17 @@ class WelcomeWindow(QMainWindow):
 
         # Add image label
         self.label_image = QLabel(self)
-        self.label_image.setGeometry(150, 130, 300, 200)  # Adjust position and size as needed
+        self.label_image.setGeometry(
+            150, 130, 300, 200
+        )  # Adjust position and size as needed
 
         # Construct the image path based on base_dir
-        image_path = os.path.join(containing_dir, 'img', 'gd_logo.png')
+        image_path = os.path.join(containing_dir, "img", "gd_logo.png")
 
         # Load the image into QPixmap
-        pixmap = QPixmap(image_path).scaled(300, 300)  # Scale the image to fit the label
+        pixmap = QPixmap(image_path).scaled(
+            300, 300
+        )  # Scale the image to fit the label
 
         self.label_image.setPixmap(pixmap)
 
@@ -66,6 +78,7 @@ class WelcomeWindow(QMainWindow):
         self.close()  # Close the welcome window
         self.hub_window = HubWindow()
         self.hub_window.show()
+
 
 class HubWindow(QMainWindow):
     def __init__(self):
@@ -102,6 +115,7 @@ class HubWindow(QMainWindow):
         self.close()  # Close the hub window
         self.execute_sort_window = ExecuteSortWindow()
         self.execute_sort_window.show()
+
 
 class PreprocessMFCCWindow(QMainWindow):
     def __init__(self):
@@ -157,11 +171,15 @@ class PreprocessMFCCWindow(QMainWindow):
         self.back_button.clicked.connect(self.back_to_hub)
 
     def browse_dataset(self):
-        self.dataset_path = QFileDialog.getExistingDirectory(self, "Select Music Dataset Directory")
+        self.dataset_path = QFileDialog.getExistingDirectory(
+            self, "Select Music Dataset Directory"
+        )
         self.line_edit_dataset.setText(self.dataset_path)
 
     def browse_output(self):
-        self.output_path = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        self.output_path = QFileDialog.getExistingDirectory(
+            self, "Select Output Directory"
+        )
         self.line_edit_output.setText(self.output_path)
 
     def start_preprocessing(self):
@@ -181,6 +199,7 @@ class PreprocessMFCCWindow(QMainWindow):
         self.close()  # Close the preprocess MFCC window
         self.hub_window = HubWindow()
         self.hub_window.show()
+
 
 class TrainModelWindow(QMainWindow):
     def __init__(self):
@@ -227,24 +246,53 @@ class TrainModelWindow(QMainWindow):
         self.initial_lr_value = 0.0001
 
     def select_mfcc_path(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select JSON File", "", "JSON Files (*.json)")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select JSON File", "", "JSON Files (*.json)"
+        )
         if file_path:
             self.mfcc_path = file_path
             print("Selected JSON file:", self.mfcc_path)
 
     def select_model_type(self):
-        model_type, ok = QInputDialog.getItem(self, "Select Model Type", "Model Types", ["FC", "CNN", "LSTM", "xLSTM", "GRU", "Tr_FC", "Tr_CNN", "Tr_LSTM", "Tr_GRU"], 0, False)
+        model_type, ok = QInputDialog.getItem(
+            self,
+            "Select Model Type",
+            "Model Types",
+            [
+                "FC",
+                "CNN",
+                "LSTM",
+                "xLSTM",
+                "GRU",
+                "Tr_FC",
+                "Tr_CNN",
+                "Tr_LSTM",
+                "Tr_GRU",
+            ],
+            0,
+            False,
+        )
         if ok:
             self.model_type = model_type
             print("Selected model type:", self.model_type)
 
     def select_output_directory(self):
-        self.output_directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        self.output_directory = QFileDialog.getExistingDirectory(
+            self, "Select Output Directory"
+        )
         if self.output_directory:
             print("Selected output directory:", self.output_directory)
 
     def enter_initial_lr(self):
-        initial_lr, ok = QInputDialog.getDouble(self, "Enter Initial Learning Rate", "Initial Learning Rate:", 0.0001, 0, 10, 6)
+        initial_lr, ok = QInputDialog.getDouble(
+            self,
+            "Enter Initial Learning Rate",
+            "Initial Learning Rate:",
+            0.0001,
+            0,
+            10,
+            6,
+        )
         if ok:
             self.initial_lr_value = initial_lr
             print("Entered initial learning rate:", self.initial_lr_value)
@@ -256,7 +304,12 @@ class TrainModelWindow(QMainWindow):
 
         try:
             # Call the extract_mfcc function from the MFCC_extraction module
-            train_model.main(self.mfcc_path, self.model_type, self.output_directory, str(self.initial_lr_value))
+            train_model.main(
+                self.mfcc_path,
+                self.model_type,
+                self.output_directory,
+                str(self.initial_lr_value),
+            )
             self.label_message.setText("Training Finished!")
         except Exception as e:
             print(f"Error: {e}")
@@ -266,6 +319,7 @@ class TrainModelWindow(QMainWindow):
         self.close()  # Close the train model window
         self.hub_window = HubWindow()
         self.hub_window.show()
+
 
 class ExecuteSortWindow(QMainWindow):
     def __init__(self):
@@ -289,11 +343,13 @@ class ExecuteSortWindow(QMainWindow):
 ################################################################################################################################
 ################################################################################################################################
 
+
 def main():
     app = QApplication(sys.argv)
     welcome_window = WelcomeWindow()
     welcome_window.show()
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()

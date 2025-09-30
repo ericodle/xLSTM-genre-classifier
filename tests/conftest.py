@@ -13,7 +13,8 @@ import torch
 
 # Add src to path for imports
 import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from core.config import Config
 from data.preprocessing import AudioPreprocessor
@@ -23,7 +24,7 @@ from data.preprocessing import AudioPreprocessor
 def sample_config():
     """Sample configuration for testing."""
     config = Mock(spec=Config)
-    
+
     # Mock model configuration
     config.model = Mock()
     config.model.hidden_size = 64
@@ -34,7 +35,7 @@ def sample_config():
     config.model.num_filters = 64
     config.model.kernel_size = 3
     config.model.hidden_sizes = [128, 64]
-    
+
     # Mock training configuration
     config.training = Mock()
     config.training.epochs = 10
@@ -42,37 +43,42 @@ def sample_config():
     config.training.random_seed = 42
     config.training.validation_split = 0.2
     config.training.test_split = 0.1
-    
+
     # Mock data configuration
     config.data = Mock()
     config.data.sample_rate = 22050
     config.data.n_mfcc = 13
     config.data.hop_length = 512
     config.data.n_fft = 2048
-    
+
     return config
 
 
 @pytest.fixture
 def sample_mfcc_data():
     """Sample MFCC data for testing."""
-    # Create realistic MFCC data
-    n_samples = 100
+    # Create realistic MFCC data with sufficient samples per class for stratified splitting
+    n_samples = 150  # Increased to ensure enough samples per class
     n_mfcc = 13
     n_frames = 50
-    
+
     features = np.random.randn(n_samples, n_frames, n_mfcc).astype(np.float32)
-    labels = np.random.choice(['blues', 'classical', 'country', 'disco', 'hiphop'], n_samples)
-    
+    # Ensure balanced classes (30 samples each for 5 classes)
+    labels = []
+    genres = ["blues", "classical", "country", "disco", "hiphop"]
+    for i in range(n_samples):
+        labels.append(genres[i % len(genres)])
+    labels = np.array(labels)
+
     return {
-        'features': features,
-        'labels': labels,
-        'metadata': {
-            'sample_rate': 22050,
-            'n_mfcc': n_mfcc,
-            'hop_length': 512,
-            'n_fft': 2048
-        }
+        "features": features,
+        "labels": labels,
+        "metadata": {
+            "sample_rate": 22050,
+            "n_mfcc": n_mfcc,
+            "hop_length": 512,
+            "n_fft": 2048,
+        },
     }
 
 
@@ -85,7 +91,7 @@ def sample_features():
 @pytest.fixture
 def sample_labels():
     """Sample labels for testing."""
-    return ['blues', 'classical', 'country', 'disco', 'hiphop'] * 20
+    return ["blues", "classical", "country", "disco", "hiphop"] * 20
 
 
 @pytest.fixture
@@ -99,11 +105,11 @@ def temp_dir():
 def sample_training_history():
     """Sample training history for testing."""
     return {
-        'train_losses': [0.8, 0.6, 0.4, 0.3, 0.25],
-        'val_losses': [0.9, 0.7, 0.5, 0.4, 0.35],
-        'train_accuracies': [0.6, 0.8, 0.9, 0.92, 0.94],
-        'val_accuracies': [0.5, 0.7, 0.85, 0.88, 0.90],
-        'learning_rates': [0.001, 0.001, 0.0005, 0.0005, 0.0001]
+        "train_losses": [0.8, 0.6, 0.4, 0.3, 0.25],
+        "val_losses": [0.9, 0.7, 0.5, 0.4, 0.35],
+        "train_accuracies": [0.6, 0.8, 0.9, 0.92, 0.94],
+        "val_accuracies": [0.5, 0.7, 0.85, 0.88, 0.90],
+        "learning_rates": [0.001, 0.001, 0.0005, 0.0005, 0.0001],
     }
 
 
@@ -111,14 +117,14 @@ def sample_training_history():
 def sample_evaluation_results():
     """Sample evaluation results for testing."""
     return {
-        'accuracy': 0.85,
-        'precision': 0.87,
-        'recall': 0.85,
-        'f1_score': 0.86,
-        'confusion_matrix': np.array([[15, 2, 1], [1, 18, 1], [2, 1, 17]]),
-        'classification_report': 'Sample classification report',
-        'roc_auc': 0.92,
-        'ks_values': {'blues': 0.15, 'classical': 0.12, 'country': 0.18}
+        "accuracy": 0.85,
+        "precision": 0.87,
+        "recall": 0.85,
+        "f1_score": 0.86,
+        "confusion_matrix": np.array([[15, 2, 1], [1, 18, 1], [2, 1, 17]]),
+        "classification_report": "Sample classification report",
+        "roc_auc": 0.92,
+        "ks_values": {"blues": 0.15, "classical": 0.12, "country": 0.18},
     }
 
 
@@ -127,8 +133,8 @@ def mock_onnx_session():
     """Mock ONNX runtime session for testing."""
     session = Mock()
     session.run.return_value = [np.random.randn(1, 10)]  # Mock output
-    session.get_inputs.return_value = [Mock(name='input', shape=[1, 50, 13])]
-    session.get_outputs.return_value = [Mock(name='output', shape=[1, 10])]
+    session.get_inputs.return_value = [Mock(name="input", shape=[1, 50, 13])]
+    session.get_outputs.return_value = [Mock(name="output", shape=[1, 10])]
     return session
 
 
@@ -136,16 +142,16 @@ def mock_onnx_session():
 def sample_model_checkpoint():
     """Sample model checkpoint for testing."""
     return {
-        'model_state_dict': {
-            'layer1.weight': torch.randn(64, 13),
-            'layer1.bias': torch.randn(64),
-            'layer2.weight': torch.randn(10, 64),
-            'layer2.bias': torch.randn(10)
+        "model_state_dict": {
+            "layer1.weight": torch.randn(64, 13),
+            "layer1.bias": torch.randn(64),
+            "layer2.weight": torch.randn(10, 64),
+            "layer2.bias": torch.randn(10),
         },
-        'optimizer_state_dict': {},
-        'epoch': 10,
-        'best_val_loss': 0.35,
-        'best_val_acc': 0.90
+        "optimizer_state_dict": {},
+        "epoch": 10,
+        "best_val_loss": 0.35,
+        "best_val_acc": 0.90,
     }
 
 
@@ -153,43 +159,45 @@ def sample_model_checkpoint():
 def sample_param_grid():
     """Sample parameter grid for grid search testing."""
     return {
-        'hidden_size': [32, 64, 128],
-        'num_layers': [1, 2],
-        'dropout': [0.1, 0.2, 0.3],
-        'learning_rate': [0.001, 0.01],
-        'batch_size': [16, 32]
+        "hidden_size": [32, 64, 128],
+        "num_layers": [1, 2],
+        "dropout": [0.1, 0.2, 0.3],
+        "learning_rate": [0.001, 0.01],
+        "batch_size": [16, 32],
     }
 
 
 @pytest.fixture
 def sample_grid_search_results():
     """Sample grid search results for testing."""
-    return pd.DataFrame([
-        {
-            'combination_id': 0,
-            'hidden_size': 32,
-            'num_layers': 1,
-            'dropout': 0.1,
-            'learning_rate': 0.001,
-            'batch_size': 16,
-            'status': 'completed',
-            'best_val_acc': 0.75,
-            'best_val_loss': 0.45,
-            'output_dir': '/tmp/test1'
-        },
-        {
-            'combination_id': 1,
-            'hidden_size': 64,
-            'num_layers': 2,
-            'dropout': 0.2,
-            'learning_rate': 0.01,
-            'batch_size': 32,
-            'status': 'completed',
-            'best_val_acc': 0.82,
-            'best_val_loss': 0.38,
-            'output_dir': '/tmp/test2'
-        }
-    ])
+    return pd.DataFrame(
+        [
+            {
+                "combination_id": 0,
+                "hidden_size": 32,
+                "num_layers": 1,
+                "dropout": 0.1,
+                "learning_rate": 0.001,
+                "batch_size": 16,
+                "status": "completed",
+                "best_val_acc": 0.75,
+                "best_val_loss": 0.45,
+                "output_dir": "/tmp/test1",
+            },
+            {
+                "combination_id": 1,
+                "hidden_size": 64,
+                "num_layers": 2,
+                "dropout": 0.2,
+                "learning_rate": 0.01,
+                "batch_size": 32,
+                "status": "completed",
+                "best_val_acc": 0.82,
+                "best_val_loss": 0.38,
+                "output_dir": "/tmp/test2",
+            },
+        ]
+    )
 
 
 @pytest.fixture
@@ -199,4 +207,4 @@ def mock_grid_search_trainer():
     trainer.results = []
     trainer.config = Mock()
     trainer.logger = Mock()
-    return trainer 
+    return trainer

@@ -10,35 +10,41 @@ from typing import Optional, Tuple, Any
 import random
 
 from .constants import (
-    MFCC_COEFFICIENTS, AUDIO_EXTENSIONS, BYTES_PER_KB, BYTES_PER_MB, BYTES_PER_GB,
-    EXIT_SUCCESS, EXIT_FAILURE, EXIT_INTERRUPT
+    MFCC_COEFFICIENTS,
+    AUDIO_EXTENSIONS,
+    BYTES_PER_KB,
+    BYTES_PER_MB,
+    BYTES_PER_GB,
+    EXIT_SUCCESS,
+    EXIT_FAILURE,
+    EXIT_INTERRUPT,
 )
 
 
 def setup_logging(
     log_level: str = "INFO",
     log_file: Optional[str] = None,
-    log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 ) -> logging.Logger:
     """Set up logging configuration."""
     logger = logging.getLogger("GenreDiscern")
     logger.setLevel(getattr(logging, log_level.upper()))
-    
+
     # Create formatter
     formatter = logging.Formatter(log_format)
-    
+
     # Create console handler
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
-    
+
     # Create file handler if log_file is specified
     if log_file:
         os.makedirs(os.path.dirname(log_file), exist_ok=True)
         file_handler = logging.FileHandler(log_file)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-    
+
     return logger
 
 
@@ -95,26 +101,19 @@ def pad_or_truncate(audio: np.ndarray, target_length: int) -> np.ndarray:
         return audio[:target_length]
     elif len(audio) < target_length:
         padding = target_length - len(audio)
-        return np.pad(audio, (0, padding), mode='constant')
+        return np.pad(audio, (0, padding), mode="constant")
     return audio
 
 
 def calculate_mfcc_shape(
-    audio_length: int,
-    sample_rate: int,
-    n_fft: int,
-    hop_length: int
+    audio_length: int, sample_rate: int, n_fft: int, hop_length: int
 ) -> Tuple[int, int]:
     """Calculate the expected shape of MFCC features."""
     num_frames = 1 + (audio_length - n_fft) // hop_length
     return (num_frames, MFCC_COEFFICIENTS)
 
 
-def validate_audio_parameters(
-    sample_rate: int,
-    n_fft: int,
-    hop_length: int
-) -> bool:
+def validate_audio_parameters(sample_rate: int, n_fft: int, hop_length: int) -> bool:
     """Validate audio processing parameters."""
     if sample_rate <= 0:
         return False
@@ -142,8 +141,8 @@ def format_time(seconds: float) -> str:
 
 def format_file_size(bytes_size: int) -> str:
     """Format file size in bytes to human readable string."""
-    for unit in ['B', 'KB', 'MB', 'GB']:
+    for unit in ["B", "KB", "MB", "GB"]:
         if bytes_size < BYTES_PER_KB:
             return f"{bytes_size:.1f} {unit}"
         bytes_size /= BYTES_PER_KB
-    return f"{bytes_size:.1f} TB" 
+    return f"{bytes_size:.1f} TB"

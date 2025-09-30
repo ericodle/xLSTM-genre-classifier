@@ -20,15 +20,24 @@ SAMPLE_COUNT = SAMPLE_RATE * SONG_LENGTH  # Total number of samples per clip.
 # MODULE FUNCTIONS
 ########################################################################
 
-def mfcc_to_json(music_path, output_path, output_filename, mfcc_count=13, n_fft=2048, hop_length=512, seg_length=30):
+
+def mfcc_to_json(
+    music_path,
+    output_path,
+    output_filename,
+    mfcc_count=13,
+    n_fft=2048,
+    hop_length=512,
+    seg_length=30,
+):
 
     # Initialize the data dictionary to store extracted features and labels.
     extracted_data = {
         "mapping": [],  # List to map numeric labels to genre names.
-        "labels": [],   # List to store numeric labels for each audio clip.
-        "mfcc": []      # List to store extracted MFCCs.
+        "labels": [],  # List to store numeric labels for each audio clip.
+        "mfcc": [],  # List to store extracted MFCCs.
     }
-    
+
     # Calculate the number of samples per segment.
     seg_samples = seg_length * SAMPLE_RATE
 
@@ -50,7 +59,7 @@ def mfcc_to_json(music_path, output_path, output_filename, mfcc_count=13, n_fft=
                     # Handle loading errors.
                     print(f"Error loading file {file_path}: {e}")
                     continue
-                
+
                 # Check if the song is longer than 30 seconds.
                 if len(audio_sig) >= SAMPLE_RATE * seg_length:
                     # Calculate the index of the middle of the song.
@@ -62,7 +71,13 @@ def mfcc_to_json(music_path, output_path, output_filename, mfcc_count=13, n_fft=
 
                     # Extract MFCCs for the segment.
                     try:
-                        mfcc = librosa.feature.mfcc(y=audio_sig[segment_start:segment_end], sr=sr, n_mfcc=mfcc_count, n_fft=n_fft, hop_length=hop_length)
+                        mfcc = librosa.feature.mfcc(
+                            y=audio_sig[segment_start:segment_end],
+                            sr=sr,
+                            n_mfcc=mfcc_count,
+                            n_fft=n_fft,
+                            hop_length=hop_length,
+                        )
                         # Transpose the MFCC matrix.
                         mfcc = mfcc.T
                     except Exception as e:
@@ -73,7 +88,9 @@ def mfcc_to_json(music_path, output_path, output_filename, mfcc_count=13, n_fft=
                     # Append MFCCs and label to the data dictionary.
                     extracted_data["mfcc"].append(mfcc.tolist())
                     extracted_data["labels"].append(i - 1)
-                    print("{}, segment:{}".format(file_path, segment_start, segment_end))
+                    print(
+                        "{}, segment:{}".format(file_path, segment_start, segment_end)
+                    )
                 else:
                     print(f"{file_path} is shorter than 30 seconds. Skipping...")
 
@@ -87,13 +104,15 @@ def mfcc_to_json(music_path, output_path, output_filename, mfcc_count=13, n_fft=
     except Exception as e:
         print(f"Error writing data to {output_file_path}: {e}")
 
+
 def main(music_path, output_path, output_filename):
     mfcc_to_json(music_path, output_path, output_filename)
+
 
 if __name__ == "__main__":
     # Retrieve command-line arguments
     args = sys.argv[1:]
-    
+
     # Check if there are command-line arguments
     if len(args) >= 3:
         music_path = args[0]
@@ -101,4 +120,6 @@ if __name__ == "__main__":
         output_filename = args[2]
         main(music_path, output_path, output_filename)
     else:
-        print("Please provide all required arguments: music_path, output_path, output_filename")
+        print(
+            "Please provide all required arguments: music_path, output_path, output_filename"
+        )

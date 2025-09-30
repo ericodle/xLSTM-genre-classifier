@@ -51,7 +51,7 @@ DEFAULT_VAL_SIZE = 0.15
 DEFAULT_TEST_SIZE = 0.15
 
 # Audio File Extensions
-AUDIO_EXTENSIONS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg', '.aac'}
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac"}
 
 # Plot Constants
 DEFAULT_FIGURE_WIDTH = 10
@@ -72,8 +72,16 @@ EXIT_EVALUATION_FAILED = 4
 
 # GTZAN Genre Names
 GTZAN_GENRES = [
-    'blues', 'classical', 'country', 'disco', 
-    'hiphop', 'jazz', 'metal', 'pop', 'reggae', 'rock'
+    "blues",
+    "classical",
+    "country",
+    "disco",
+    "hiphop",
+    "jazz",
+    "metal",
+    "pop",
+    "reggae",
+    "rock",
 ]
 
 # Model Architecture Constants
@@ -97,4 +105,4 @@ DEFAULT_WINDOW_HEIGHT = 400
 DEFAULT_WINDOW_X = 100
 DEFAULT_WINDOW_Y = 100
 DEFAULT_BUTTON_WIDTH = 100
-DEFAULT_BUTTON_HEIGHT = 30 
+DEFAULT_BUTTON_HEIGHT = 30
