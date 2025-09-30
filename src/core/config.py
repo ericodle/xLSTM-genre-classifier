@@ -68,6 +68,14 @@ class ModelConfig:
     loss_function: str = DEFAULT_LOSS_FUNCTION
     weight_decay: float = DEFAULT_WEIGHT_DECAY
     lr_scheduler: bool = DEFAULT_LR_SCHEDULER
+    
+    # CNN-specific parameters
+    num_classes: int = 10
+    conv_layers: int = 3
+    base_filters: int = 16
+    kernel_size: int = 3
+    pool_size: int = 2
+    fc_hidden: int = 64
 
 
 @dataclass
@@ -84,8 +92,8 @@ class TrainingConfig:
     random_seed: int = DEFAULT_RANDOM_SEED
     early_stopping: bool = DEFAULT_EARLY_STOPPING
     patience: int = DEFAULT_PATIENCE
-    improvement_threshold: float = 0.01  # 1% improvement threshold
-    improvement_window: int = 3  # Check improvement over 3 epochs
+    improvement_threshold: float = 0.001
+    improvement_window: int = 50
 
 
 @dataclass

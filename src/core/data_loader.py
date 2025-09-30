@@ -69,7 +69,7 @@ class DataManager:
             self.logger.error(f"Error loading data from {json_path}: {e}")
             raise
 
-    def preprocess_features(self, features: np.ndarray) -> np.ndarray:
+    def preprocess_features(self, features: np.ndarray, fit_normalizer: bool = True) -> np.ndarray:
         """Preprocess features (normalization, reshaping, etc.)."""
         # Ensure features are 2D
         if len(features.shape) == 3:
@@ -77,10 +77,20 @@ class DataManager:
             # Reshape to 2D (samples, time_steps * mfcc_coeffs)
             features = features.reshape(features.shape[0], -1)
 
-        # Normalize features
-        features = (features - np.mean(features, axis=0)) / (
-            np.std(features, axis=0) + 1e-8
-        )
+        if fit_normalizer:
+            # Calculate normalization statistics from training data only
+            self.feature_mean = np.mean(features, axis=0)
+            self.feature_std = np.std(features, axis=0) + 1e-8
+            self.normalizer_fitted = True
+
+        if hasattr(self, 'normalizer_fitted') and self.normalizer_fitted:
+            # Apply normalization using fitted statistics
+            features = (features - self.feature_mean) / self.feature_std
+        else:
+            # Fallback: normalize on current data (for backward compatibility)
+            features = (features - np.mean(features, axis=0)) / (
+                np.std(features, axis=0) + 1e-8
+            )
 
         return features
 

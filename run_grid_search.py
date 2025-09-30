@@ -27,9 +27,16 @@ except ImportError as e:
 
 def load_param_grid(params_file: str = None) -> dict:
     """Load parameter grid from file or use defaults."""
-    if params_file and os.path.exists(params_file):
-        with open(params_file, 'r') as f:
-            return json.load(f)
+    if params_file:
+        # If no path specified, look in training directory
+        if not os.path.dirname(params_file):
+            params_file = os.path.join('src', 'training', params_file)
+        
+        if os.path.exists(params_file):
+            with open(params_file, 'r') as f:
+                return json.load(f)
+        else:
+            print(f"Warning: Parameter file {params_file} not found, using defaults")
     
     # Default parameter grids for each model type
     default_grids = {
@@ -79,13 +86,16 @@ def setup_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Run GRU grid search with default parameters
+    # Run GRU grid search with default parameters (resume enabled by default)
     python run_grid_search.py --model GRU --data ./mfccs/gtzan_mfcc.json --output ./output/gru_gridsearch
     
-    # Run LSTM grid search with custom parameters
+    # Run LSTM grid search with custom parameters (will resume if interrupted)
     python run_grid_search.py --model LSTM --data ./mfccs/gtzan_mfcc.json --output ./output/lstm_gridsearch --params lstm_params.json
     
-    # Run CNN grid search with custom output
+    # Start fresh (disable resume)
+    python run_grid_search.py --model GRU --data ./mfccs/gtzan_mfcc.json --output ./output/gru_gridsearch --no-resume
+    
+    # Run with verbose logging
     python run_grid_search.py --model CNN --data ./mfccs/gtzan_mfcc.json --output ./output/cnn_gridsearch --verbose
         """
     )
@@ -124,6 +134,12 @@ Examples:
         '--dry-run',
         action='store_true',
         help='Show what would be run without executing training'
+    )
+    
+    parser.add_argument(
+        '--no-resume',
+        action='store_true',
+        help='Start fresh, do not resume from existing results (default: resume enabled)'
     )
     
     return parser
@@ -179,12 +195,16 @@ def main():
         print(f"\nTotal training runs: {total_combinations}")
         return
     
-    # Confirm before proceeding
-    print(f"This will run {total_combinations} training sessions.")
-    response = input("Continue? (y/N): ")
-    if response.lower() != 'y':
-        print("Grid search cancelled.")
-        return
+    # Confirm before proceeding (skip in non-interactive mode)
+    import sys
+    if sys.stdin.isatty():
+        print(f"This will run {total_combinations} training sessions.")
+        response = input("Continue? (y/N): ")
+        if response.lower() != 'y':
+            print("Grid search cancelled.")
+            return
+    else:
+        print(f"Running {total_combinations} training sessions in non-interactive mode...")
     
     # Create output directory
     os.makedirs(args.output, exist_ok=True)
@@ -208,28 +228,77 @@ def main():
             data_path=args.data,
             model_type=args.model,
             base_output_dir=args.output,
-            param_grid=model_grid
+            param_grid=model_grid,
+            resume=not args.no_resume
         )
         
-        # Display results summary
+        # Display comprehensive results summary
         successful_results = results[results['status'] == 'completed']
         failed_results = results[results['status'] == 'failed']
         
-        print(f"\n✅ Grid search completed!")
-        print(f"📊 Successful runs: {len(successful_results)}")
-        print(f"❌ Failed runs: {len(failed_results)}")
+        print(f"\n" + "="*60)
+        print(f"🎯 GRID SEARCH COMPLETED!")
+        print(f"="*60)
+        
+        # Basic statistics
+        print(f"\n📊 OVERALL STATISTICS:")
+        print(f"   ✅ Successful runs: {len(successful_results)}")
+        print(f"   ❌ Failed runs: {len(failed_results)}")
+        print(f"   📈 Success rate: {len(successful_results)/len(results)*100:.1f}%")
         
         if not successful_results.empty:
-            best_result = successful_results.loc[successful_results['best_val_acc'].idxmax()]
-            print(f"\n🏆 Best configuration:")
+            # Performance statistics
+            val_accs = successful_results['best_val_acc'].values
+            val_losses = successful_results['best_val_loss'].values
+            
+            print(f"\n🎯 PERFORMANCE STATISTICS:")
+            print(f"   📊 Validation Accuracy:")
+            print(f"      • Best:  {val_accs.max():.4f}")
+            print(f"      • Mean:  {val_accs.mean():.4f}")
+            print(f"      • Std:   {val_accs.std():.4f}")
+            print(f"      • Min:   {val_accs.min():.4f}")
+            
+            print(f"   📉 Validation Loss:")
+            print(f"      • Best:  {val_losses.min():.4f}")
+            print(f"      • Mean:  {val_losses.mean():.4f}")
+            print(f"      • Std:   {val_losses.std():.4f}")
+            print(f"      • Max:   {val_losses.max():.4f}")
+            
+            # Best configurations
+            best_acc_result = successful_results.loc[successful_results['best_val_acc'].idxmax()]
+            best_loss_result = successful_results.loc[successful_results['best_val_loss'].idxmin()]
+            
+            print(f"\n🏆 BEST CONFIGURATIONS:")
+            print(f"   🥇 Highest Accuracy ({best_acc_result['best_val_acc']:.4f}):")
             for param in model_grid.keys():
-                if param in best_result:
-                    print(f"   {param}: {best_result[param]}")
-            print(f"   Best validation accuracy: {best_result['best_val_acc']:.4f}")
+                if param in best_acc_result:
+                    print(f"      {param}: {best_acc_result[param]}")
+            
+            print(f"   🥈 Lowest Loss ({best_loss_result['best_val_loss']:.4f}):")
+            for param in model_grid.keys():
+                if param in best_loss_result:
+                    print(f"      {param}: {best_loss_result[param]}")
+            
+            # Top 5 configurations
+            top5_results = successful_results.nlargest(5, 'best_val_acc')
+            print(f"\n📈 TOP 5 CONFIGURATIONS:")
+            for i, (_, result) in enumerate(top5_results.iterrows(), 1):
+                print(f"   #{i}. Acc: {result['best_val_acc']:.4f} | Loss: {result['best_val_loss']:.4f}")
+                param_str = " | ".join([f"{k}:{v}" for k, v in result.items() 
+                                      if k in model_grid.keys()])
+                print(f"      {param_str}")
         
-        print(f"\n📁 Results saved to: {args.output}")
-        print(f"📄 CSV: {os.path.join(args.output, 'grid_search_results.csv')}")
-        print(f"📄 JSON: {os.path.join(args.output, 'grid_search_results.json')}")
+        print(f"\n📁 RESULTS SAVED:")
+        print(f"   📄 CSV: {os.path.join(args.output, 'grid_search_results.csv')}")
+        print(f"   📄 JSON: {os.path.join(args.output, 'grid_search_results.json')}")
+        print(f"   📊 Status: {os.path.join(args.output, 'grid_search_status.json')}")
+        print(f"   📈 Plots: {os.path.join(args.output, 'plots/')}")
+        print(f"      • top_performers.png - Top 10 configurations")
+        print(f"      • parameter_accuracy.png - Parameter vs accuracy plots")
+        print(f"      • performance_distribution.png - Performance distributions")
+        print(f"      • parameter_correlation.png - Parameter correlation heatmap")
+        print(f"      • parameter_importance.png - Parameter importance ranking")
+        print(f"="*60)
         
     except Exception as e:
         print(f"❌ Grid search failed: {e}")

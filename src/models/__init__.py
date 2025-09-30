@@ -32,6 +32,11 @@ def get_model(
     dropout: float = 0.1,
     num_heads: int = 8,
     ff_dim: int = 128,
+    conv_layers: int = 3,
+    base_filters: int = 16,
+    kernel_size: int = 3,
+    pool_size: int = 2,
+    fc_hidden: int = 64,
 ) -> BaseModel:
     """
     Factory function to create model instances.
@@ -92,7 +97,15 @@ def get_model(
                 input_dim=input_dim_int, output_dim=output_dim, dropout=dropout
             )
         elif model_type == "CNN":
-            return CNN_model(num_classes=output_dim, dropout=dropout)
+            return CNN_model(
+                num_classes=output_dim, 
+                dropout=dropout,
+                conv_layers=conv_layers,
+                base_filters=base_filters,
+                kernel_size=kernel_size,
+                pool_size=pool_size,
+                fc_hidden=fc_hidden,
+            )
         elif model_type == "LSTM":
             return LSTM_model(
                 input_dim_int, hidden_dim, num_layers, output_dim, dropout

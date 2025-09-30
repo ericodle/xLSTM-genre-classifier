@@ -285,6 +285,12 @@ class ModelTrainer:
             test_size=DEFAULT_TEST_SIZE,
         )
 
+        # Normalize features properly (fit on training data only)
+        self.logger.info("Normalizing features...")
+        self.X_train = self.preprocessor.normalize_features(self.X_train, fit_normalizer=True)
+        self.X_val = self.preprocessor.normalize_features(self.X_val, fit_normalizer=False)
+        self.X_test = self.preprocessor.normalize_features(self.X_test, fit_normalizer=False)
+
         # Create data loaders
         self._create_data_loaders()
 
@@ -343,14 +349,31 @@ class ModelTrainer:
         self.logger.info(f"Input shape: {input_shape}, Input dim: {input_dim}")
 
         # Create model
-        self.model = get_model(
-            model_type=model_type,
-            input_dim=input_dim,
-            hidden_dim=self.config.model.hidden_size,
-            num_layers=self.config.model.num_layers,
-            output_dim=num_classes,
-            dropout=self.config.model.dropout,
-        )
+        if model_type == "CNN":
+            # For CNN, pass architecture parameters
+            self.model = get_model(
+                model_type=model_type,
+                input_dim=input_dim,
+                hidden_dim=self.config.model.hidden_size,
+                num_layers=self.config.model.num_layers,
+                output_dim=num_classes,
+                dropout=self.config.model.dropout,
+                conv_layers=getattr(self.config.model, 'conv_layers', 3),
+                base_filters=getattr(self.config.model, 'base_filters', 16),
+                kernel_size=getattr(self.config.model, 'kernel_size', 3),
+                pool_size=getattr(self.config.model, 'pool_size', 2),
+                fc_hidden=getattr(self.config.model, 'fc_hidden', 64),
+            )
+        else:
+            # For other models, use standard parameters
+            self.model = get_model(
+                model_type=model_type,
+                input_dim=input_dim,
+                hidden_dim=self.config.model.hidden_size,
+                num_layers=self.config.model.num_layers,
+                output_dim=num_classes,
+                dropout=self.config.model.dropout,
+            )
 
         # Move to device
         self.model = self.model.to(self.device)
@@ -390,7 +413,7 @@ class ModelTrainer:
         """Setup learning rate scheduler."""
         if self.config.model.lr_scheduler:
             self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                self.optimizer, mode="min", factor=0.5, patience=5, verbose=True
+                self.optimizer, mode="min", factor=0.5, patience=5, verbose=False
             )
 
     def train(self) -> Dict:

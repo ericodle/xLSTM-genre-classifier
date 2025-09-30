@@ -42,7 +42,7 @@ class AudioPreprocessor:
         self.is_fitted = False
 
     def normalize_features(
-        self, features: np.ndarray, method: str = "zscore"
+        self, features: np.ndarray, method: str = "zscore", fit_normalizer: bool = True
     ) -> np.ndarray:
         """
         Normalize MFCC features.
@@ -50,27 +50,60 @@ class AudioPreprocessor:
         Args:
             features: Input features array
             method: Normalization method ('zscore', 'minmax', 'robust')
+            fit_normalizer: Whether to fit normalization statistics (True for training data, False for val/test)
 
         Returns:
             Normalized features array
         """
         if method == "zscore":
-            mean = np.mean(features, axis=0)
-            std = np.std(features, axis=0)
-            std[std == 0] = DEFAULT_EPSILON  # Avoid division by zero
-            return np.asarray((features - mean) / std)
+            if fit_normalizer:
+                # Calculate normalization statistics from training data only
+                self.feature_mean = np.mean(features, axis=0)
+                self.feature_std = np.std(features, axis=0)
+                self.feature_std[self.feature_std == 0] = DEFAULT_EPSILON  # Avoid division by zero
+                self.normalizer_fitted = True
+
+            if hasattr(self, 'normalizer_fitted') and self.normalizer_fitted:
+                # Apply normalization using fitted statistics
+                return np.asarray((features - self.feature_mean) / self.feature_std)
+            else:
+                # Fallback: normalize on current data (for backward compatibility)
+                mean = np.mean(features, axis=0)
+                std = np.std(features, axis=0)
+                std[std == 0] = DEFAULT_EPSILON  # Avoid division by zero
+                return np.asarray((features - mean) / std)
         elif method == "minmax":
-            min_val = np.min(features, axis=0)
-            max_val = np.max(features, axis=0)
-            range_val = max_val - min_val
-            range_val[range_val == 0] = DEFAULT_EPSILON  # Avoid division by zero
-            return np.asarray((features - min_val) / range_val)
+            if fit_normalizer:
+                self.feature_min = np.min(features, axis=0)
+                self.feature_max = np.max(features, axis=0)
+                self.feature_range = self.feature_max - self.feature_min
+                self.feature_range[self.feature_range == 0] = DEFAULT_EPSILON  # Avoid division by zero
+                self.normalizer_fitted = True
+
+            if hasattr(self, 'normalizer_fitted') and self.normalizer_fitted:
+                return np.asarray((features - self.feature_min) / self.feature_range)
+            else:
+                min_val = np.min(features, axis=0)
+                max_val = np.max(features, axis=0)
+                range_val = max_val - min_val
+                range_val[range_val == 0] = DEFAULT_EPSILON  # Avoid division by zero
+                return np.asarray((features - min_val) / range_val)
         elif method == "robust":
-            median = np.median(features, axis=0)
-            q75, q25 = np.percentile(features, [75, 25], axis=0)
-            iqr = q75 - q25
-            iqr[iqr == 0] = DEFAULT_EPSILON  # Avoid division by zero
-            return np.asarray((features - median) / iqr)
+            if fit_normalizer:
+                self.feature_median = np.median(features, axis=0)
+                q75, q25 = np.percentile(features, [75, 25], axis=0)
+                self.feature_iqr = q75 - q25
+                self.feature_iqr[self.feature_iqr == 0] = DEFAULT_EPSILON  # Avoid division by zero
+                self.normalizer_fitted = True
+
+            if hasattr(self, 'normalizer_fitted') and self.normalizer_fitted:
+                return np.asarray((features - self.feature_median) / self.feature_iqr)
+            else:
+                median = np.median(features, axis=0)
+                q75, q25 = np.percentile(features, [75, 25], axis=0)
+                iqr = q75 - q25
+                iqr[iqr == 0] = DEFAULT_EPSILON  # Avoid division by zero
+                return np.asarray((features - median) / iqr)
         else:
             raise ValueError(f"Unknown normalization method: {method}")
 

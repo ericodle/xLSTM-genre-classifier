@@ -104,49 +104,6 @@ Each training run generates:
 
 ## Hyperparameter Grid Search
 
-### Basic Usage
-
 ```bash
-# Run GRU grid search with default parameters
-python run_grid_search.py --model GRU --data ./mfccs/gtzan_mfcc.json --output ./output/gru_gridsearch
-
-# Run LSTM grid search with custom parameters
-python run_grid_search.py --model LSTM --data ./mfccs/gtzan_mfcc.json --output ./output/lstm_gridsearch \
-    --params lstm_params.json
-
-# Run CNN grid search with dry-run to see what would be tested
-python run_grid_search.py --model CNN --data ./mfccs/gtzan_mfcc.json --output ./output/cnn_gridsearch --dry-run
-
-# Run xLSTM grid search with verbose logging
-python run_grid_search.py --model xLSTM --data ./mfccs/gtzan_mfcc.json --output ./output/xlstm_gridsearch --verbose
-```
-
-### Custom Parameter Files
-
-Create JSON files like `gru_params.json`:
-```json
-{
-    "hidden_size": [32, 64, 128],
-    "num_layers": [1, 2],
-    "dropout": [0.1, 0.2, 0.3],
-    "learning_rate": [0.001, 0.01],
-    "batch_size": [16, 32]
-}
-```
-
-### Quick Parameter File Creation
-
-```bash
-# Create a custom GRU parameter file
-echo '{
-    "hidden_size": [64, 128],
-    "num_layers": [2, 3],
-    "dropout": [0.2, 0.3],
-    "learning_rate": [0.001, 0.005],
-    "batch_size": [32, 64]
-}' > custom_gru_params.json
-
-# Use it in grid search
-python run_grid_search.py --model GRU --data ./mfccs/gtzan_mfcc.json \
-    --output ./output/custom_gru_search --params custom_gru_params.json
+python run_grid_search.py --model GRU --data ./mfccs/gtzan_13.json --output ./output/gru_hyperparameter_search --params test_params.json
 ```

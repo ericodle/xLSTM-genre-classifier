@@ -77,56 +77,83 @@ class FC_model(BaseModel):
 
 
 class CNN_model(BaseModel):
-    """2D Convolutional Neural Network model with dynamic dimension calculation."""
+    """2D Convolutional Neural Network model with configurable architecture."""
 
     def __init__(
         self,
         input_channels: int = 1,
         num_classes: int = DEFAULT_NUM_CLASSES,
         dropout: float = DEFAULT_CNN_DROPOUT,
+        conv_layers: int = 3,
+        base_filters: int = 16,
+        kernel_size: int = 3,
+        pool_size: int = 2,
+        fc_hidden: int = 64,
     ):
         super().__init__(model_name="CNN_model")
 
         self.input_channels = input_channels
         self.num_classes = num_classes
         self.dropout = dropout
+        self.conv_layers = conv_layers
+        self.base_filters = base_filters
+        self.kernel_size = kernel_size
+        self.pool_size = pool_size
+        self.fc_hidden = fc_hidden
 
         # Store configuration
         self.model_config = {
             "input_channels": input_channels,
             "num_classes": num_classes,
             "dropout": dropout,
+            "conv_layers": conv_layers,
+            "base_filters": base_filters,
+            "kernel_size": kernel_size,
+            "pool_size": pool_size,
+            "fc_hidden": fc_hidden,
         }
 
-        # Very simple 2D CNN architecture
-        # Input: (batch, channels, height, width)
-
-        self.conv_layers = nn.Sequential(
-            # Single conv layer
-            nn.Conv2d(self.input_channels, 16, kernel_size=(3, 3), padding=1),
-            nn.ReLU(),
-            nn.AvgPool2d(2, stride=2),  # More conservative pooling
-            nn.BatchNorm2d(16),
-            nn.Dropout(p=self.dropout),
-            # Second conv layer
-            nn.Conv2d(16, 32, kernel_size=(3, 3), padding=1),
-            nn.ReLU(),
-            nn.AvgPool2d(2, stride=2),  # More conservative pooling
-            nn.BatchNorm2d(32),
-            nn.Dropout(p=self.dropout),
-            # Third conv layer
-            nn.Conv2d(32, 64, kernel_size=(3, 3), padding=1),
-            nn.ReLU(),
-            nn.AvgPool2d(2, stride=2),  # More conservative pooling
-            nn.BatchNorm2d(64),
-            nn.Dropout(p=self.dropout),
-            # Flatten for fully connected layers
-            nn.Flatten(),
-        )
+        # Build configurable CNN architecture
+        self.conv_layers_seq = self._build_conv_layers()
 
         # We'll calculate the flattened size dynamically in forward pass
         self.flatten_size = None
         self.fc_layers = None
+
+    def _build_conv_layers(self):
+        """Build configurable convolutional layers."""
+        layers = []
+        in_channels = self.input_channels
+        
+        for i in range(self.conv_layers):
+            # Calculate number of filters for this layer (exponential growth)
+            out_channels = self.base_filters * (2 ** i)
+            
+            # Convolutional layer
+            layers.append(nn.Conv2d(
+                in_channels, 
+                out_channels, 
+                kernel_size=(self.kernel_size, self.kernel_size), 
+                padding=self.kernel_size//2
+            ))
+            layers.append(nn.ReLU())
+            
+            # Use adaptive pooling to handle variable input sizes
+            if i < self.conv_layers - 1:  # Don't pool on the last layer
+                layers.append(nn.AdaptiveAvgPool2d(1))  # Use 1x1 output for ONNX compatibility
+            
+            # Batch normalization
+            layers.append(nn.BatchNorm2d(out_channels))
+            
+            # Dropout
+            layers.append(nn.Dropout(p=self.dropout))
+            
+            in_channels = out_channels
+        
+        # Flatten for fully connected layers
+        layers.append(nn.Flatten())
+        
+        return nn.Sequential(*layers)
 
     def _build_fc_layers(self, flatten_size):
         """Build fully connected layers once we know the flattened size."""
@@ -134,31 +161,34 @@ class CNN_model(BaseModel):
             self.flatten_size = flatten_size
             self.fc_layers = nn.Sequential(
                 nn.ReLU(),
-                nn.Linear(flatten_size, 64),
+                nn.Linear(flatten_size, self.fc_hidden),
                 nn.ReLU(),
                 nn.Dropout(p=self.dropout),
-                nn.Linear(64, self.num_classes),
+                nn.Linear(self.fc_hidden, self.num_classes),
                 nn.Softmax(dim=1),
             )
             # Move FC layers to the same device as the model
-            if hasattr(self, "conv_layers"):
-                device = next(self.conv_layers.parameters()).device
+            if hasattr(self, "conv_layers_seq"):
+                device = next(self.conv_layers_seq.parameters()).device
                 self.fc_layers = self.fc_layers.to(device)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the 2D CNN."""
-        # Input shape: (batch, time_steps, mfcc_features)
+        # Input shape: (batch, mfcc_features) or (batch, time_steps, mfcc_features)
         # Need to reshape to (batch, channels, height, width) for 2D conv
 
         if len(x.shape) == 2:
-            # Single sample: (time_steps, mfcc_features) -> (1, 1, time_steps, mfcc_features)
-            x = x.unsqueeze(0).unsqueeze(0)
+            # Batch: (batch, mfcc_features) -> (batch, 1, 1, mfcc_features)
+            x = x.unsqueeze(1).unsqueeze(1)
         elif len(x.shape) == 3:
             # Batch: (batch, time_steps, mfcc_features) -> (batch, 1, time_steps, mfcc_features)
             x = x.unsqueeze(1)
+        else:
+            # Already in correct format: (batch, 1, height, width)
+            pass
 
         # Apply 2D convolutions
-        x = self.conv_layers(x)
+        x = self.conv_layers_seq(x)
 
         # Calculate flattened size and build FC layers if needed
         # x shape after conv_layers: (batch, channels, height, width)
