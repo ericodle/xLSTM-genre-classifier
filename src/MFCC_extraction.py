@@ -89,7 +89,9 @@ def mfcc_to_json(
                     extracted_data["mfcc"].append(mfcc.tolist())
                     extracted_data["labels"].append(i - 1)
                     print(
-                        "{}, segment:{}".format(file_path, segment_start, segment_end)
+                        "{}, segment:{}-{}".format(
+                            file_path, segment_start, segment_end
+                        )
                     )
                 else:
                     print(f"{file_path} is shorter than 30 seconds. Skipping...")

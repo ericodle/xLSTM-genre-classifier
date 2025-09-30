@@ -58,19 +58,19 @@ class AudioPreprocessor:
             mean = np.mean(features, axis=0)
             std = np.std(features, axis=0)
             std[std == 0] = DEFAULT_EPSILON  # Avoid division by zero
-            return (features - mean) / std
+            return np.asarray((features - mean) / std)
         elif method == "minmax":
             min_val = np.min(features, axis=0)
             max_val = np.max(features, axis=0)
             range_val = max_val - min_val
             range_val[range_val == 0] = DEFAULT_EPSILON  # Avoid division by zero
-            return (features - min_val) / range_val
+            return np.asarray((features - min_val) / range_val)
         elif method == "robust":
             median = np.median(features, axis=0)
             q75, q25 = np.percentile(features, [75, 25], axis=0)
             iqr = q75 - q25
             iqr[iqr == 0] = DEFAULT_EPSILON  # Avoid division by zero
-            return (features - median) / iqr
+            return np.asarray((features - median) / iqr)
         else:
             raise ValueError(f"Unknown normalization method: {method}")
 
@@ -88,7 +88,7 @@ class AudioPreprocessor:
             self.label_encoder.fit(labels)
             self.is_fitted = True
 
-        return self.label_encoder.transform(labels)
+        return np.asarray(self.label_encoder.transform(labels))
 
     def decode_labels(self, encoded_labels: np.ndarray) -> List[str]:
         """
@@ -103,7 +103,7 @@ class AudioPreprocessor:
         if not self.is_fitted:
             raise ValueError("Label encoder not fitted. Call encode_labels first.")
 
-        return self.label_encoder.inverse_transform(encoded_labels)
+        return list(self.label_encoder.inverse_transform(encoded_labels))
 
     def split_data(
         self,
@@ -216,7 +216,7 @@ class AudioPreprocessor:
         unique_labels, counts = np.unique(labels, return_counts=True)
         max_count = np.max(counts)
 
-        balanced_features = []
+        balanced_features: list[list[float]] = []
         balanced_labels = []
 
         for label in unique_labels:

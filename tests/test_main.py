@@ -145,9 +145,10 @@ class TestExtractFeatures:
             yield temp_dir
 
     @patch("src.main.MFCCExtractor")
-    @patch("src.data.dataset_agnostic_mfcc_extractor.DatasetFactory.create_dataset")
+    @patch("src.main.DatasetAgnosticMFCCExtractor")
+    @patch("src.main.DatasetFactory.create_dataset")
     def test_extract_features_success(
-        self, mock_create_dataset, mock_extractor_class, temp_dir
+        self, mock_create_dataset, mock_dataset_agnostic, mock_extractor_class, temp_dir
     ):
         """Test successful feature extraction."""
         # Mock the extractor
@@ -159,7 +160,18 @@ class TestExtractFeatures:
 
         # Mock dataset factory
         mock_dataset = Mock()
+        mock_dataset.get_audio_files.return_value = [("test.wav", "blues")]
+        mock_dataset.get_metadata.return_value = {"name": "test_dataset", "total_files": 1}
         mock_create_dataset.return_value = mock_dataset
+
+        # Mock DatasetAgnosticMFCCExtractor
+        mock_extractor_instance = Mock()
+        mock_extractor_instance.validate_dataset.return_value = True
+        mock_extractor_instance.extract_mfccs.return_value = {
+            "metadata": {"total_samples": 100},
+            "output_file": f"{temp_dir}/features.json"
+        }
+        mock_dataset_agnostic.return_value = mock_extractor_instance
 
         # Mock config
         mock_config = Mock()
@@ -170,14 +182,16 @@ class TestExtractFeatures:
 
         # Test extraction
         args = Mock()
-        args.input = temp_dir
-        args.output = temp_dir
+        args.input = str(temp_dir)  # Ensure it's a string, not Mock
+        args.output = str(temp_dir)
         args.name = "test_features"
 
-        result = extract_features(args, mock_config, mock_logger)
+        result = extract_features(
+            args.input, args.output, args.name, logger=mock_logger
+        )
 
         assert result == f"{temp_dir}/features.json"
-        mock_extractor.extract_mfcc_from_directory.assert_called_once()
+        mock_extractor_instance.extract_mfccs.assert_called_once()
 
     @patch("src.main.MFCCExtractor")
     @patch("src.data.dataset_agnostic_mfcc_extractor.DatasetFactory.create_dataset")
@@ -194,6 +208,7 @@ class TestExtractFeatures:
 
         # Mock dataset factory
         mock_dataset = Mock()
+        mock_dataset.get_audio_files.return_value = [("test.wav", "blues")]
         mock_create_dataset.return_value = mock_dataset
 
         # Mock config
@@ -205,12 +220,12 @@ class TestExtractFeatures:
 
         # Test that exception is raised
         args = Mock()
-        args.input = temp_dir
-        args.output = temp_dir
+        args.input = str(temp_dir)  # Ensure it's a string, not Mock
+        args.output = str(temp_dir)
         args.name = "test_features"
 
         with pytest.raises(Exception, match="Extraction failed"):
-            extract_features(args, mock_config, mock_logger)
+            extract_features(args.input, args.output, args.name, logger=mock_logger)
 
 
 class TestTrainModel:
@@ -243,7 +258,16 @@ class TestTrainModel:
         mock_config = Mock()
         mock_config.model.max_epochs = 10
         mock_config.model.batch_size = 32
+        mock_config.model.hidden_size = 64
+        mock_config.model.num_layers = 2
+        mock_config.model.dropout = 0.1
+        mock_config.model.optimizer = "adam"
+        mock_config.model.learning_rate = 0.001
+        mock_config.model.weight_decay = 0.0
+        mock_config.model.loss_function = "crossentropy"
         mock_config.training.random_seed = 42
+        mock_config.training.improvement_threshold = 0.01
+        mock_config.training.improvement_window = 3
 
         # Mock logger
         mock_logger = Mock()
@@ -304,7 +328,16 @@ class TestTrainModel:
         mock_config = Mock()
         mock_config.model.max_epochs = 10
         mock_config.model.batch_size = 32
+        mock_config.model.hidden_size = 64
+        mock_config.model.num_layers = 2
+        mock_config.model.dropout = 0.1
+        mock_config.model.optimizer = "adam"
+        mock_config.model.learning_rate = 0.001
+        mock_config.model.weight_decay = 0.0
+        mock_config.model.loss_function = "crossentropy"
         mock_config.training.random_seed = 42
+        mock_config.training.improvement_threshold = 0.01
+        mock_config.training.improvement_window = 3
 
         # Mock logger
         mock_logger = Mock()
@@ -354,7 +387,16 @@ class TestTrainModel:
         mock_config = Mock()
         mock_config.model.max_epochs = 10
         mock_config.model.batch_size = 32
+        mock_config.model.hidden_size = 64
+        mock_config.model.num_layers = 2
+        mock_config.model.dropout = 0.1
+        mock_config.model.optimizer = "adam"
+        mock_config.model.learning_rate = 0.001
+        mock_config.model.weight_decay = 0.0
+        mock_config.model.loss_function = "crossentropy"
         mock_config.training.random_seed = 42
+        mock_config.training.improvement_threshold = 0.01
+        mock_config.training.improvement_window = 3
 
         # Mock logger
         mock_logger = Mock()
@@ -394,7 +436,16 @@ class TestTrainModel:
         mock_config = Mock()
         mock_config.model.max_epochs = 10
         mock_config.model.batch_size = 32
+        mock_config.model.hidden_size = 64
+        mock_config.model.num_layers = 2
+        mock_config.model.dropout = 0.1
+        mock_config.model.optimizer = "adam"
+        mock_config.model.learning_rate = 0.001
+        mock_config.model.weight_decay = 0.0
+        mock_config.model.loss_function = "crossentropy"
         mock_config.training.random_seed = 42
+        mock_config.training.improvement_threshold = 0.01
+        mock_config.training.improvement_window = 3
 
         # Mock logger
         mock_logger = Mock()

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class FMADataset(BaseDataset):
     """FMA dataset handler with 16 genres using their API."""
 
-    def __init__(self, root_dir: str, api_key: str, tracks_csv: str = None):
+    def __init__(self, root_dir: str, api_key: str, tracks_csv: Optional[str] = None):
         """
         Initialize FMA dataset handler.
 
@@ -94,8 +94,11 @@ class FMADataset(BaseDataset):
         if self._tracks_df is None:
             self._load_tracks_data()
 
-        files = []
+        files: list[tuple[str, str]] = []
         processed = 0
+
+        if self._tracks_df is None:
+            return []
 
         for track_id, track_data in self._tracks_df.iterrows():
             try:
@@ -131,7 +134,7 @@ class FMADataset(BaseDataset):
 
             from utils import get_audio_path
 
-            return get_audio_path(self.root_dir, track_id)
+            return str(get_audio_path(self.root_dir, track_id))
         except ImportError:
             # Fallback implementation if FMA utils not available
             tid_str = f"{track_id:06d}"
@@ -146,6 +149,9 @@ class FMADataset(BaseDataset):
         """
         if self._tracks_df is None:
             self._load_tracks_data()
+
+        if self._tracks_df is None:
+            return []
 
         genres = self._tracks_df[("track", "genre_top")].dropna().unique()
         return sorted(list(genres))
@@ -194,7 +200,7 @@ class FMADataset(BaseDataset):
         if self._tracks_df is None:
             self._load_tracks_data()
 
-        if track_id in self._tracks_df.index:
+        if self._tracks_df is not None and track_id in self._tracks_df.index:
             track_data = self._tracks_df.loc[track_id]
             return {
                 "track_id": track_id,

@@ -91,7 +91,7 @@ def is_audio_file(file_path: str) -> bool:
 def normalize_audio(audio: np.ndarray) -> np.ndarray:
     """Normalize audio to [-1, 1] range."""
     if np.max(np.abs(audio)) > 0:
-        return audio / np.max(np.abs(audio))
+        return np.asarray(audio / np.max(np.abs(audio)))
     return audio
 
 
@@ -144,5 +144,5 @@ def format_file_size(bytes_size: int) -> str:
     for unit in ["B", "KB", "MB", "GB"]:
         if bytes_size < BYTES_PER_KB:
             return f"{bytes_size:.1f} {unit}"
-        bytes_size /= BYTES_PER_KB
+        bytes_size = int(bytes_size / BYTES_PER_KB)
     return f"{bytes_size:.1f} TB"

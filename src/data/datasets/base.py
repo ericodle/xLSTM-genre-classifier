@@ -71,7 +71,7 @@ class BaseDataset(ABC):
             Dictionary mapping genre names to counts
         """
         audio_files = self.get_audio_files()
-        distribution = {}
+        distribution: dict[str, int] = {}
         for _, genre in audio_files:
             distribution[genre] = distribution.get(genre, 0) + 1
         return distribution

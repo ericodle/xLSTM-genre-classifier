@@ -4,7 +4,7 @@ Neural network models for GenreDiscern.
 
 import torch
 import torch.nn as nn
-from typing import List
+from typing import List, Optional
 
 from .base import BaseModel
 
@@ -30,7 +30,7 @@ class FC_model(BaseModel):
     def __init__(
         self,
         input_dim: int = 16796,
-        hidden_dims: List[int] = None,
+        hidden_dims: Optional[List[int]] = None,
         output_dim: int = DEFAULT_NUM_CLASSES,
         dropout: float = DEFAULT_FC_DROPOUT,
     ):
@@ -73,7 +73,7 @@ class FC_model(BaseModel):
         # Flatten input if needed
         if len(x.shape) > 2:
             x = x.view(x.size(0), -1)
-        return self.fc_layers(x)
+        return torch.as_tensor(self.fc_layers(x))
 
 
 class CNN_model(BaseModel):
@@ -171,8 +171,12 @@ class CNN_model(BaseModel):
         self._build_fc_layers(flatten_size)
 
         # Apply fully connected layers
+        if self.fc_layers is None:
+            raise RuntimeError(
+                "FC layers not initialized. Call _build_fc_layers first."
+            )
         x = self.fc_layers(x)
-        return x
+        return torch.as_tensor(x)
 
 
 class LSTM_model(BaseModel):
@@ -232,7 +236,7 @@ class LSTM_model(BaseModel):
         out = self.fc(out[:, -1, :])
         out = self.softmax(out)
 
-        return out
+        return torch.as_tensor(out)
 
 
 class GRU_model(BaseModel):
@@ -291,4 +295,4 @@ class GRU_model(BaseModel):
         out = self.fc(out[:, -1, :])
         out = self.softmax(out)
 
-        return out
+        return torch.as_tensor(out)

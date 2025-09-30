@@ -91,7 +91,7 @@ class DataManager:
         else:
             encoded_labels = labels
 
-        return encoded_labels
+        return np.asarray(encoded_labels)
 
     def split_data(
         self,

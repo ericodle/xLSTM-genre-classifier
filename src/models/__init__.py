@@ -2,6 +2,7 @@
 Neural network models for GenreDiscern.
 """
 
+from typing import Optional
 from .base import BaseModel
 from .neural_networks import FC_model, CNN_model, LSTM_model, GRU_model
 from .transformers import Tr_FC, Tr_CNN, Tr_LSTM, Tr_GRU
@@ -24,7 +25,7 @@ __all__ = [
 
 def get_model(
     model_type: str,
-    input_dim: int = None,
+    input_dim: Optional[int] = None,
     hidden_dim: int = 32,
     num_layers: int = 1,
     output_dim: int = 10,
@@ -48,40 +49,101 @@ def get_model(
     Returns:
         Model instance
     """
-    model_map = {
-        "FC": lambda: FC_model(
-            input_dim=input_dim, output_dim=output_dim, dropout=dropout
-        ),
-        "CNN": lambda: CNN_model(num_classes=output_dim, dropout=dropout),
-        "LSTM": lambda: LSTM_model(
-            input_dim, hidden_dim, num_layers, output_dim, dropout
-        ),
-        "GRU": lambda: GRU_model(
-            input_dim, hidden_dim, num_layers, output_dim, dropout
-        ),
-        "xLSTM": lambda: SimpleXLSTM(
-            input_dim, hidden_dim, num_layers, output_dim, dropout
-        ),
-        "Tr_FC": lambda: Tr_FC(
-            input_dim, hidden_dim, num_layers, num_heads, ff_dim, output_dim, dropout
-        ),
-        "Tr_CNN": lambda: Tr_CNN(
-            input_dim, hidden_dim, num_layers, num_heads, ff_dim, output_dim, dropout
-        ),
-        "Tr_LSTM": lambda: Tr_LSTM(
-            input_dim, hidden_dim, num_layers, num_heads, ff_dim, output_dim, dropout
-        ),
-        "Tr_GRU": lambda: Tr_GRU(
-            input_dim, hidden_dim, num_layers, num_heads, ff_dim, output_dim, dropout
-        ),
-    }
-
-    if model_type not in model_map:
+    # Validate model type
+    valid_types = [
+        "FC",
+        "CNN",
+        "LSTM",
+        "GRU",
+        "xLSTM",
+        "Tr_FC",
+        "Tr_CNN",
+        "Tr_LSTM",
+        "Tr_GRU",
+    ]
+    if model_type not in valid_types:
         raise ValueError(
-            f"Unknown model type: {model_type}. Available types: {list(model_map.keys())}"
+            f"Unknown model type: {model_type}. Available types: {valid_types}"
         )
 
+    # Ensure input_dim is not None for models that require it
+    if input_dim is None:
+        if model_type in [
+            "FC",
+            "LSTM",
+            "GRU",
+            "xLSTM",
+            "Tr_FC",
+            "Tr_CNN",
+            "Tr_LSTM",
+            "Tr_GRU",
+        ]:
+            input_dim = 13 * 100  # Default fallback for models that need it
+        else:
+            input_dim = 0  # Default for models that don't need it
+
+    # At this point, input_dim is guaranteed to be int, not None
+    assert input_dim is not None
+    input_dim_int: int = input_dim
+
     try:
-        return model_map[model_type]()
+        if model_type == "FC":
+            return FC_model(
+                input_dim=input_dim_int, output_dim=output_dim, dropout=dropout
+            )
+        elif model_type == "CNN":
+            return CNN_model(num_classes=output_dim, dropout=dropout)
+        elif model_type == "LSTM":
+            return LSTM_model(
+                input_dim_int, hidden_dim, num_layers, output_dim, dropout
+            )
+        elif model_type == "GRU":
+            return GRU_model(input_dim_int, hidden_dim, num_layers, output_dim, dropout)
+        elif model_type == "xLSTM":
+            return SimpleXLSTM(
+                input_dim_int, hidden_dim, num_layers, output_dim, dropout
+            )
+        elif model_type == "Tr_FC":
+            return Tr_FC(
+                input_dim_int,
+                hidden_dim,
+                num_layers,
+                num_heads,
+                ff_dim,
+                output_dim,
+                dropout,
+            )
+        elif model_type == "Tr_CNN":
+            return Tr_CNN(
+                input_dim_int,
+                hidden_dim,
+                num_layers,
+                num_heads,
+                ff_dim,
+                output_dim,
+                dropout,
+            )
+        elif model_type == "Tr_LSTM":
+            return Tr_LSTM(
+                input_dim_int,
+                hidden_dim,
+                num_layers,
+                num_heads,
+                ff_dim,
+                output_dim,
+                dropout,
+            )
+        elif model_type == "Tr_GRU":
+            return Tr_GRU(
+                input_dim_int,
+                hidden_dim,
+                num_layers,
+                num_heads,
+                ff_dim,
+                output_dim,
+                dropout,
+            )
+        else:
+            raise ValueError(f"Unknown model type: {model_type}")
     except Exception as e:
         raise RuntimeError(f"Failed to create model {model_type}: {e}")

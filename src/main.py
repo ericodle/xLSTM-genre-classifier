@@ -250,7 +250,7 @@ def extract_features(
             )
             logger.info(f"MFCC coefficients: {n_mfcc}")
 
-        return result
+        return dict(result)
 
     except Exception as e:
         if logger:

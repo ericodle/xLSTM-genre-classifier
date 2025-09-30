@@ -53,7 +53,7 @@ class SimpleBlockDiagonal(nn.Module):
         self.block = nn.Linear(in_features, out_features)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.block(x)
+        return torch.as_tensor(self.block(x))
 
 
 class SimpleSLSTMBlock(nn.Module):
@@ -197,4 +197,4 @@ class SimpleXLSTM(BaseModel):
         # Project to output dimension
         output = self.output_projection(final_h)
 
-        return output
+        return torch.as_tensor(output)

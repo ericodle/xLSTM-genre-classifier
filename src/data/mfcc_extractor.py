@@ -102,22 +102,22 @@ class MFCCExtractor:
         Returns:
             Path to output JSON file
         """
-        music_path = Path(music_path)
-        output_path = Path(output_path)
+        music_path_obj = Path(music_path)
+        output_path_obj = Path(output_path)
 
-        if not music_path.exists():
-            raise ValueError(f"Music directory does not exist: {music_path}")
+        if not music_path_obj.exists():
+            raise ValueError(f"Music directory does not exist: {music_path_obj}")
 
         # Ensure output directory exists
-        ensure_directory(output_path)
+        ensure_directory(output_path_obj)
 
         # Find all audio files
-        audio_files = []
+        audio_files: list[Path] = []
         for ext in AUDIO_EXTENSIONS:
-            audio_files.extend(music_path.rglob(f"*{ext}"))
+            audio_files.extend(music_path_obj.rglob(f"*{ext}"))
 
         if not audio_files:
-            raise ValueError(f"No audio files found in {music_path}")
+            raise ValueError(f"No audio files found in {music_path_obj}")
 
         self.logger.info(f"Found {len(audio_files)} audio files")
 
@@ -151,7 +151,7 @@ class MFCCExtractor:
                 continue
 
         # Save to JSON file
-        output_file = output_path / f"{output_filename}.json"
+        output_file = output_path_obj / f"{output_filename}.json"
 
         with open(output_file, "w") as f:
             json.dump(features_data, f, indent=2)

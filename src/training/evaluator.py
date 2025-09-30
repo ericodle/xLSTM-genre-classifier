@@ -149,7 +149,7 @@ class ModelEvaluator:
         Returns:
             List of KS statistics for each class
         """
-        ks_test_stats = []
+        ks_test_stats: list[float] = []
         for class_idx in range(y_probs.shape[1]):
             # Get probabilities for samples that actually belong to this class
             class_true = y_probs[y_true == class_idx, class_idx]

@@ -24,7 +24,7 @@ class GridSearchTrainer:
     ):
         self.config = config or Config()
         self.logger = logger or setup_logging()
-        self.results = []
+        self.results: list[dict[str, Any]] = []
 
     def run_grid_search(
         self,

@@ -272,7 +272,7 @@ class TestAutomaticEvaluation:
         data = {}
         genres = ["blues", "classical", "country", "disco", "hiphop"]
 
-        for i in range(20):  # 20 samples
+        for i in range(150):  # 150 samples (30 per class for 5 classes)
             genre = genres[i % len(genres)]
             filename = f"{genre}/{genre}.{i:05d}.wav"
             data[filename] = {"mfcc": np.random.randn(100, 13).tolist(), "genre": genre}

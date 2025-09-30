@@ -2,7 +2,7 @@
 Dataset-agnostic MFCC extractor that works with any dataset implementing BaseDataset.
 """
 
-from typing import Dict, List, Any, Union
+from typing import Dict, List, Any, Union, Optional
 from .datasets.base import BaseDataset
 from .datasets.factory import DatasetFactory
 import librosa
@@ -126,10 +126,10 @@ class DatasetAgnosticMFCCExtractor:
         }
 
         # Save to file
-        output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path_obj = Path(output_path)
+        output_path_obj.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_path, "w") as f:
+        with open(output_path_obj, "w") as f:
             json.dump(output_data, f, indent=2)
 
         # Log summary
@@ -211,7 +211,7 @@ class DatasetAgnosticMFCCExtractor:
 def create_extractor(
     dataset_path: str,
     dataset_type: str = "auto",
-    config: Dict[str, Any] = None,
+    config: Optional[Dict[str, Any]] = None,
     **kwargs,
 ) -> DatasetAgnosticMFCCExtractor:
     """

@@ -13,10 +13,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
-import matplotlib.pyplot as plt
 
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from models.base import BaseModel
+import matplotlib.pyplot as plt
 
 from core.config import Config
 from core.utils import setup_logging, get_device, ensure_directory, set_random_seed
@@ -51,16 +53,16 @@ class ModelTrainer:
         set_random_seed(config.training.random_seed)
 
         # Initialize components
-        self.model = None
-        self.optimizer = None
-        self.criterion = None
+        self.model: Optional[BaseModel] = None
+        self.optimizer: Optional[torch.optim.Optimizer] = None
+        self.criterion: Optional[torch.nn.Module] = None
         self.scheduler = None
         self.preprocessor = AudioPreprocessor(logger)
 
         # Training state
         self.current_epoch = 0
         self.best_val_loss = float("inf")
-        self.training_history = {
+        self.training_history: dict[str, list[float]] = {
             "train_loss": [],
             "train_acc": [],
             "val_loss": [],
@@ -157,7 +159,11 @@ class ModelTrainer:
 
         if len(valid_classes) < len(label_counts):
             # Filter data to keep only classes with enough samples
-            valid_mask = np.isin(self.labels, valid_classes)
+            labels_array = (
+                self.labels.values if hasattr(self.labels, "values") else self.labels
+            )
+            labels_array = np.asarray(labels_array)
+            valid_mask = np.isin(labels_array, valid_classes)
             self.features = self.features[valid_mask]
             self.labels = self.labels[valid_mask]
 
@@ -178,8 +184,12 @@ class ModelTrainer:
         # Preprocess data
         self._preprocess_data()
 
+        labels_array = (
+            self.labels.values if hasattr(self.labels, "values") else self.labels
+        )
+        labels_array = np.asarray(labels_array)
         self.logger.info(
-            f"Loaded {len(self.features)} samples with {len(np.unique(self.labels))} classes"
+            f"Loaded {len(self.features)} samples with {len(np.unique(labels_array))} classes"
         )
         self.logger.info(f"Feature shape: {self.features.shape}")
 
@@ -240,8 +250,12 @@ class ModelTrainer:
         # Preprocess data
         self._preprocess_data()
 
+        labels_array = (
+            self.labels.values if hasattr(self.labels, "values") else self.labels
+        )
+        labels_array = np.asarray(labels_array)
         self.logger.info(
-            f"Loaded {len(self.features)} samples with {len(np.unique(self.labels))} classes"
+            f"Loaded {len(self.features)} samples with {len(np.unique(labels_array))} classes"
         )
 
     def _preprocess_data(self):
@@ -432,10 +446,16 @@ class ModelTrainer:
         # Generate training plots
         self._generate_training_plots()
 
+        # Export final model to ONNX
+        self._export_to_onnx()
+
         return self.training_history
 
     def _train_epoch(self) -> Tuple[float, float]:
         """Train for one epoch."""
+        if self.model is None or self.optimizer is None or self.criterion is None:
+            raise RuntimeError("Model, optimizer, or criterion not initialized")
+
         self.model.train()
         total_loss = 0.0
         correct = 0
@@ -462,6 +482,9 @@ class ModelTrainer:
 
     def _validate_epoch(self) -> Tuple[float, float]:
         """Validate for one epoch."""
+        if self.model is None or self.criterion is None:
+            raise RuntimeError("Model or criterion not initialized")
+
         self.model.eval()
         total_loss = 0.0
         correct = 0
@@ -485,6 +508,9 @@ class ModelTrainer:
 
     def _evaluate_model(self) -> Tuple[float, float]:
         """Evaluate model on test set."""
+        if self.model is None or self.criterion is None:
+            raise RuntimeError("Model or criterion not initialized")
+
         self.model.eval()
         total_loss = 0.0
         correct = 0
@@ -535,6 +561,9 @@ class ModelTrainer:
 
     def _save_checkpoint(self, filename: str):
         """Save model as ONNX format."""
+        if self.model is None or self.optimizer is None:
+            raise RuntimeError("Model or optimizer not initialized")
+
         # Convert .pth to .onnx
         if filename.endswith(".pth"):
             filename = filename.replace(".pth", ".onnx")

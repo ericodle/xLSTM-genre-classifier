@@ -17,8 +17,8 @@ class BaseModel(nn.Module, ABC):
         super().__init__()
         self.model_name = model_name
         self.is_trained = False
-        self.training_history = {}
-        self.model_config = {}
+        self.training_history: dict[str, Any] = {}
+        self.model_config: dict[str, Any] = {}
 
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -131,7 +131,7 @@ class BaseModel(nn.Module, ABC):
             self.is_trained = metadata.get("is_trained", False)
 
             if load_optimizer and "optimizer_state" in metadata:
-                return metadata["optimizer_state"]
+                return dict(metadata["optimizer_state"])
         else:
             # If no metadata file, set defaults
             self.model_config = {}
