@@ -25,3 +25,6 @@ __pycache__/
 **/*.pyc
 **/*.pyo
 **/*.pyd
+
+# IDE and editor configurations
+install-pyenv-win.ps1
