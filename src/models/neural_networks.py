@@ -52,6 +52,9 @@ class FC_model(BaseModel):
             "dropout": dropout,
         }
 
+        # Check for potentially problematic configurations
+        self._check_fc_model_size_warnings()
+
         # Build layers
         layers = []
         prev_dim = input_dim
@@ -74,6 +77,61 @@ class FC_model(BaseModel):
         if len(x.shape) > 2:
             x = x.view(x.size(0), -1)
         return torch.as_tensor(self.fc_layers(x))
+
+    def _check_fc_model_size_warnings(self):
+        """Check for potentially problematic FC model configurations and issue warnings."""
+        import warnings
+        
+        # Calculate estimated parameters
+        estimated_params = 0
+        prev_dim = self.input_dim
+        
+        for hidden_dim in self.hidden_dims:
+            # Linear layer parameters: (input_dim * output_dim) + output_dim (bias)
+            estimated_params += (prev_dim * hidden_dim) + hidden_dim
+            prev_dim = hidden_dim
+        
+        # Output layer
+        estimated_params += (prev_dim * self.output_dim) + self.output_dim
+        
+        # Issue warnings based on model size
+        if estimated_params > 50_000_000:  # 50M parameters
+            warnings.warn(
+                f"⚠️  WARNING: FC model may be too large! "
+                f"Estimated parameters: ~{estimated_params:,} "
+                f"(input_dim={self.input_dim}, hidden_dims={self.hidden_dims}). "
+                f"This may cause memory issues and slow training. "
+                f"Consider reducing hidden_dims or input_dim.",
+                UserWarning
+            )
+        elif estimated_params > 10_000_000:  # 10M parameters
+            warnings.warn(
+                f"⚠️  CAUTION: Large FC model detected! "
+                f"Estimated parameters: ~{estimated_params:,} "
+                f"(input_dim={self.input_dim}, hidden_dims={self.hidden_dims}). "
+                f"Training may be slow. Monitor GPU memory usage.",
+                UserWarning
+            )
+        elif estimated_params > 1_000_000:  # 1M parameters
+            print(f"ℹ️  INFO: FC model size: ~{estimated_params:,} parameters "
+                  f"(input_dim={self.input_dim}, hidden_dims={self.hidden_dims})")
+        
+        # Check for specific problematic combinations
+        if len(self.hidden_dims) > 5:
+            warnings.warn(
+                f"⚠️  WARNING: {len(self.hidden_dims)} hidden layers is very deep! "
+                f"This may cause vanishing gradients and slow training. "
+                f"Consider using 2-4 layers instead.",
+                UserWarning
+            )
+        
+        if any(dim > 1000 for dim in self.hidden_dims) and len(self.hidden_dims) > 3:
+            warnings.warn(
+                f"⚠️  WARNING: Large hidden dimensions ({self.hidden_dims}) with many layers "
+                f"may create an extremely large model! "
+                f"Consider reducing hidden dimensions to 128-512.",
+                UserWarning
+            )
 
 
 class CNN_model(BaseModel):
@@ -112,6 +170,9 @@ class CNN_model(BaseModel):
             "pool_size": pool_size,
             "fc_hidden": fc_hidden,
         }
+
+        # Check for potentially problematic configurations
+        self._check_model_size_warnings()
 
         # Build configurable CNN architecture
         self.conv_layers_seq = self._build_conv_layers()
@@ -154,6 +215,66 @@ class CNN_model(BaseModel):
         layers.append(nn.Flatten())
         
         return nn.Sequential(*layers)
+
+    def _check_model_size_warnings(self):
+        """Check for potentially problematic model configurations and issue warnings."""
+        import warnings
+        
+        # Calculate estimated parameters for conv layers
+        estimated_conv_params = 0
+        in_channels = self.input_channels
+        
+        for i in range(self.conv_layers):
+            out_channels = self.base_filters * (2 ** i)
+            # Conv2d parameters: (in_channels * out_channels * kernel_size^2) + out_channels (bias)
+            conv_params = (in_channels * out_channels * self.kernel_size * self.kernel_size) + out_channels
+            estimated_conv_params += conv_params
+            in_channels = out_channels
+        
+        # Estimate FC layer parameters (rough approximation)
+        # Assuming input size of 1292x13 (typical for MFCC data)
+        estimated_fc_params = self.fc_hidden * 1000 + self.num_classes * self.fc_hidden  # Rough estimate
+        
+        total_estimated_params = estimated_conv_params + estimated_fc_params
+        
+        # Issue warnings based on model size
+        if total_estimated_params > 50_000_000:  # 50M parameters
+            warnings.warn(
+                f"⚠️  WARNING: Model may be too large! "
+                f"Estimated parameters: ~{total_estimated_params:,} "
+                f"(conv_layers={self.conv_layers}, base_filters={self.base_filters}). "
+                f"This may cause memory issues and slow training. "
+                f"Consider reducing conv_layers or base_filters.",
+                UserWarning
+            )
+        elif total_estimated_params > 10_000_000:  # 10M parameters
+            warnings.warn(
+                f"⚠️  CAUTION: Large model detected! "
+                f"Estimated parameters: ~{total_estimated_params:,} "
+                f"(conv_layers={self.conv_layers}, base_filters={self.base_filters}). "
+                f"Training may be slow. Monitor GPU memory usage.",
+                UserWarning
+            )
+        elif total_estimated_params > 1_000_000:  # 1M parameters
+            print(f"ℹ️  INFO: Model size: ~{total_estimated_params:,} parameters "
+                  f"(conv_layers={self.conv_layers}, base_filters={self.base_filters})")
+        
+        # Check for specific problematic combinations
+        if self.conv_layers >= 8:
+            warnings.warn(
+                f"⚠️  WARNING: {self.conv_layers} conv layers is very deep! "
+                f"This may cause vanishing gradients and slow training. "
+                f"Consider using 3-5 layers instead.",
+                UserWarning
+            )
+        
+        if self.base_filters >= 128 and self.conv_layers >= 6:
+            warnings.warn(
+                f"⚠️  WARNING: High base_filters ({self.base_filters}) with many layers "
+                f"({self.conv_layers}) may create an extremely large model! "
+                f"Consider reducing base_filters to 32-64.",
+                UserWarning
+            )
 
     def _build_fc_layers(self, flatten_size):
         """Build fully connected layers once we know the flattened size."""

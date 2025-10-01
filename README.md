@@ -1,24 +1,47 @@
 # GenreDiscern V2 - Refactored Music Genre Classification System
 
-A comprehensive, well-organized music genre classification system using deep learning with support for multiple neural network architectures.
+## Current Version Stack
+- Python 3.13.0
+- PyTorch: 2.8.0+cu128 (compiled with CUDA 12.8)
+- NVIDIA Driver Version: 535.247.01
+- CUDA Toolkit: 13.0
 
-## 🚀 What's New in the Refactored Version
+## Setup (Debian)
 
-### ✨ Improved Architecture
-- **Modular Design**: Clean separation of concerns with dedicated packages for core, models, data, training, and GUI
-- **Configuration Management**: Centralized configuration with JSON support and environment-specific settings
-- **Error Handling**: Comprehensive error handling and logging throughout the system
-- **Type Hints**: Full type annotations for better code quality and IDE support
+- Use pyenv to install python 3.13.0
+```
+pyenv shell 3.13.0
+python -m venv env
+source env/bin/activate
+```
 
-### 🧪 Testing Infrastructure
-- **Unit Tests**: Comprehensive test suite with pytest
-- **Test Coverage**: Aiming for 80%+ code coverage
-- **Fixtures**: Reusable test fixtures and mock objects
-- **CI/CD Ready**: Structured for continuous integration
+- Install CUDA 13.0
+```
+wget https://developer.download.nvidia.com/compute/cuda/13.0.1/local_installers/cuda-repo-debian12-13-0-local_13.0.1-580.82.07-1_amd64.deb
+sudo dpkg -i cuda-repo-debian12-13-0-local_13.0.1-580.82.07-1_amd64.deb
+sudo cp /var/cuda-repo-debian12-13-0-local/cuda-*-keyring.gpg /usr/share/keyrings/
+sudo apt-get update
+sudo apt-get -y install cuda-toolkit-13-0
+```
 
-### 📦 Better Organization
-- **Package Structure**: Proper Python package organization with `__init__.py` files
-- **Import Management**: Clean import hierarchy and dependency management
-- **Documentation**: Comprehensive docstrings and inline documentation
+- Install dependencies
+```
+pip install -r requirements.txt
+```
 
-## 🏗️ Project Structure
+## Setup (Windows)
+
+- Use pyenv to install python 3.13.0
+```
+
+```
+
+- Install CUDA 13.0
+```
+
+```
+
+- Install dependencies
+```
+
+```

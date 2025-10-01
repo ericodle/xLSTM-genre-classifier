@@ -1,17 +1,11 @@
 # GenreDiscern Development Notes
 
-## Project Overview
-
-GenreDiscern is a comprehensive music genre classification system that supports multiple neural network architectures, dataset-agnostic MFCC extraction, and automated hyperparameter optimization. The system has been designed with modularity, configurability, and maintainability in mind.
-
-## Quick Commands
-
-### Environment Setup
+## Environment Setup
 ```bash
 source env/bin/activate
 ```
 
-### Install Requirements
+## Install Requirements
 ```bash
 pip install -r requirements.txt
 pip install -r requirements-test.txt  # For testing
@@ -35,7 +29,7 @@ python src/main.py extract --input /home/eo/Documents/gtzan/ --output ./mfccs --
 
 ```
 
-### FMA Dataset Extraction
+## FMA Dataset Extraction
 
 ```bash
 # Using environment variable for API key
@@ -55,18 +49,7 @@ python src/main.py extract --input /path/to/fma_dataset --output ./mfccs/ --name
     --dataset-type fma --fma-api-key "your_key" --n-mfcc 24
 ```
 
-## Model Training
-
-### Available Model Types
-
-- **FC (Fully Connected)**: Traditional feedforward networks
-- **CNN (Convolutional)**: 2D convolutional networks for spatial features
-- **LSTM**: Long Short-Term Memory for sequential data
-- **GRU**: Gated Recurrent Unit (simplified LSTM)
-- **xLSTM**: Extended LSTM with advanced architecture
-- **Transformer Variants**: `Tr_FC`, `Tr_CNN`, `Tr_LSTM`, `Tr_GRU`
-
-### Training Commands
+## Training Commands
 
 ```bash
 # Train FC Model (automatically evaluates after training)
@@ -84,26 +67,12 @@ python src/main.py train --data ./mfccs/gtzan_13.json --model GRU --output ./out
 # Train xLSTM Model (automatically evaluates after training)
 python src/main.py train --data ./mfccs/gtzan_13.json --model xLSTM --output ./output/xlstm_model
 
-
-
-
 # Train with CSV file (pre-extracted MFCC features)
 python src/main.py train --data /home/eo/Documents/FMA_full.csv --model FC --output ./output/csv_fc_model
 ```
 
-### Training Output
-
-Each training run generates:
-- `best_model.onnx` - ONNX model (primary format for deployment and evaluation)
-- `best_model_metadata.json` - Model configuration and training history
-- `best_model_training_metadata.json` - Training-specific metadata (epochs, config, etc.)
-- `training_plots/` - Training visualization plots
-- `evaluation_results/` - Comprehensive evaluation metrics
-
-**Note**: The system now uses ONNX as the primary model format for better cross-platform compatibility and deployment flexibility.
-
 ## Hyperparameter Grid Search
 
 ```bash
-python run_grid_search.py --model GRU --data ./mfccs/gtzan_13.json --output ./output/gru_hyperparameter_search --params test_params.json
+python run_grid_search.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/CNN_run --params ./src/training/cnn_params.json
 ```
