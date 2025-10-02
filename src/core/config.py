@@ -93,7 +93,7 @@ class TrainingConfig:
     early_stopping: bool = DEFAULT_EARLY_STOPPING
     patience: int = DEFAULT_PATIENCE
     improvement_threshold: float = 0.001
-    improvement_window: int = 50
+    improvement_window: int = DEFAULT_PATIENCE
 
 
 @dataclass

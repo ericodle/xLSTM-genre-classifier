@@ -53,7 +53,7 @@ class Transformer(BaseModel):
     ):
         super().__init__(model_name="Transformer")
 
-        self.input_dim = input_dim
+        self.input_dim = input_dim  # MFCC feature dimension (13)
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.num_heads = num_heads
@@ -72,23 +72,40 @@ class Transformer(BaseModel):
             "dropout": dropout,
         }
 
+        # Input projection to hidden_dim
+        self.input_projection = nn.Linear(input_dim, hidden_dim)
+        
+        # Positional encoding
+        self.pos_encoding = nn.Parameter(torch.randn(1, 2000, hidden_dim))  # Max sequence length
+        
         # Transformer layers
         self.transformer_layers = nn.ModuleList(
             [
-                TransformerLayer(input_dim, hidden_dim, num_heads, ff_dim, dropout)
+                TransformerLayer(hidden_dim, hidden_dim, num_heads, ff_dim, dropout)
                 for _ in range(num_layers)
             ]
         )
 
-        # Simple classification head
-        self.classifier = nn.Linear(input_dim, output_dim)
+        # Classification head
+        self.classifier = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the transformer-only network."""
-        # Ensure input is 3D: (batch_size, sequence_length, input_dim)
-        if len(x.shape) == 2:
-            x = x.unsqueeze(1)  # Add sequence dimension
-
+        # Input shape: (batch_size, sequence_length, input_dim)
+        # For MFCC: (batch_size, 1292, 13)
+        
+        batch_size, seq_len, _ = x.shape
+        
+        # Project input to hidden dimension
+        x = self.input_projection(x)  # (batch_size, seq_len, hidden_dim)
+        
+        # Add positional encoding
+        if seq_len <= self.pos_encoding.size(1):
+            x = x + self.pos_encoding[:, :seq_len, :]
+        else:
+            # Handle longer sequences by truncating positional encoding
+            x = x + self.pos_encoding[:, :self.pos_encoding.size(1), :]
+        
         # Pass through transformer layers
         for layer in self.transformer_layers:
             x = layer(x)
@@ -97,4 +114,4 @@ class Transformer(BaseModel):
         x = x.mean(dim=1)  # Average across sequence length
         x = self.classifier(x)
         
-        return F.softmax(x, dim=1)
+        return F.log_softmax(x, dim=1)

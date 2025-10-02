@@ -665,6 +665,9 @@ class ModelTrainer:
         ):
             # RNN models (LSTM, GRU) - keep 3D format (batch, time_steps, features)
             return sample_data.shape[1:]
+        elif hasattr(self.model, "transformer_layers"):
+            # Transformer model - keep 3D format (batch, time_steps, features)
+            return sample_data.shape[1:]
         else:
             # FC model - flatten to 2D (batch, features)
             if len(sample_data.shape) == 3:
