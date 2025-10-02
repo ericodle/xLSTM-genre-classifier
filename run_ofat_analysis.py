@@ -193,12 +193,24 @@ class OFATAnalyzer:
     
     def _plot_parameter_sensitivity(self, plots_dir: str):
         """Plot parameter sensitivity analysis."""
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-        axes = axes.flatten()
-        
         param_names = list(self.results.keys())
+        n_params = len(param_names)
         
-        for i, param_name in enumerate(param_names[:4]):  # Plot first 4 parameters
+        # Calculate grid dimensions - aim for roughly square layout
+        n_cols = min(3, n_params)  # Max 3 columns
+        n_rows = (n_params + n_cols - 1) // n_cols  # Calculate rows needed
+        
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
+        
+        # Handle single parameter case
+        if n_params == 1:
+            axes = [axes]
+        elif n_rows == 1:
+            axes = axes.reshape(1, -1)
+        else:
+            axes = axes.flatten()
+        
+        for i, param_name in enumerate(param_names):
             if i >= len(axes):
                 break
                 
@@ -219,6 +231,10 @@ class OFATAnalyzer:
             # Set x-axis labels
             ax.set_xticks(range(len(param_values)))
             ax.set_xticklabels([str(v) for v in param_values], rotation=45)
+        
+        # Hide empty subplots
+        for i in range(n_params, len(axes)):
+            axes[i].set_visible(False)
         
         plt.tight_layout()
         plt.savefig(os.path.join(plots_dir, 'parameter_sensitivity.png'), dpi=300, bbox_inches='tight')
