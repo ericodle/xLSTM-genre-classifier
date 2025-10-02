@@ -219,12 +219,12 @@ class OFATAnalyzer:
             
             # Extract parameter values and accuracies
             param_values = results[param_name].values
-            accuracies = results['best_val_acc'].values
+            accuracies = results['test_acc'].values
             
             # Create line plot
             ax.plot(range(len(param_values)), accuracies, 'o-', linewidth=2, markersize=8)
             ax.set_xlabel(f'{param_name}')
-            ax.set_ylabel('Validation Accuracy')
+            ax.set_ylabel('Test Accuracy')
             ax.set_title(f'Parameter Sensitivity: {param_name}')
             ax.grid(True, alpha=0.3)
             
@@ -246,7 +246,7 @@ class OFATAnalyzer:
         param_importance = {}
         
         for param_name, results in self.results.items():
-            accuracies = results['best_val_acc'].values
+            accuracies = results['test_acc'].values
             param_importance[param_name] = {
                 'range': np.max(accuracies) - np.min(accuracies),
                 'std': np.std(accuracies),
@@ -277,36 +277,106 @@ class OFATAnalyzer:
         plt.close()
     
     def _plot_statistical_significance(self, plots_dir: str):
-        """Plot statistical significance analysis."""
-        # Create box plots for each parameter
-        n_params = len(self.results)
+        """Plot statistical significance analysis with proper statistical tests."""
+        from scipy import stats
+        
+        # Calculate statistical significance for each parameter
+        param_stats = {}
+        
+        for param_name, results in self.results.items():
+            param_values = results[param_name].values
+            accuracies = results['test_acc'].values
+            
+            # Get unique parameter values
+            unique_values = np.unique(param_values)
+            
+            if len(unique_values) < 2:
+                continue  # Skip if only one value
+                
+            # Group accuracies by parameter value
+            groups = [accuracies[param_values == val] for val in unique_values]
+            
+            # Perform ANOVA test
+            try:
+                f_stat, p_value = stats.f_oneway(*groups)
+                
+                # Calculate effect size (eta squared)
+                ss_between = sum(len(group) * (np.mean(group) - np.mean(accuracies))**2 for group in groups)
+                ss_total = sum((acc - np.mean(accuracies))**2 for acc in accuracies)
+                eta_squared = ss_between / ss_total if ss_total > 0 else 0
+                
+                # Calculate confidence intervals for each group
+                confidence_intervals = []
+                for group in groups:
+                    if len(group) > 1:
+                        mean = np.mean(group)
+                        sem = stats.sem(group)
+                        ci = stats.t.interval(0.95, len(group)-1, loc=mean, scale=sem)
+                        confidence_intervals.append(ci)
+                    else:
+                        confidence_intervals.append((group[0], group[0]))
+                
+                param_stats[param_name] = {
+                    'f_stat': f_stat,
+                    'p_value': p_value,
+                    'eta_squared': eta_squared,
+                    'unique_values': unique_values,
+                    'groups': groups,
+                    'confidence_intervals': confidence_intervals
+                }
+            except Exception as e:
+                print(f"Warning: Could not perform statistical test for {param_name}: {e}")
+                continue
+        
+        if not param_stats:
+            print("Warning: No parameters suitable for statistical analysis")
+            return
+        
+        # Create plots
+        n_params = len(param_stats)
         n_cols = min(3, n_params)
         n_rows = (n_params + n_cols - 1) // n_cols
         
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6*n_cols, 5*n_rows))
         if n_params == 1:
             axes = [axes]
         elif n_rows == 1:
             axes = axes.reshape(1, -1)
         
-        for i, (param_name, results) in enumerate(self.results.items()):
+        for i, (param_name, stats_data) in enumerate(param_stats.items()):
             row = i // n_cols
             col = i % n_cols
             ax = axes[row, col] if n_rows > 1 else axes[col]
             
-            # Create box plot
-            param_values = results[param_name].values
-            accuracies = results['best_val_acc'].values
+            unique_values = stats_data['unique_values']
+            groups = stats_data['groups']
+            confidence_intervals = stats_data['confidence_intervals']
+            p_value = stats_data['p_value']
+            eta_squared = stats_data['eta_squared']
             
-            # Group by parameter value
-            unique_values = np.unique(param_values)
-            data_by_value = [accuracies[param_values == val] for val in unique_values]
+            # Plot means with confidence intervals
+            means = [np.mean(group) for group in groups]
+            errors = [ci[1] - mean for ci, mean in zip(confidence_intervals, means)]
             
-            ax.boxplot(data_by_value, labels=[str(v) for v in unique_values])
-            ax.set_title(f'{param_name} Distribution')
+            bars = ax.bar(range(len(unique_values)), means, yerr=errors, 
+                         capsize=5, alpha=0.7, color='skyblue', edgecolor='navy')
+            
+            # Color bars based on significance
+            for j, bar in enumerate(bars):
+                if p_value < 0.05:
+                    bar.set_color('lightcoral' if means[j] < np.mean(means) else 'lightgreen')
+                else:
+                    bar.set_color('lightgray')
+            
             ax.set_xlabel(f'{param_name}')
-            ax.set_ylabel('Validation Accuracy')
+            ax.set_ylabel('Test Accuracy')
+            ax.set_xticks(range(len(unique_values)))
+            ax.set_xticklabels([str(v) for v in unique_values])
             ax.grid(True, alpha=0.3)
+            
+            # Add statistical information to title
+            significance = "***" if p_value < 0.001 else "**" if p_value < 0.01 else "*" if p_value < 0.05 else "ns"
+            ax.set_title(f'{param_name}\np={p_value:.3f} {significance}, η²={eta_squared:.3f}')
         
         # Hide empty subplots
         for i in range(n_params, n_rows * n_cols):
@@ -316,6 +386,9 @@ class OFATAnalyzer:
                 axes[row, col].set_visible(False)
             else:
                 axes[col].set_visible(False)
+        
+        # Add legend
+        fig.legend(['Significant (p<0.05)', 'Not Significant'], loc='upper right', bbox_to_anchor=(0.98, 0.98))
         
         plt.tight_layout()
         plt.savefig(os.path.join(plots_dir, 'statistical_significance.png'), dpi=300, bbox_inches='tight')
@@ -338,15 +411,15 @@ class OFATAnalyzer:
             f.write("-" * 40 + "\n")
             
             for param_name, results in self.results.items():
-                accuracies = results['best_val_acc'].values
+                accuracies = results['test_acc'].values
                 param_values = results[param_name].values
                 
                 f.write(f"\n{param_name}:\n")
                 f.write(f"  Range: {np.min(accuracies):.4f} - {np.max(accuracies):.4f}\n")
                 f.write(f"  Impact: {np.max(accuracies) - np.min(accuracies):.4f}\n")
                 f.write(f"  Std Dev: {np.std(accuracies):.4f}\n")
-                f.write(f"  Best Value: {param_values[np.argmax(accuracies)]} (acc: {np.max(accuracies):.4f})\n")
-                f.write(f"  Worst Value: {param_values[np.argmin(accuracies)]} (acc: {np.min(accuracies):.4f})\n")
+                f.write(f"  Best Value: {param_values[np.argmax(accuracies)]} (test_acc: {np.max(accuracies):.4f})\n")
+                f.write(f"  Worst Value: {param_values[np.argmin(accuracies)]} (test_acc: {np.min(accuracies):.4f})\n")
             
             # Rank parameters by impact
             f.write("\nParameter Ranking by Impact:\n")
@@ -354,7 +427,7 @@ class OFATAnalyzer:
             
             param_impacts = {}
             for param_name, results in self.results.items():
-                accuracies = results['best_val_acc'].values
+                accuracies = results['test_acc'].values
                 param_impacts[param_name] = np.max(accuracies) - np.min(accuracies)
             
             sorted_params = sorted(param_impacts.items(), key=lambda x: x[1], reverse=True)
