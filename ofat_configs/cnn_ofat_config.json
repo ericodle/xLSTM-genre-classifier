@@ -21,8 +21,7 @@
     "dropout": [0.0, 0.1, 0.2, 0.3, 0.4],
     "learning_rate": [0.0005, 0.001, 0.005, 0.01, 0.05],
     "batch_size": [64, 128, 256],
-    "weight_decay": [0.0, 0.0001, 0.001, 0.01],
-    "optimizer": ["adam", "sgd", "rmsprop", "adamw"]
+    "weight_decay": [0.0, 0.0001, 0.001, 0.01]
   },
   "parameters_to_test": [
     "conv_layers",
@@ -33,7 +32,6 @@
     "dropout",
     "learning_rate",
     "batch_size",
-    "weight_decay",
-    "optimizer"
+    "weight_decay"
   ]
 }

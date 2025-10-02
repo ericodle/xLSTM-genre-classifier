@@ -5,7 +5,7 @@ Neural network models for GenreDiscern.
 from typing import Optional
 from .base import BaseModel
 from .neural_networks import FC_model, CNN_model, LSTM_model, GRU_model
-from .transformers import Tr_FC, Tr_CNN, Tr_LSTM, Tr_GRU
+from .transformers import Transformer
 from .xlstm import SimpleXLSTM
 
 __all__ = [
@@ -14,10 +14,7 @@ __all__ = [
     "CNN_model",
     "LSTM_model",
     "GRU_model",
-    "Tr_FC",
-    "Tr_CNN",
-    "Tr_LSTM",
-    "Tr_GRU",
+    "Transformer",
     "SimpleXLSTM",
     "get_model",
 ]
@@ -61,10 +58,7 @@ def get_model(
         "LSTM",
         "GRU",
         "xLSTM",
-        "Tr_FC",
-        "Tr_CNN",
-        "Tr_LSTM",
-        "Tr_GRU",
+        "Transformer",
     ]
     if model_type not in valid_types:
         raise ValueError(
@@ -116,38 +110,8 @@ def get_model(
             return SimpleXLSTM(
                 input_dim_int, hidden_dim, num_layers, output_dim, dropout
             )
-        elif model_type == "Tr_FC":
-            return Tr_FC(
-                input_dim_int,
-                hidden_dim,
-                num_layers,
-                num_heads,
-                ff_dim,
-                output_dim,
-                dropout,
-            )
-        elif model_type == "Tr_CNN":
-            return Tr_CNN(
-                input_dim_int,
-                hidden_dim,
-                num_layers,
-                num_heads,
-                ff_dim,
-                output_dim,
-                dropout,
-            )
-        elif model_type == "Tr_LSTM":
-            return Tr_LSTM(
-                input_dim_int,
-                hidden_dim,
-                num_layers,
-                num_heads,
-                ff_dim,
-                output_dim,
-                dropout,
-            )
-        elif model_type == "Tr_GRU":
-            return Tr_GRU(
+        elif model_type == "Transformer":
+            return Transformer(
                 input_dim_int,
                 hidden_dim,
                 num_layers,

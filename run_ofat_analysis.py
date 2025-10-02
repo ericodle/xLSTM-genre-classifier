@@ -186,8 +186,6 @@ class OFATAnalyzer:
         # 2. Performance comparison plot
         self._plot_performance_comparison(plots_dir)
         
-        # 3. Statistical significance plot
-        self._plot_statistical_significance(plots_dir)
         
         print(f"📊 Generated analysis plots in {plots_dir}")
     
@@ -276,124 +274,6 @@ class OFATAnalyzer:
         plt.savefig(os.path.join(plots_dir, 'parameter_importance.png'), dpi=300, bbox_inches='tight')
         plt.close()
     
-    def _plot_statistical_significance(self, plots_dir: str):
-        """Plot statistical significance analysis with proper statistical tests."""
-        from scipy import stats
-        
-        # Calculate statistical significance for each parameter
-        param_stats = {}
-        
-        for param_name, results in self.results.items():
-            param_values = results[param_name].values
-            accuracies = results['test_acc'].values
-            
-            # Get unique parameter values
-            unique_values = np.unique(param_values)
-            
-            if len(unique_values) < 2:
-                continue  # Skip if only one value
-                
-            # Group accuracies by parameter value
-            groups = [accuracies[param_values == val] for val in unique_values]
-            
-            # Perform ANOVA test
-            try:
-                f_stat, p_value = stats.f_oneway(*groups)
-                
-                # Calculate effect size (eta squared)
-                ss_between = sum(len(group) * (np.mean(group) - np.mean(accuracies))**2 for group in groups)
-                ss_total = sum((acc - np.mean(accuracies))**2 for acc in accuracies)
-                eta_squared = ss_between / ss_total if ss_total > 0 else 0
-                
-                # Calculate confidence intervals for each group
-                confidence_intervals = []
-                for group in groups:
-                    if len(group) > 1:
-                        mean = np.mean(group)
-                        sem = stats.sem(group)
-                        ci = stats.t.interval(0.95, len(group)-1, loc=mean, scale=sem)
-                        confidence_intervals.append(ci)
-                    else:
-                        confidence_intervals.append((group[0], group[0]))
-                
-                param_stats[param_name] = {
-                    'f_stat': f_stat,
-                    'p_value': p_value,
-                    'eta_squared': eta_squared,
-                    'unique_values': unique_values,
-                    'groups': groups,
-                    'confidence_intervals': confidence_intervals
-                }
-            except Exception as e:
-                print(f"Warning: Could not perform statistical test for {param_name}: {e}")
-                continue
-        
-        if not param_stats:
-            print("Warning: No parameters suitable for statistical analysis")
-            return
-        
-        # Create plots
-        n_params = len(param_stats)
-        n_cols = min(3, n_params)
-        n_rows = (n_params + n_cols - 1) // n_cols
-        
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6*n_cols, 5*n_rows))
-        if n_params == 1:
-            axes = [axes]
-        elif n_rows == 1:
-            axes = axes.reshape(1, -1)
-        
-        for i, (param_name, stats_data) in enumerate(param_stats.items()):
-            row = i // n_cols
-            col = i % n_cols
-            ax = axes[row, col] if n_rows > 1 else axes[col]
-            
-            unique_values = stats_data['unique_values']
-            groups = stats_data['groups']
-            confidence_intervals = stats_data['confidence_intervals']
-            p_value = stats_data['p_value']
-            eta_squared = stats_data['eta_squared']
-            
-            # Plot means with confidence intervals
-            means = [np.mean(group) for group in groups]
-            errors = [ci[1] - mean for ci, mean in zip(confidence_intervals, means)]
-            
-            bars = ax.bar(range(len(unique_values)), means, yerr=errors, 
-                         capsize=5, alpha=0.7, color='skyblue', edgecolor='navy')
-            
-            # Color bars based on significance
-            for j, bar in enumerate(bars):
-                if p_value < 0.05:
-                    bar.set_color('lightcoral' if means[j] < np.mean(means) else 'lightgreen')
-                else:
-                    bar.set_color('lightgray')
-            
-            ax.set_xlabel(f'{param_name}')
-            ax.set_ylabel('Test Accuracy')
-            ax.set_xticks(range(len(unique_values)))
-            ax.set_xticklabels([str(v) for v in unique_values])
-            ax.grid(True, alpha=0.3)
-            
-            # Add statistical information to title
-            significance = "***" if p_value < 0.001 else "**" if p_value < 0.01 else "*" if p_value < 0.05 else "ns"
-            ax.set_title(f'{param_name}\np={p_value:.3f} {significance}, η²={eta_squared:.3f}')
-        
-        # Hide empty subplots
-        for i in range(n_params, n_rows * n_cols):
-            row = i // n_cols
-            col = i % n_cols
-            if n_rows > 1:
-                axes[row, col].set_visible(False)
-            else:
-                axes[col].set_visible(False)
-        
-        # Add legend
-        fig.legend(['Significant (p<0.05)', 'Not Significant'], loc='upper right', bbox_to_anchor=(0.98, 0.98))
-        
-        plt.tight_layout()
-        plt.savefig(os.path.join(plots_dir, 'statistical_significance.png'), dpi=300, bbox_inches='tight')
-        plt.close()
-    
     def _generate_summary_report(self, output_dir: str):
         """Generate summary report of OFAT analysis."""
         report_file = os.path.join(output_dir, "ofat_summary_report.txt")
@@ -442,26 +322,12 @@ def setup_parser():
     parser = argparse.ArgumentParser(
         description='Run OFAT (One-Factor-at-a-Time) parameter sensitivity analysis',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-    # Run OFAT analysis for CNN model (uses ofat_configs/cnn_ofat_config.json)
-    python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis
-    
-    # Run OFAT for specific parameters only
-    python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis --params conv_layers kernel_size dropout
-    
-    # Run OFAT with custom config file
-    python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis --config my_custom_ofat_config.json
-    
-    # Run OFAT for FC model
-    python run_ofat_analysis.py --model FC --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis
-        """
     )
     
     parser.add_argument(
         '--model', '-m',
         required=True,
-        choices=['CNN', 'FC', 'LSTM', 'GRU'],
+        choices=['CNN', 'FC', 'LSTM', 'GRU', 'Transformer'],
         help='Model type to analyze'
     )
     
