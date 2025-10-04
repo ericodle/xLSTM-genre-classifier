@@ -54,14 +54,14 @@ print("Using device", device)
 def load_data(data_path):
     """
     This function loads data from a JSON file located at data_path.
-    It converts the 'mfcc' and 'labels' lists from the JSON file into NumPy arrays X and y, respectively.
+    It converts the 'features' and 'labels' lists from the JSON file into NumPy arrays X and y, respectively.
     After loading the data, it prints a success message indicating that the data was loaded successfully.
     """
     with open(data_path, "r") as fp:
         data = json.load(fp)
 
     # convert lists to numpy arrays
-    X = np.array(data["mfcc"])
+    X = np.array(data["features"])
     y = np.array(data["labels"])
 
     # Pad MFCC features to 16 if needed
@@ -514,9 +514,13 @@ def main(
     X, y = load_data(mfcc_path)
 
     # Add diagnostic prints to check data dimensions
-    # print("Loaded data dimensions:")
-    # print("X shape:", X.shape)
-    # print("y shape:", y.shape)
+    print("Loaded data dimensions:")
+    print("X shape:", X.shape)
+    print("y shape:", y.shape)
+    
+    # Determine number of classes from the data
+    num_classes = len(np.unique(y))
+    print(f"Number of classes detected: {num_classes}")
 
     # create train/val split
     X_train, X_val, y_train, y_val = train_val_split(X, y, 0.2)
@@ -579,7 +583,7 @@ def main(
             input_size=16,
             hidden_size=hidden_size,
             num_layers=num_layers,
-            num_classes=10,
+            num_classes=num_classes,
             batch_first=True,
             dropout=dropout,
         )

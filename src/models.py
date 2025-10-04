@@ -12,8 +12,15 @@ from torch.nn import functional as F
 
 
 class FC_model(nn.Module):
+    """
+    Fully Connected Neural Network for music genre classification.
+    
+    Args:
+        num_classes (int): Number of output classes. Defaults to 10 for GTZAN.
+                          Use 16 for FMA dataset, or any other number for custom datasets.
+    """
 
-    def __init__(self):
+    def __init__(self, num_classes=10):
         super().__init__()
         self.layers = nn.Sequential(
             ### Fully-connected layer
@@ -25,7 +32,7 @@ class FC_model(nn.Module):
             nn.Linear(256, 128),
             nn.ReLU(),
             nn.Dropout(p=0.3),
-            nn.Linear(128, 10),
+            nn.Linear(128, num_classes),
             nn.Softmax(),
         )
 
@@ -40,8 +47,15 @@ class FC_model(nn.Module):
 
 
 class CNN_model(nn.Module):
+    """
+    Convolutional Neural Network for music genre classification.
+    
+    Args:
+        num_classes (int): Number of output classes. Defaults to 10 for GTZAN.
+                          Use 16 for FMA dataset, or any other number for custom datasets.
+    """
 
-    def __init__(self):
+    def __init__(self, num_classes=10):
         super().__init__()
         self.layers = nn.Sequential(
             ### Convolutional layer
@@ -68,7 +82,7 @@ class CNN_model(nn.Module):
             nn.Linear(256, 128),
             nn.ReLU(),
             nn.Dropout(p=0.2),
-            nn.Linear(128, 10),
+            nn.Linear(128, num_classes),
             nn.Softmax(),
         )
 

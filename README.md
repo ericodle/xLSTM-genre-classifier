@@ -75,3 +75,46 @@ python run_grid_search.py --model CNN --data ./mfccs/gtzan_13.json --output ./ou
 ```bash
 python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis
 ```
+
+## Multi-Dataset Support
+
+### Variable Output Size
+The system now automatically detects the number of classes from your dataset and adapts all models accordingly:
+
+- **GTZAN Dataset**: 10 genres (automatically detected)
+- **FMA Dataset**: 16 genres (automatically detected)
+- **Custom Datasets**: Any number of classes (automatically detected)
+
+### Supported Datasets
+```bash
+# GTZAN (10 classes)
+python src/train_model.py mfccs/gtzan_13.json CNN output_dir 0.001
+
+# FMA (16 classes) 
+python src/train_model.py mfccs/fma_13_with_labels.json CNN output_dir 0.001
+
+# Any custom dataset with N classes
+python src/train_model.py mfccs/your_dataset.json CNN output_dir 0.001
+```
+
+### Model Architecture
+All models now support variable output dimensions:
+- **FC_model**: `FC_model(num_classes=10)` or `FC_model(num_classes=16)`
+- **CNN_model**: `CNN_model(num_classes=10)` or `CNN_model(num_classes=16)`
+- **LSTM_model**: `LSTM_model(..., output_dim=10)` or `LSTM_model(..., output_dim=16)`
+- **GRU_model**: `GRU_model(..., output_dim=10)` or `GRU_model(..., output_dim=16)`
+- **Transformer models**: All support `output_dim` parameter
+
+### Data Format Requirements
+Your dataset JSON file must contain:
+```json
+{
+  "features": [[[mfcc_values...], ...], ...],
+  "labels": [0, 1, 2, ...]
+}
+```
+
+The system will automatically:
+1. Detect the number of unique classes from the labels
+2. Adapt all model architectures to the correct output size
+3. Handle variable sequence lengths by padding to max length

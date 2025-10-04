@@ -47,19 +47,64 @@ print("Using device", device)
 def load_data(data_path):
     """
     This function loads data from a JSON file located at data_path.
-    It converts the 'mfcc' and 'labels' lists from the JSON file into NumPy arrays X and y, respectively.
+    It converts the 'features' and 'labels' lists from the JSON file into NumPy arrays X and y, respectively.
     After loading the data, it prints a success message indicating that the data was loaded successfully.
     """
     with open(data_path, "r") as fp:
         data = json.load(fp)
 
     # convert lists to numpy arrays
-    X = np.array(data["mfcc"])
+    # Handle variable length sequences by padding to the same length
+    features = data["features"]
+    max_length = max(len(feat) for feat in features)
+    
+    # Pad all sequences to the same length
+    padded_features = []
+    for feat in features:
+        if len(feat) < max_length:
+            # Pad with zeros
+            padded = feat + [[0] * len(feat[0])] * (max_length - len(feat))
+        else:
+            padded = feat
+        padded_features.append(padded)
+    
+    X = np.array(padded_features)
     y = np.array(data["labels"])
 
     print("Data succesfully loaded!")
+    print(f"Features shape: {X.shape}")
+    print(f"Labels shape: {y.shape}")
 
     return X, y
+
+
+def generate_class_names(num_classes):
+    """
+    Generate class names based on the number of classes detected.
+    
+    Args:
+        num_classes (int): Number of classes detected from the data
+        
+    Returns:
+        list: List of class names
+    """
+    if num_classes == 10:
+        # GTZAN dataset
+        return [
+            "pop", "classical", "jazz", "hiphop", "reggae",
+            "blues", "country", "disco", "metal", "rock"
+        ]
+    elif num_classes == 16:
+        # FMA dataset
+        return [
+            "Experimental", "Electronic", "Rock", "Pop", "Folk", "Jazz", 
+            "Old-Time / Historic", "Blues", "Classical", "Country", 
+            "Hip-Hop", "Instrumental", "International", "Soul-RnB", 
+            "Spoken", "Easy Listening"
+        ]
+    else:
+        # Custom dataset - generate generic names
+        return [f"Class_{i}" for i in range(num_classes)]
 
 
 def test_ann_model(model, test_dataloader, device="cpu"):
@@ -403,6 +448,13 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
     Main function for training and evaluating multiple deep learning models (Fully Connected, CNN, LSTM, xLSTM, GRU, and Transformer) for music genre classification using Mel Frequency Cepstral Coefficients (MFCCs).
     This function employs PyTorch for model training and evaluation, utilizes cyclic learning rates for optimization, and includes functionalities for plotting learning metrics, testing model accuracy, generating confusion matrices, and computing ROC AUC scores.
     The training loop incorporates early stopping based on validation accuracy to prevent overfitting and improve model generalization.
+    
+    IMPORTANT: This function automatically detects the number of classes from the dataset labels.
+    - GTZAN dataset: 10 classes (automatically detected)
+    - FMA dataset: 16 classes (automatically detected)  
+    - Custom datasets: Any number of classes (automatically detected)
+    
+    All models are automatically configured with the correct output dimension based on the detected number of classes.
     """
     # load data
     X, y = load_data(mfcc_path)
@@ -411,6 +463,10 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
     print("Loaded data dimensions:")
     print("X shape:", X.shape)
     print("y shape:", y.shape)
+    
+    # Determine number of classes from the data
+    num_classes = len(np.unique(y))
+    print(f"Number of classes detected: {num_classes}")
 
     # create train/val split
     X_train, X_val, y_train, y_val = train_val_split(X, y, 0.2)
@@ -448,12 +504,12 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
     # Initialize model based on model_type
 
     if model_type == "FC":
-        model = models.FC_model()
+        model = models.FC_model(num_classes=num_classes)
     elif model_type == "CNN":
-        model = models.CNN_model()
+        model = models.CNN_model(num_classes=num_classes)
     elif model_type == "LSTM":
         model = models.LSTM_model(
-            input_dim=13, hidden_dim=256, layer_dim=2, output_dim=10, dropout_prob=0.2
+            input_dim=13, hidden_dim=256, layer_dim=2, output_dim=num_classes, dropout_prob=0.2
         )
     elif model_type == "xLSTM":
         model = xlstm.xLSTMClassifier(
@@ -461,12 +517,12 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             hidden_size=13,
             num_heads=1,
             num_layers=1,
-            num_classes=10,
+            num_classes=num_classes,
             batch_first=True,
         )
     elif model_type == "GRU":
         model = models.GRU_model(
-            input_dim=13, hidden_dim=256, layer_dim=2, output_dim=10, dropout_prob=0.2
+            input_dim=13, hidden_dim=256, layer_dim=2, output_dim=num_classes, dropout_prob=0.2
         )
     elif model_type == "Tr_FC":
         model = models.Tr_FC(
@@ -476,7 +532,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             num_heads=1,
             ff_dim=4,
             dropout=0.2,
-            output_dim=10,
+            output_dim=num_classes,
         )
     elif model_type == "Tr_CNN":
         model = models.Tr_CNN(
@@ -486,7 +542,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             num_heads=1,
             ff_dim=4,
             dropout=0.2,
-            output_dim=10,
+            output_dim=num_classes,
         )
     elif model_type == "Tr_LSTM":
         model = models.Tr_LSTM(
@@ -496,7 +552,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             num_heads=1,
             ff_dim=4,
             dropout=0.2,
-            output_dim=10,
+            output_dim=num_classes,
         )
     elif model_type == "Tr_GRU":
         model = models.Tr_GRU(
@@ -506,7 +562,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
             num_heads=1,
             ff_dim=4,
             dropout=0.2,
-            output_dim=10,
+            output_dim=num_classes,
         )
     else:
         raise ValueError("Invalid model_type")
@@ -570,7 +626,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
                 best_acc = vacc
                 # Save as ONNX model
                 model.eval()
-                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2]).to(device)
                 onnx_path = os.path.join(output_directory, "model.onnx")
                 torch.onnx.export(
                     model,
@@ -644,7 +700,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
                 best_acc = vacc
                 # Save as ONNX model
                 model.eval()
-                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2]).to(device)
                 onnx_path = os.path.join(output_directory, "model.onnx")
                 torch.onnx.export(
                     model,
@@ -713,7 +769,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
                 best_acc = vacc
                 # Save as ONNX model
                 model.eval()
-                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2]).to(device)
                 onnx_path = os.path.join(output_directory, "model.onnx")
                 torch.onnx.export(
                     model,
@@ -823,7 +879,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
                 best_acc = val_acc_epoch / 100
                 # Save as ONNX model
                 model.eval()
-                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2]).to(device)
                 onnx_path = os.path.join(output_directory, "model.onnx")
                 torch.onnx.export(
                     model,
@@ -894,7 +950,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
                 best_acc = vacc
                 # Save as ONNX model
                 model.eval()
-                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2]).to(device)
                 onnx_path = os.path.join(output_directory, "model.onnx")
                 torch.onnx.export(
                     model,
@@ -963,7 +1019,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
                 best_acc = vacc
                 # Save as ONNX model
                 model.eval()
-                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2]).to(device)
                 onnx_path = os.path.join(output_directory, "model.onnx")
                 torch.onnx.export(
                     model,
@@ -1032,7 +1088,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
                 best_acc = vacc
                 # Save as ONNX model
                 model.eval()
-                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2]).to(device)
                 onnx_path = os.path.join(output_directory, "model.onnx")
                 torch.onnx.export(
                     model,
@@ -1101,7 +1157,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
                 best_acc = vacc
                 # Save as ONNX model
                 model.eval()
-                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2]).to(device)
                 onnx_path = os.path.join(output_directory, "model.onnx")
                 torch.onnx.export(
                     model,
@@ -1170,7 +1226,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
                 best_acc = vacc
                 # Save as ONNX model
                 model.eval()
-                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2])
+                dummy_input = torch.randn(1, X_train.shape[1], X_train.shape[2]).to(device)
                 onnx_path = os.path.join(output_directory, "model.onnx")
                 torch.onnx.export(
                     model,
@@ -1214,18 +1270,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
         print(f"Test accuracy: {accuracy * 100:.2f}%")
 
         # Plot confusion matrix
-        class_names = [
-            "pop",
-            "classical",
-            "jazz",
-            "hiphop",
-            "reggae",
-            "disco",
-            "metal",
-            "country",
-            "blues",
-            "rock",
-        ]
+        class_names = generate_class_names(num_classes)
         save_ann_confusion_matrix(
             ground_truth, predicted_genres, class_names, output_directory
         )
@@ -1255,18 +1300,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
         print(f"Test accuracy: {accuracy * 100:.2f}%")
 
         # Plot confusion matrix
-        class_names = [
-            "pop",
-            "classical",
-            "jazz",
-            "hiphop",
-            "reggae",
-            "disco",
-            "metal",
-            "country",
-            "blues",
-            "rock",
-        ]
+        class_names = generate_class_names(num_classes)
         save_ann_confusion_matrix(
             ground_truth, predicted_genres, class_names, output_directory
         )
@@ -1296,18 +1330,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
         print(f"Test accuracy: {accuracy * 100:.2f}%")
 
         # Plot confusion matrix
-        class_names = [
-            "pop",
-            "classical",
-            "jazz",
-            "hiphop",
-            "reggae",
-            "disco",
-            "metal",
-            "country",
-            "blues",
-            "rock",
-        ]
+        class_names = generate_class_names(num_classes)
         save_ann_confusion_matrix(
             ground_truth, predicted_genres, class_names, output_directory
         )
@@ -1335,18 +1358,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
 
         print(f"Test accuracy: {accuracy * 100:.2f}%")
 
-        class_names = [
-            "pop",
-            "classical",
-            "jazz",
-            "hiphop",
-            "reggae",
-            "disco",
-            "metal",
-            "country",
-            "blues",
-            "rock",
-        ]
+        class_names = generate_class_names(num_classes)
         save_ann_confusion_matrix(
             ground_truth, predicted_genres, class_names, output_directory
         )
@@ -1372,18 +1384,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
         print(f"Test accuracy: {accuracy * 100:.2f}%")
 
         # Plot confusion matrix
-        class_names = [
-            "pop",
-            "classical",
-            "jazz",
-            "hiphop",
-            "reggae",
-            "disco",
-            "metal",
-            "country",
-            "blues",
-            "rock",
-        ]
+        class_names = generate_class_names(num_classes)
         save_ann_confusion_matrix(
             ground_truth, predicted_genres, class_names, output_directory
         )
@@ -1413,18 +1414,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
         print(f"Test accuracy: {accuracy * 100:.2f}%")
 
         # Plot confusion matrix
-        class_names = [
-            "pop",
-            "classical",
-            "jazz",
-            "hiphop",
-            "reggae",
-            "disco",
-            "metal",
-            "country",
-            "blues",
-            "rock",
-        ]
+        class_names = generate_class_names(num_classes)
         save_ann_confusion_matrix(
             ground_truth, predicted_genres, class_names, output_directory
         )
@@ -1454,18 +1444,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
         print(f"Test accuracy: {accuracy * 100:.2f}%")
 
         # Plot confusion matrix
-        class_names = [
-            "pop",
-            "classical",
-            "jazz",
-            "hiphop",
-            "reggae",
-            "disco",
-            "metal",
-            "country",
-            "blues",
-            "rock",
-        ]
+        class_names = generate_class_names(num_classes)
         save_ann_confusion_matrix(
             ground_truth, predicted_genres, class_names, output_directory
         )
@@ -1495,18 +1474,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
         print(f"Test accuracy: {accuracy * 100:.2f}%")
 
         # Plot confusion matrix
-        class_names = [
-            "pop",
-            "classical",
-            "jazz",
-            "hiphop",
-            "reggae",
-            "disco",
-            "metal",
-            "country",
-            "blues",
-            "rock",
-        ]
+        class_names = generate_class_names(num_classes)
         save_ann_confusion_matrix(
             ground_truth, predicted_genres, class_names, output_directory
         )
@@ -1536,18 +1504,7 @@ def main(mfcc_path, model_type, output_directory, initial_lr):
         print(f"Test accuracy: {accuracy * 100:.2f}%")
 
         # Plot confusion matrix
-        class_names = [
-            "pop",
-            "classical",
-            "jazz",
-            "hiphop",
-            "reggae",
-            "disco",
-            "metal",
-            "country",
-            "blues",
-            "rock",
-        ]
+        class_names = generate_class_names(num_classes)
         save_ann_confusion_matrix(
             ground_truth, predicted_genres, class_names, output_directory
         )

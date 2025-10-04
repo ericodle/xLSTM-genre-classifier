@@ -70,7 +70,7 @@ class ModelConfig:
     lr_scheduler: bool = DEFAULT_LR_SCHEDULER
     
     # CNN-specific parameters
-    num_classes: int = 10
+    num_classes: int = 10  # Default for GTZAN, will be auto-detected from data
     conv_layers: int = 3
     base_filters: int = 16
     kernel_size: int = 3
