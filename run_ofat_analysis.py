@@ -45,7 +45,7 @@ class OFATAnalyzer:
     def load_ofat_config(self, model_type: str, config_file: str = None) -> Dict[str, Any]:
         """Load OFAT configuration from JSON file."""
         if config_file is None:
-            config_file = f"ofat_configs/{model_type.lower()}_fma_config.json"
+            config_file = f"ofat_configs/{model_type.lower()}_ofat_config.json"
         
         if not os.path.exists(config_file):
             raise FileNotFoundError(f"OFAT config file not found: {config_file}")
@@ -655,7 +655,7 @@ def setup_parser():
     
     parser.add_argument(
         '--config', '-c',
-        help='Path to custom OFAT config file (default: ofat_configs/{model}_fma_config.json)'
+        help='Path to custom OFAT config file (default: ofat_configs/{model}_ofat_config.json)'
     )
     
     parser.add_argument(

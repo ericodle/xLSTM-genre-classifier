@@ -32,8 +32,8 @@ def run_command(cmd, description):
 
 def main():
     parser = argparse.ArgumentParser(description="Run OFAT analysis for all model types")
-    parser.add_argument("--data", default="./mfccs/fma_13.json", 
-                       help="Path to data file (default: ./mfccs/fma_13.json)")
+    parser.add_argument("--data", required=True,
+                       help="Path to data file (required)")
     parser.add_argument("--output-base", default="./output", 
                        help="Base output directory (default: ./output)")
     parser.add_argument("--models", nargs="+", default=["CNN", "FC", "LSTM", "GRU", "Transformer", "xLSTM"],
@@ -68,7 +68,7 @@ def main():
         print(f"\n📊 Model {i}/{total_models}: {model}")
         
         # Create output directory
-        output_dir = os.path.join(args.output_base, f"{model.lower()}_fma_{timestamp}")
+        output_dir = os.path.join(args.output_base, f"{model.lower()}_ofat_{timestamp}")
         
         # Check if output already exists
         if args.skip_existing and os.path.exists(output_dir):

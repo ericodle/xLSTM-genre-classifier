@@ -105,6 +105,15 @@ python run_ofat_analysis.py --model LSTM --data ./mfccs/gtzan_13.json --output .
 
 # Run OFAT analysis with custom config
 python run_ofat_analysis.py --model GRU --data ./mfccs/gtzan_13.json --output ./output/gru_ofat --config ./ofat_configs/gru_gtzan_config.json
+
+# Run OFAT analysis for all models
+python run_all_ofat.py --data ./mfccs/gtzan_13.json
+
+# Run OFAT analysis for all models with FMA dataset
+python run_all_ofat.py --data ./mfccs/fma_13.json
+
+# Run specific models only
+python run_all_ofat.py --data ./mfccs/gtzan_13.json --models CNN LSTM GRU
 ```
 
 ### Supported Model Types
