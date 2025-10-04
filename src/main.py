@@ -503,11 +503,13 @@ def run_automatic_evaluation(trainer, data_path, output_dir, model_type, logger)
 
                 # Get unique labels for mapping and convert string labels to integers
                 unique_labels = sorted(list(set(labels)))
-                mapping = unique_labels
-
+                
                 # Convert string labels to integer indices
                 label_to_idx = {label: idx for idx, label in enumerate(unique_labels)}
                 labels = np.array([label_to_idx[label] for label in labels])
+
+                # Create proper string mapping for class names
+                mapping = [str(label) for label in unique_labels]
 
                 logger.info(f"Padded features to shape: {features.shape}")
                 logger.info(f"Label mapping: {label_to_idx}")

@@ -61,20 +61,81 @@ python src/main.py extract --input /path/to/dataset/ --output ./mfccs --name gtz
 ## Training Commands
 
 ### Single Model Training
+
+#### Option 1: Using Main CLI (Recommended)
 ```bash
-# Train CNN Model
+# Train CNN Model with automatic evaluation
 python src/main.py train --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model
+
+# Train LSTM Model with custom parameters
+python src/main.py train --data ./mfccs/gtzan_13.json --model LSTM --output ./output/lstm_model --epochs 50 --batch-size 32
+
+# Train xLSTM Model
+python src/main.py train --data ./mfccs/gtzan_13.json --model xLSTM --output ./output/xlstm_model
 ```
 
-#### Grid Search
+#### Option 2: Using Training Script
 ```bash
-python run_grid_search.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/CNN_run --params ./src/training/cnn_params.json
+# New unified approach (recommended)
+python src/train_model.py --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model --lr 0.001
+
+# Legacy style (still supported)
+python src/train_model.py ./mfccs/gtzan_13.json CNN ./output/cnn_model 0.001
 ```
 
-#### OFAT (One-Factor-at-a-Time) Analysis
+### Grid Search Hyperparameter Optimization
 ```bash
-python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis
+# Run grid search for CNN model
+python run_grid_search.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/cnn_gridsearch
+
+# Run grid search with custom parameters
+python run_grid_search.py --model LSTM --data ./mfccs/gtzan_13.json --output ./output/lstm_gridsearch --params ./src/training/lstm_params.json
+
+# Run grid search with resume capability
+python run_grid_search.py --model GRU --data ./mfccs/gtzan_13.json --output ./output/gru_gridsearch --resume
 ```
+
+### OFAT (One-Factor-at-a-Time) Analysis
+```bash
+# Run OFAT analysis for CNN model
+python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/cnn_ofat
+
+# Run OFAT analysis for LSTM model
+python run_ofat_analysis.py --model LSTM --data ./mfccs/gtzan_13.json --output ./output/lstm_ofat
+
+# Run OFAT analysis with custom config
+python run_ofat_analysis.py --model GRU --data ./mfccs/gtzan_13.json --output ./output/gru_ofat --config ./ofat_configs/gru_gtzan_config.json
+```
+
+### Supported Model Types
+- **FC**: Fully Connected Neural Network
+- **CNN**: Convolutional Neural Network  
+- **LSTM**: Long Short-Term Memory
+- **GRU**: Gated Recurrent Unit
+- **xLSTM**: Extended LSTM
+- **Tr_FC**: Transformer with FC layers
+- **Tr_CNN**: Transformer with CNN layers
+- **Tr_LSTM**: Transformer with LSTM layers
+- **Tr_GRU**: Transformer with GRU layers
+
+## Unified Training System
+
+This project uses a **unified training system** that ensures consistency across all training scenarios:
+
+### ✅ **Consistency**
+- Single model training, grid search, and OFAT analysis all use the **same training logic**
+- Identical results across all training scenarios
+- No more inconsistencies between different training approaches
+
+### ✅ **Maintainability** 
+- Single point of maintenance for training logic
+- ~800 lines of duplicated code eliminated
+- Consistent error handling and logging
+
+### ✅ **Backward Compatibility**
+- All existing scripts continue to work
+- Legacy interfaces maintained
+- Gradual migration path available
 
 ## Multi-Dataset Support
 
@@ -118,3 +179,31 @@ The system will automatically:
 1. Detect the number of unique classes from the labels
 2. Adapt all model architectures to the correct output size
 3. Handle variable sequence lengths by padding to max length
+
+## Quick Reference
+
+### Most Common Commands
+```bash
+# Single model training (recommended)
+python src/main.py train --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model
+
+# Grid search
+python run_grid_search.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/cnn_gridsearch
+
+# OFAT analysis  
+python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/cnn_ofat
+```
+
+### Extract MFCC Features
+```bash
+# GTZAN dataset
+python src/main.py extract --input /path/to/gtzan --output ./mfccs --name gtzan_13 --n-mfcc 13
+
+# FMA dataset
+python src/main.py extract --input /path/to/fma --output ./mfccs --name fma_13 --dataset-type fma --fma-api-key YOUR_KEY
+```
+
+### Run Tests
+```bash
+python run_tests.py
+```

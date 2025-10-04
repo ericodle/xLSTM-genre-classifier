@@ -14,6 +14,7 @@ import logging
 from core.utils import setup_logging, ensure_directory
 from core.config import Config
 from training.trainer import ModelTrainer
+from training.trainer_unified import UnifiedTrainer
 
 
 class GridSearchTrainer:
@@ -170,31 +171,23 @@ class GridSearchTrainer:
         params: Dict[str, Any],
         **kwargs,
     ) -> Dict[str, Any]:
-        """Train a single parameter combination."""
-        # Create a copy of the config to avoid modifying the original
-        import copy
-        config_override = copy.deepcopy(self.config)
+        """Train a single parameter combination using unified trainer."""
+        # Create unified trainer
+        unified_trainer = UnifiedTrainer(self.config, self.logger)
         
-        # Override config with grid search parameters
-        for param_name, param_value in params.items():
-            if hasattr(config_override.model, param_name):
-                setattr(config_override.model, param_name, param_value)
-            elif hasattr(config_override.training, param_name):
-                setattr(config_override.training, param_name, param_value)
-
-        # Create trainer with the modified config
-        trainer = ModelTrainer(config_override, self.logger)
-
-        # Setup training
-        trainer.setup_training(
-            data_path=data_path, model_type=model_type, output_dir=output_dir, **kwargs
+        # Train with parameter overrides
+        results = unified_trainer.train_with_parameters(
+            data_path=data_path,
+            model_type=model_type,
+            output_dir=output_dir,
+            parameters=params,
+            **kwargs
         )
-
-        # Train model
-        training_history = trainer.train()
-
-        # Run evaluation on test set to get the primary metric
-        test_loss, test_acc = trainer._evaluate_model()
+        
+        # Extract metrics for grid search
+        training_history = results["training_history"]
+        test_loss = results["final_test_loss"]
+        test_acc = results["final_test_accuracy"]
 
         # Get final metrics
         final_train_loss = (

@@ -32,13 +32,13 @@ def run_command(cmd, description):
 
 def main():
     parser = argparse.ArgumentParser(description="Run OFAT analysis for all model types")
-    parser.add_argument("--data", default="./mfccs/gtzan_13.json", 
-                       help="Path to data file (default: ./mfccs/gtzan_13.json)")
+    parser.add_argument("--data", default="./mfccs/fma_13.json", 
+                       help="Path to data file (default: ./mfccs/fma_13.json)")
     parser.add_argument("--output-base", default="./output", 
                        help="Base output directory (default: ./output)")
-    parser.add_argument("--models", nargs="+", default=["CNN", "GRU", "Transformer", "FC", "xLSTM"],
-                       choices=["CNN", "GRU", "Transformer", "FC", "xLSTM"],
-                       help="Models to run OFAT for (default: CNN GRU Transformer FC xLSTM)")
+    parser.add_argument("--models", nargs="+", default=["CNN", "FC", "LSTM", "GRU", "Transformer", "xLSTM"],
+                       choices=["CNN", "FC", "LSTM", "GRU", "Transformer", "xLSTM"],
+                       help="Models to run OFAT for (default: CNN FC LSTM GRU Transformer xLSTM)")
     parser.add_argument("--skip-existing", action="store_true",
                        help="Skip models that already have output directories")
     
@@ -68,7 +68,7 @@ def main():
         print(f"\n📊 Model {i}/{total_models}: {model}")
         
         # Create output directory
-        output_dir = os.path.join(args.output_base, f"{model.lower()}_ofat_{timestamp}")
+        output_dir = os.path.join(args.output_base, f"{model.lower()}_fma_{timestamp}")
         
         # Check if output already exists
         if args.skip_existing and os.path.exists(output_dir):
