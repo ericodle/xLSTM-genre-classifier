@@ -174,8 +174,8 @@ class TestExtractFeatures:
         mock_dataset_agnostic.return_value = mock_extractor_instance
 
         # Mock config
-        mock_config = Mock()
-        mock_config.audio = Mock()
+        config = Mock()
+        config.audio = Mock()
 
         # Mock logger
         mock_logger = Mock()
@@ -212,8 +212,8 @@ class TestExtractFeatures:
         mock_create_dataset.return_value = mock_dataset
 
         # Mock config
-        mock_config = Mock()
-        mock_config.audio = Mock()
+        config = Mock()
+        config.audio = Mock()
 
         # Mock logger
         mock_logger = Mock()
@@ -237,7 +237,7 @@ class TestTrainModel:
         with tempfile.TemporaryDirectory() as temp_dir:
             yield temp_dir
 
-    @patch("src.main.ModelTrainer")
+    @patch("training.trainer.ModelTrainer")
     @patch("src.main.run_automatic_evaluation")
     def test_train_model_success_with_evaluation(
         self, mock_eval, mock_trainer_class, temp_dir
@@ -254,20 +254,21 @@ class TestTrainModel:
         # Mock evaluation
         mock_eval.return_value = {"accuracy": 0.75, "confusion_matrix": None}
 
-        # Mock config
-        mock_config = Mock()
-        mock_config.model.max_epochs = 10
-        mock_config.model.batch_size = 32
-        mock_config.model.hidden_size = 64
-        mock_config.model.num_layers = 2
-        mock_config.model.dropout = 0.1
-        mock_config.model.optimizer = "adam"
-        mock_config.model.learning_rate = 0.001
-        mock_config.model.weight_decay = 0.0
-        mock_config.model.loss_function = "crossentropy"
-        mock_config.training.random_seed = 42
-        mock_config.training.improvement_threshold = 0.01
-        mock_config.training.improvement_window = 3
+        # Use real Config object to avoid serialization issues
+        from src.core.config import Config
+        config = Config()
+        config.model.max_epochs = 10
+        config.model.batch_size = 32
+        config.model.hidden_size = 64
+        config.model.num_layers = 2
+        config.model.dropout = 0.1
+        config.model.optimizer = "adam"
+        config.model.learning_rate = 0.001
+        config.model.weight_decay = 0.0
+        config.model.loss_function = "crossentropy"
+        config.training.random_seed = 42
+        config.training.improvement_threshold = 0.01
+        config.training.improvement_window = 3
 
         # Mock logger
         mock_logger = Mock()
@@ -290,7 +291,7 @@ class TestTrainModel:
                 epochs=None,
                 batch_size=None,
             ),
-            mock_config,
+            config,
             mock_logger,
         )
 
@@ -307,7 +308,7 @@ class TestTrainModel:
         training_history, evaluation_results = result
         assert evaluation_results is not None
 
-    @patch("src.main.ModelTrainer")
+    @patch("training.trainer.ModelTrainer")
     @patch("src.main.run_automatic_evaluation")
     def test_train_model_success_without_evaluation(
         self, mock_eval, mock_trainer_class, temp_dir
@@ -324,20 +325,21 @@ class TestTrainModel:
         # Mock evaluation to fail
         mock_eval.side_effect = Exception("Evaluation failed")
 
-        # Mock config
-        mock_config = Mock()
-        mock_config.model.max_epochs = 10
-        mock_config.model.batch_size = 32
-        mock_config.model.hidden_size = 64
-        mock_config.model.num_layers = 2
-        mock_config.model.dropout = 0.1
-        mock_config.model.optimizer = "adam"
-        mock_config.model.learning_rate = 0.001
-        mock_config.model.weight_decay = 0.0
-        mock_config.model.loss_function = "crossentropy"
-        mock_config.training.random_seed = 42
-        mock_config.training.improvement_threshold = 0.01
-        mock_config.training.improvement_window = 3
+        # Use real Config object to avoid serialization issues
+        from src.core.config import Config
+        config = Config()
+        config.model.max_epochs = 10
+        config.model.batch_size = 32
+        config.model.hidden_size = 64
+        config.model.num_layers = 2
+        config.model.dropout = 0.1
+        config.model.optimizer = "adam"
+        config.model.learning_rate = 0.001
+        config.model.weight_decay = 0.0
+        config.model.loss_function = "crossentropy"
+        config.training.random_seed = 42
+        config.training.improvement_threshold = 0.01
+        config.training.improvement_window = 3
 
         # Mock logger
         mock_logger = Mock()
@@ -360,7 +362,7 @@ class TestTrainModel:
                 epochs=None,
                 batch_size=None,
             ),
-            mock_config,
+            config,
             mock_logger,
         )
 
@@ -375,7 +377,7 @@ class TestTrainModel:
         assert isinstance(result, dict)
         assert "train_loss" in result
 
-    @patch("src.main.ModelTrainer")
+    @patch("training.trainer.ModelTrainer")
     def test_train_model_failure(self, mock_trainer_class, temp_dir):
         """Test model training failure handling."""
         # Mock the trainer to raise an exception
@@ -383,20 +385,21 @@ class TestTrainModel:
         mock_trainer.setup_training.side_effect = Exception("Training failed")
         mock_trainer_class.return_value = mock_trainer
 
-        # Mock config
-        mock_config = Mock()
-        mock_config.model.max_epochs = 10
-        mock_config.model.batch_size = 32
-        mock_config.model.hidden_size = 64
-        mock_config.model.num_layers = 2
-        mock_config.model.dropout = 0.1
-        mock_config.model.optimizer = "adam"
-        mock_config.model.learning_rate = 0.001
-        mock_config.model.weight_decay = 0.0
-        mock_config.model.loss_function = "crossentropy"
-        mock_config.training.random_seed = 42
-        mock_config.training.improvement_threshold = 0.01
-        mock_config.training.improvement_window = 3
+        # Use real Config object to avoid serialization issues
+        from src.core.config import Config
+        config = Config()
+        config.model.max_epochs = 10
+        config.model.batch_size = 32
+        config.model.hidden_size = 64
+        config.model.num_layers = 2
+        config.model.dropout = 0.1
+        config.model.optimizer = "adam"
+        config.model.learning_rate = 0.001
+        config.model.weight_decay = 0.0
+        config.model.loss_function = "crossentropy"
+        config.training.random_seed = 42
+        config.training.improvement_threshold = 0.01
+        config.training.improvement_window = 3
 
         # Mock logger
         mock_logger = Mock()
@@ -420,11 +423,11 @@ class TestTrainModel:
                     epochs=None,
                     batch_size=None,
                 ),
-                mock_config,
+                config,
                 mock_logger,
             )
 
-    @patch("src.main.ModelTrainer")
+    @patch("training.trainer.ModelTrainer")
     def test_train_model_with_custom_args(self, mock_trainer_class, temp_dir):
         """Test model training with custom command line arguments."""
         # Mock the trainer
@@ -432,20 +435,21 @@ class TestTrainModel:
         mock_trainer.train.return_value = {"train_loss": [0.5], "val_loss": [0.6]}
         mock_trainer_class.return_value = mock_trainer
 
-        # Mock config
-        mock_config = Mock()
-        mock_config.model.max_epochs = 10
-        mock_config.model.batch_size = 32
-        mock_config.model.hidden_size = 64
-        mock_config.model.num_layers = 2
-        mock_config.model.dropout = 0.1
-        mock_config.model.optimizer = "adam"
-        mock_config.model.learning_rate = 0.001
-        mock_config.model.weight_decay = 0.0
-        mock_config.model.loss_function = "crossentropy"
-        mock_config.training.random_seed = 42
-        mock_config.training.improvement_threshold = 0.01
-        mock_config.training.improvement_window = 3
+        # Use real Config object to avoid serialization issues
+        from src.core.config import Config
+        config = Config()
+        config.model.max_epochs = 10
+        config.model.batch_size = 32
+        config.model.hidden_size = 64
+        config.model.num_layers = 2
+        config.model.dropout = 0.1
+        config.model.optimizer = "adam"
+        config.model.learning_rate = 0.001
+        config.model.weight_decay = 0.0
+        config.model.loss_function = "crossentropy"
+        config.training.random_seed = 42
+        config.training.improvement_threshold = 0.01
+        config.training.improvement_window = 3
 
         # Mock logger
         mock_logger = Mock()
@@ -468,13 +472,13 @@ class TestTrainModel:
                 epochs=5,
                 batch_size=16,
             ),
-            mock_config,
+            config,
             mock_logger,
         )
 
         # Check that config was updated
-        assert mock_config.model.max_epochs == 5
-        assert mock_config.model.batch_size == 16
+        assert config.model.max_epochs == 5
+        assert config.model.batch_size == 16
 
         # Check that training was called
         mock_trainer.setup_training.assert_called_once()
@@ -488,7 +492,7 @@ class TestMainIntegration:
     @patch("src.main.Config")
     @patch("src.main.extract_features")
     def test_main_extract_command(
-        self, mock_extract, mock_config_class, mock_logging, temp_dir
+        self, mock_extract, config_class, mock_logging, temp_dir
     ):
         """Test main function with extract command."""
         from src.main import main
@@ -497,8 +501,8 @@ class TestMainIntegration:
         mock_logger = Mock()
         mock_logging.return_value = mock_logger
 
-        mock_config = Mock()
-        mock_config_class.return_value = mock_config
+        config = Mock()
+        config_class.return_value = config
 
         mock_extract.return_value = f"{temp_dir}/features.json"
 
@@ -525,7 +529,7 @@ class TestMainIntegration:
     @patch("src.main.Config")
     @patch("src.main.train_model")
     def test_main_train_command(
-        self, mock_train, mock_config_class, mock_logging, temp_dir
+        self, mock_train, config_class, mock_logging, temp_dir
     ):
         """Test main function with train command."""
         from src.main import main
@@ -534,8 +538,8 @@ class TestMainIntegration:
         mock_logger = Mock()
         mock_logging.return_value = mock_logger
 
-        mock_config = Mock()
-        mock_config_class.return_value = mock_config
+        config = Mock()
+        config_class.return_value = config
 
         mock_train.return_value = ({"train_loss": [0.5]}, {"accuracy": 0.75})
 
