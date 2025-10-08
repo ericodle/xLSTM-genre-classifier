@@ -14,6 +14,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
+# Optional import for memory-efficient JSON parsing
+try:
+    import ijson
+    IJSON_AVAILABLE = True
+except ImportError:
+    IJSON_AVAILABLE = False
+
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -69,7 +76,7 @@ class ModelTrainer:
             "val_acc": [],
         }
 
-    def setup_training(self, data_path: str, model_type: str, output_dir: str):
+    def setup_training(self, data_path: str, model_type: str, output_dir: str, max_samples: int = None, memory_efficient: bool = False):
         """
         Setup training environment.
 
@@ -77,11 +84,13 @@ class ModelTrainer:
             data_path: Path to training data
             model_type: Type of model to train
             output_dir: Output directory for results
+            max_samples: Maximum number of samples to use (for memory optimization)
+            memory_efficient: Use memory-efficient data loading
         """
         self.logger.info(f"Setting up training for {model_type} model")
 
         # Load and preprocess data
-        self._load_data(data_path)
+        self._load_data(data_path, max_samples, memory_efficient)
 
         # Create model
         self._create_model(model_type)
@@ -97,7 +106,7 @@ class ModelTrainer:
 
         self.logger.info("Training setup completed")
 
-    def _load_data(self, data_path: str):
+    def _load_data(self, data_path: str, max_samples: int = None, memory_efficient: bool = False):
         """Load and preprocess training data."""
         self.logger.info(f"Loading data from {data_path}")
 
@@ -105,7 +114,7 @@ class ModelTrainer:
         if data_path.lower().endswith(".csv"):
             self._load_csv_data(data_path)
         else:
-            self._load_json_data(data_path)
+            self._load_json_data(data_path, max_samples, memory_efficient)
 
     def _load_csv_data(self, data_path: str):
         """Load data from CSV file with pre-extracted MFCC features."""
@@ -193,8 +202,18 @@ class ModelTrainer:
         )
         self.logger.info(f"Feature shape: {self.features.shape}")
 
-    def _load_json_data(self, data_path: str):
-        """Load data from JSON file."""
+    def _load_json_data(self, data_path: str, max_samples: int = None, memory_efficient: bool = False):
+        """Load data from JSON file with memory optimization options."""
+        self.logger.info(f"Loading JSON data from {data_path}")
+        
+        if memory_efficient:
+            self.logger.info("Using memory-efficient loading")
+            self._load_json_data_memory_efficient(data_path, max_samples)
+        else:
+            self._load_json_data_standard(data_path, max_samples)
+    
+    def _load_json_data_standard(self, data_path: str, max_samples: int = None):
+        """Standard JSON data loading (loads entire file into memory)."""
         # Load JSON data
         with open(data_path, "r") as f:
             data = json.load(f)
@@ -204,8 +223,16 @@ class ModelTrainer:
             # New format: {"features": [...], "labels": [...]}
             self.logger.info("Detected new data format with features and labels arrays")
 
-            # Handle variable-length MFCC features by padding/truncating to consistent shape
+            # Limit samples if specified
             features_list = data["features"]
+            labels_list = data["labels"]
+            
+            if max_samples and len(features_list) > max_samples:
+                self.logger.info(f"Limiting to {max_samples} samples (from {len(features_list)})")
+                features_list = features_list[:max_samples]
+                labels_list = labels_list[:max_samples]
+
+            # Handle variable-length MFCC features by padding/truncating to consistent shape
             max_frames = max(len(feature) for feature in features_list)
             min_frames = min(len(feature) for feature in features_list)
 
@@ -227,36 +254,79 @@ class ModelTrainer:
                     padded_feature = feature
                 padded_features.append(padded_feature)
 
-            self.features = np.array(padded_features)
-            self.labels = np.array(data["labels"])
+            self.features = np.array(padded_features, dtype=np.float32)
+            self.labels = np.array(labels_list, dtype=np.int64)
 
             self.logger.info(f"Padded features to shape: {self.features.shape}")
+            
+            # Preprocess data after loading
+            self._preprocess_data()
         else:
             # Old format: {"genre/filename.wav": {"mfcc": [...]}, ...}
             self.logger.info("Detected old data format with file paths")
-            features = []
-            labels = []
+    
+    def _load_json_data_memory_efficient(self, data_path: str, max_samples: int = None):
+        """Memory-efficient JSON data loading using streaming."""
+        if not IJSON_AVAILABLE:
+            self.logger.warning("ijson not available, falling back to standard loading")
+            self._load_json_data_standard(data_path, max_samples)
+            return
+        
+        self.logger.info("Using streaming JSON parser for memory efficiency")
+        
+        features_list = []
+        labels_list = []
+        
+        # Stream parse the JSON file
+        with open(data_path, "rb") as f:
+            # Parse features array
+            features_parser = ijson.items(f, "features.item")
+            for i, feature in enumerate(features_parser):
+                if max_samples and i >= max_samples:
+                    break
+                features_list.append(feature)
+                if i % 1000 == 0:
+                    self.logger.info(f"Loaded {i} features...")
+        
+        # Reset file pointer and parse labels
+        with open(data_path, "rb") as f:
+            labels_parser = ijson.items(f, "labels.item")
+            for i, label in enumerate(labels_parser):
+                if max_samples and i >= max_samples:
+                    break
+                labels_list.append(label)
+        
+        self.logger.info(f"Loaded {len(features_list)} samples using streaming parser")
+        
+        # Handle variable-length MFCC features by padding/truncating to consistent shape
+        max_frames = max(len(feature) for feature in features_list)
+        min_frames = min(len(feature) for feature in features_list)
 
-            for file_path, file_data in data.items():
-                features.append(file_data["mfcc"])
-                # Extract genre from file path (assuming structure: genre/filename)
-                genre = file_path.split("/")[0]
-                labels.append(genre)
-
-            # Convert to numpy arrays
-            self.features = np.array(features)
-            self.labels = np.array(labels)
-
-        # Preprocess data
-        self._preprocess_data()
-
-        labels_array = (
-            self.labels.values if hasattr(self.labels, "values") else self.labels
-        )
-        labels_array = np.asarray(labels_array)
         self.logger.info(
-            f"Loaded {len(self.features)} samples with {len(np.unique(labels_array))} classes"
+            f"MFCC features: {len(features_list)} samples, frame range: {min_frames}-{max_frames}"
         )
+
+        # Pad all features to the same length (max_frames)
+        padded_features = []
+        for feature in features_list:
+            if len(feature) < max_frames:
+                # Pad with zeros
+                padding = [
+                    [0.0] * len(feature[0])
+                    for _ in range(max_frames - len(feature))
+                ]
+                padded_feature = feature + padding
+            else:
+                padded_feature = feature
+            padded_features.append(padded_feature)
+
+        self.features = np.array(padded_features, dtype=np.float32)
+        self.labels = np.array(labels_list, dtype=np.int64)
+
+        self.logger.info(f"Padded features to shape: {self.features.shape}")
+        
+        # Preprocess data after loading
+        self._preprocess_data()
 
     def _preprocess_data(self):
         """Preprocess the loaded data."""

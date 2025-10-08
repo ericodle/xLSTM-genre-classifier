@@ -664,6 +664,26 @@ def setup_parser():
         help='Enable verbose logging'
     )
     
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=16,
+        help='Batch size for training (default: 16, smaller = less memory)'
+    )
+    
+    parser.add_argument(
+        '--max-samples',
+        type=int,
+        default=10000,
+        help='Maximum number of samples to use (default: 10000 for memory-constrained systems)'
+    )
+    
+    parser.add_argument(
+        '--memory-efficient',
+        action='store_true',
+        help='Use memory-efficient data loading (loads data in chunks)'
+    )
+    
     return parser
 
 
