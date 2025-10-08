@@ -147,6 +147,7 @@ class OFATAnalyzer:
         self._save_results(output_dir)
         self._generate_analysis_plots(output_dir)
         self._generate_summary_report(output_dir)
+        self._generate_optimal_config_suggestion(output_dir)
         
         return all_results
     
@@ -183,22 +184,35 @@ class OFATAnalyzer:
         # 1. Parameter sensitivity plot
         self._plot_parameter_sensitivity(plots_dir)
         
-        # 2. Performance comparison plot
+        # 2. Overfitting analysis plot
+        self._plot_overfitting_analysis(plots_dir)
+        
+        # 3. Performance comparison plot
         self._plot_performance_comparison(plots_dir)
         
-        # 3. Statistical significance plot
-        self._plot_statistical_significance(plots_dir)
         
         print(f"📊 Generated analysis plots in {plots_dir}")
     
     def _plot_parameter_sensitivity(self, plots_dir: str):
         """Plot parameter sensitivity analysis."""
-        fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-        axes = axes.flatten()
-        
         param_names = list(self.results.keys())
+        n_params = len(param_names)
         
-        for i, param_name in enumerate(param_names[:4]):  # Plot first 4 parameters
+        # Calculate grid dimensions - aim for roughly square layout
+        n_cols = min(3, n_params)  # Max 3 columns
+        n_rows = (n_params + n_cols - 1) // n_cols  # Calculate rows needed
+        
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
+        
+        # Handle single parameter case
+        if n_params == 1:
+            axes = [axes]
+        elif n_rows == 1:
+            axes = axes.reshape(1, -1)
+        else:
+            axes = axes.flatten()
+        
+        for i, param_name in enumerate(param_names):
             if i >= len(axes):
                 break
                 
@@ -207,12 +221,12 @@ class OFATAnalyzer:
             
             # Extract parameter values and accuracies
             param_values = results[param_name].values
-            accuracies = results['best_val_acc'].values
+            accuracies = results['test_acc'].values
             
             # Create line plot
             ax.plot(range(len(param_values)), accuracies, 'o-', linewidth=2, markersize=8)
             ax.set_xlabel(f'{param_name}')
-            ax.set_ylabel('Validation Accuracy')
+            ax.set_ylabel('Test Accuracy')
             ax.set_title(f'Parameter Sensitivity: {param_name}')
             ax.grid(True, alpha=0.3)
             
@@ -220,8 +234,127 @@ class OFATAnalyzer:
             ax.set_xticks(range(len(param_values)))
             ax.set_xticklabels([str(v) for v in param_values], rotation=45)
         
+        # Hide empty subplots
+        for i in range(n_params, len(axes)):
+            axes[i].set_visible(False)
+        
         plt.tight_layout()
         plt.savefig(os.path.join(plots_dir, 'parameter_sensitivity.png'), dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def _plot_overfitting_analysis(self, plots_dir: str):
+        """Plot overfitting analysis showing train vs validation accuracy gap."""
+        param_names = list(self.results.keys())
+        n_params = len(param_names)
+        
+        # Calculate grid dimensions - aim for roughly square layout
+        n_cols = min(3, n_params)  # Max 3 columns
+        n_rows = (n_params + n_cols - 1) // n_cols  # Calculate rows needed
+        
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
+        
+        # Handle single parameter case
+        if n_params == 1:
+            axes = [axes]
+        elif n_rows == 1:
+            axes = axes.reshape(1, -1)
+        else:
+            axes = axes.flatten()
+        
+        for i, param_name in enumerate(param_names):
+            if i >= len(axes):
+                break
+                
+            results = self.results[param_name]
+            ax = axes[i]
+            
+            # Extract parameter values and accuracies
+            param_values = results[param_name].values
+            
+            # Check if we have the required columns
+            if 'final_train_acc' not in results.columns or 'final_val_acc' not in results.columns:
+                ax.text(0.5, 0.5, 'Overfitting data\nnot available', 
+                       ha='center', va='center', transform=ax.transAxes)
+                ax.set_title(f'Overfitting Analysis: {param_name}')
+                continue
+            
+            train_accs = results['final_train_acc'].values
+            val_accs = results['final_val_acc'].values
+            
+            # Calculate overfitting gap (train - val)
+            overfitting_gap = train_accs - val_accs
+            
+            # Create dual y-axis plot
+            ax2 = ax.twinx()
+            
+            # Plot accuracies
+            x_pos = range(len(param_values))
+            line1 = ax.plot(x_pos, train_accs, 'o-', color='blue', linewidth=2, 
+                           markersize=6, label='Train Acc', alpha=0.8)
+            line2 = ax.plot(x_pos, val_accs, 's-', color='red', linewidth=2, 
+                           markersize=6, label='Val Acc', alpha=0.8)
+            
+            # Plot overfitting gap as bars
+            bars = ax2.bar(x_pos, overfitting_gap, alpha=0.3, color='orange', 
+                          label='Overfitting Gap', width=0.6)
+            
+            # Color bars based on overfitting severity
+            for j, gap in enumerate(overfitting_gap):
+                if gap > 0.1:  # High overfitting
+                    bars[j].set_color('red')
+                elif gap > 0.05:  # Medium overfitting
+                    bars[j].set_color('orange')
+                else:  # Low overfitting
+                    bars[j].set_color('green')
+            
+            # Labels and formatting
+            ax.set_xlabel(f'{param_name}')
+            ax.set_ylabel('Accuracy', color='black')
+            ax2.set_ylabel('Overfitting Gap (Train - Val)', color='orange')
+            ax.set_title(f'Overfitting Analysis: {param_name}')
+            
+            # Set x-axis labels
+            ax.set_xticks(x_pos)
+            ax.set_xticklabels([str(v) for v in param_values], rotation=45)
+            
+            # Grid
+            ax.grid(True, alpha=0.3)
+            
+            # Position legends to avoid overlap
+            # Main legend (accuracy lines) - top right
+            lines1, labels1 = ax.get_legend_handles_labels()
+            legend1 = ax.legend(lines1, labels1, loc='upper right', fontsize=8, 
+                              framealpha=0.95, fancybox=True, shadow=True,
+                              borderpad=0.5, columnspacing=0.5)
+            legend1.set_zorder(1000)  # Ensure it's on top
+            
+            # Secondary legend (overfitting bars) - bottom right
+            lines2, labels2 = ax2.get_legend_handles_labels()
+            legend2 = ax2.legend(lines2, labels2, loc='lower right', fontsize=8,
+                               framealpha=0.95, fancybox=True, shadow=True,
+                               borderpad=0.5, columnspacing=0.5)
+            legend2.set_zorder(1000)  # Ensure it's on top
+            
+            # Add overfitting statistics as text - positioned to avoid legends
+            mean_gap = np.mean(overfitting_gap)
+            max_gap = np.max(overfitting_gap)
+            ax.text(0.02, 0.12, f'Mean Gap: {mean_gap:.3f}\nMax Gap: {max_gap:.3f}', 
+                   transform=ax.transAxes, verticalalignment='bottom',
+                   bbox=dict(boxstyle='round,pad=0.3', facecolor='lightblue', 
+                            alpha=0.9, edgecolor='navy', linewidth=0.5),
+                   fontsize=7, family='monospace')
+        
+        # Hide empty subplots
+        for i in range(n_params, len(axes)):
+            axes[i].set_visible(False)
+        
+        # Adjust layout to prevent legend overlap
+        plt.tight_layout(pad=2.0)
+        
+        # Additional padding for legends
+        plt.subplots_adjust(top=0.95, bottom=0.1, left=0.1, right=0.9)
+        
+        plt.savefig(os.path.join(plots_dir, 'overfitting_analysis.png'), dpi=300, bbox_inches='tight')
         plt.close()
     
     def _plot_performance_comparison(self, plots_dir: str):
@@ -230,7 +363,7 @@ class OFATAnalyzer:
         param_importance = {}
         
         for param_name, results in self.results.items():
-            accuracies = results['best_val_acc'].values
+            accuracies = results['test_acc'].values
             param_importance[param_name] = {
                 'range': np.max(accuracies) - np.min(accuracies),
                 'std': np.std(accuracies),
@@ -260,51 +393,6 @@ class OFATAnalyzer:
         plt.savefig(os.path.join(plots_dir, 'parameter_importance.png'), dpi=300, bbox_inches='tight')
         plt.close()
     
-    def _plot_statistical_significance(self, plots_dir: str):
-        """Plot statistical significance analysis."""
-        # Create box plots for each parameter
-        n_params = len(self.results)
-        n_cols = min(3, n_params)
-        n_rows = (n_params + n_cols - 1) // n_cols
-        
-        fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
-        if n_params == 1:
-            axes = [axes]
-        elif n_rows == 1:
-            axes = axes.reshape(1, -1)
-        
-        for i, (param_name, results) in enumerate(self.results.items()):
-            row = i // n_cols
-            col = i % n_cols
-            ax = axes[row, col] if n_rows > 1 else axes[col]
-            
-            # Create box plot
-            param_values = results[param_name].values
-            accuracies = results['best_val_acc'].values
-            
-            # Group by parameter value
-            unique_values = np.unique(param_values)
-            data_by_value = [accuracies[param_values == val] for val in unique_values]
-            
-            ax.boxplot(data_by_value, labels=[str(v) for v in unique_values])
-            ax.set_title(f'{param_name} Distribution')
-            ax.set_xlabel(f'{param_name}')
-            ax.set_ylabel('Validation Accuracy')
-            ax.grid(True, alpha=0.3)
-        
-        # Hide empty subplots
-        for i in range(n_params, n_rows * n_cols):
-            row = i // n_cols
-            col = i % n_cols
-            if n_rows > 1:
-                axes[row, col].set_visible(False)
-            else:
-                axes[col].set_visible(False)
-        
-        plt.tight_layout()
-        plt.savefig(os.path.join(plots_dir, 'statistical_significance.png'), dpi=300, bbox_inches='tight')
-        plt.close()
-    
     def _generate_summary_report(self, output_dir: str):
         """Generate summary report of OFAT analysis."""
         report_file = os.path.join(output_dir, "ofat_summary_report.txt")
@@ -322,15 +410,37 @@ class OFATAnalyzer:
             f.write("-" * 40 + "\n")
             
             for param_name, results in self.results.items():
-                accuracies = results['best_val_acc'].values
+                accuracies = results['test_acc'].values
                 param_values = results[param_name].values
                 
                 f.write(f"\n{param_name}:\n")
                 f.write(f"  Range: {np.min(accuracies):.4f} - {np.max(accuracies):.4f}\n")
                 f.write(f"  Impact: {np.max(accuracies) - np.min(accuracies):.4f}\n")
                 f.write(f"  Std Dev: {np.std(accuracies):.4f}\n")
-                f.write(f"  Best Value: {param_values[np.argmax(accuracies)]} (acc: {np.max(accuracies):.4f})\n")
-                f.write(f"  Worst Value: {param_values[np.argmin(accuracies)]} (acc: {np.min(accuracies):.4f})\n")
+                f.write(f"  Best Value: {param_values[np.argmax(accuracies)]} (test_acc: {np.max(accuracies):.4f})\n")
+                f.write(f"  Worst Value: {param_values[np.argmin(accuracies)]} (test_acc: {np.min(accuracies):.4f})\n")
+                
+                # Add overfitting analysis if data is available
+                if 'final_train_acc' in results.columns and 'final_val_acc' in results.columns:
+                    train_accs = results['final_train_acc'].values
+                    val_accs = results['final_val_acc'].values
+                    overfitting_gaps = train_accs - val_accs
+                    
+                    f.write(f"  Overfitting Analysis:\n")
+                    f.write(f"    Mean Gap (Train-Val): {np.mean(overfitting_gaps):.4f}\n")
+                    f.write(f"    Max Gap: {np.max(overfitting_gaps):.4f}\n")
+                    f.write(f"    Min Gap: {np.min(overfitting_gaps):.4f}\n")
+                    f.write(f"    Std Gap: {np.std(overfitting_gaps):.4f}\n")
+                    
+                    # Count overfitting severity
+                    high_overfitting = np.sum(overfitting_gaps > 0.1)
+                    medium_overfitting = np.sum((overfitting_gaps > 0.05) & (overfitting_gaps <= 0.1))
+                    low_overfitting = np.sum(overfitting_gaps <= 0.05)
+                    
+                    f.write(f"    Overfitting Severity:\n")
+                    f.write(f"      High (>10%): {high_overfitting}/{len(overfitting_gaps)}\n")
+                    f.write(f"      Medium (5-10%): {medium_overfitting}/{len(overfitting_gaps)}\n")
+                    f.write(f"      Low (<5%): {low_overfitting}/{len(overfitting_gaps)}\n")
             
             # Rank parameters by impact
             f.write("\nParameter Ranking by Impact:\n")
@@ -338,14 +448,177 @@ class OFATAnalyzer:
             
             param_impacts = {}
             for param_name, results in self.results.items():
-                accuracies = results['best_val_acc'].values
+                accuracies = results['test_acc'].values
                 param_impacts[param_name] = np.max(accuracies) - np.min(accuracies)
             
             sorted_params = sorted(param_impacts.items(), key=lambda x: x[1], reverse=True)
             for i, (param_name, impact) in enumerate(sorted_params, 1):
                 f.write(f"{i:2d}. {param_name}: {impact:.4f}\n")
+            
+            # Rank parameters by overfitting tendency
+            f.write("\nParameter Ranking by Overfitting Tendency:\n")
+            f.write("-" * 40 + "\n")
+            
+            param_overfitting = {}
+            for param_name, results in self.results.items():
+                if 'final_train_acc' in results.columns and 'final_val_acc' in results.columns:
+                    train_accs = results['final_train_acc'].values
+                    val_accs = results['final_val_acc'].values
+                    overfitting_gaps = train_accs - val_accs
+                    param_overfitting[param_name] = np.mean(overfitting_gaps)
+            
+            if param_overfitting:
+                sorted_overfitting = sorted(param_overfitting.items(), key=lambda x: x[1], reverse=True)
+                for i, (param_name, avg_gap) in enumerate(sorted_overfitting, 1):
+                    f.write(f"{i:2d}. {param_name}: {avg_gap:.4f} avg gap\n")
+            else:
+                f.write("No overfitting data available\n")
         
         print(f"📄 Generated summary report: {report_file}")
+    
+    def _generate_optimal_config_suggestion(self, output_dir: str):
+        """Generate optimal hyperparameter configuration suggestion based on OFAT results."""
+        suggestion_file = os.path.join(output_dir, "optimal_config_suggestion.json")
+        
+        if not self.results:
+            print("⚠️  No OFAT results available for optimal configuration suggestion")
+            return
+        
+        # Analyze each parameter to find optimal values
+        optimal_config = {}
+        confidence_scores = {}
+        analysis_details = {}
+        
+        for param_name, results in self.results.items():
+            # Get parameter values and test accuracies
+            if param_name not in results.columns:
+                print(f"⚠️  Parameter {param_name} not found in results, skipping...")
+                continue
+                
+            param_values = results[param_name].values
+            test_accs = results['test_acc'].values
+            
+            # Find the parameter value with highest test accuracy
+            best_idx = np.argmax(test_accs)
+            optimal_value = param_values[best_idx]
+            best_accuracy = test_accs[best_idx]
+            
+            # Calculate confidence score based on performance gap and stability
+            accuracy_range = np.max(test_accs) - np.min(test_accs)
+            accuracy_std = np.std(test_accs)
+            
+            # Confidence based on how much better the best value is
+            if accuracy_range > 0:
+                confidence = min(1.0, (best_accuracy - np.mean(test_accs)) / accuracy_range)
+            else:
+                confidence = 0.5  # Neutral confidence if no variation
+            
+            # Check for overfitting if data is available
+            overfitting_penalty = 0
+            if 'final_train_acc' in results.columns and 'final_val_acc' in results.columns:
+                train_accs = results['final_train_acc'].values
+                val_accs = results['final_val_acc'].values
+                overfitting_gaps = train_accs - val_accs
+                
+                # Penalize high overfitting
+                best_overfitting_gap = overfitting_gaps[best_idx]
+                if best_overfitting_gap > 0.1:  # High overfitting
+                    overfitting_penalty = 0.2
+                elif best_overfitting_gap > 0.05:  # Medium overfitting
+                    overfitting_penalty = 0.1
+                
+                confidence = max(0.1, confidence - overfitting_penalty)
+            
+            # Store results (convert numpy types to Python native types)
+            optimal_config[param_name] = int(optimal_value) if isinstance(optimal_value, np.integer) else float(optimal_value)
+            confidence_scores[param_name] = float(confidence)
+            
+            analysis_details[param_name] = {
+                "optimal_value": int(optimal_value) if isinstance(optimal_value, np.integer) else float(optimal_value),
+                "test_accuracy": float(best_accuracy),
+                "accuracy_range": float(accuracy_range),
+                "accuracy_std": float(accuracy_std),
+                "confidence_score": float(confidence),
+                "overfitting_gap": float(overfitting_gaps[best_idx]) if 'final_train_acc' in results.columns else None,
+                "all_values": [int(v) if isinstance(v, np.integer) else float(v) for v in param_values.tolist()],
+                "all_accuracies": test_accs.tolist()
+            }
+        
+        # Calculate overall confidence
+        overall_confidence = np.mean(list(confidence_scores.values()))
+        
+        # Generate recommendation
+        recommendation = {
+            "model_type": "Unknown",  # Will be filled by caller
+            "optimal_configuration": optimal_config,
+            "confidence_scores": confidence_scores,
+            "overall_confidence": float(overall_confidence),
+            "analysis_details": analysis_details,
+            "recommendation_notes": self._generate_recommendation_notes(analysis_details, overall_confidence),
+            "usage_instructions": {
+                "description": "This configuration was derived from OFAT analysis",
+                "confidence": f"{overall_confidence:.1%}",
+                "note": "Test this configuration and consider fine-tuning based on results"
+            }
+        }
+        
+        # Save to file
+        try:
+            with open(suggestion_file, 'w') as f:
+                json.dump(recommendation, f, indent=2)
+        except Exception as e:
+            print(f"❌ Error saving optimal config suggestion: {e}")
+            return
+        
+        # Print summary
+        print(f"🎯 Optimal Configuration Suggestion:")
+        print(f"   Overall Confidence: {overall_confidence:.1%}")
+        print(f"   Configuration: {optimal_config}")
+        print(f"📄 Saved to: {suggestion_file}")
+    
+    def _generate_recommendation_notes(self, analysis_details: dict, overall_confidence: float) -> list:
+        """Generate human-readable recommendation notes."""
+        notes = []
+        
+        # Overall confidence note
+        if overall_confidence > 0.8:
+            notes.append("High confidence: OFAT results show clear parameter preferences")
+        elif overall_confidence > 0.6:
+            notes.append("Medium confidence: Some parameters show clear preferences, others are less certain")
+        else:
+            notes.append("Low confidence: Parameter effects are subtle, consider more extensive search")
+        
+        # Parameter-specific notes
+        high_impact_params = []
+        low_impact_params = []
+        overfitting_params = []
+        
+        for param_name, details in analysis_details.items():
+            if details["accuracy_range"] > 0.05:  # High impact
+                high_impact_params.append(param_name)
+            elif details["accuracy_range"] < 0.01:  # Low impact
+                low_impact_params.append(param_name)
+            
+            if details["overfitting_gap"] and details["overfitting_gap"] > 0.1:
+                overfitting_params.append(param_name)
+        
+        if high_impact_params:
+            notes.append(f"High-impact parameters: {', '.join(high_impact_params)} - these significantly affect performance")
+        
+        if low_impact_params:
+            notes.append(f"Low-impact parameters: {', '.join(low_impact_params)} - these have minimal effect on performance")
+        
+        if overfitting_params:
+            notes.append(f"Overfitting-prone parameters: {', '.join(overfitting_params)} - monitor train/val gap when using these values")
+        
+        # General recommendations
+        if overall_confidence < 0.7:
+            notes.append("Consider running grid search on high-impact parameters for better optimization")
+        
+        notes.append("Test this configuration and compare with baseline performance")
+        notes.append("Consider ensemble methods if individual parameter effects are unclear")
+        
+        return notes
 
 
 def setup_parser():
@@ -353,26 +626,12 @@ def setup_parser():
     parser = argparse.ArgumentParser(
         description='Run OFAT (One-Factor-at-a-Time) parameter sensitivity analysis',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-    # Run OFAT analysis for CNN model (uses ofat_configs/cnn_ofat_config.json)
-    python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis
-    
-    # Run OFAT for specific parameters only
-    python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis --params conv_layers kernel_size dropout
-    
-    # Run OFAT with custom config file
-    python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis --config my_custom_ofat_config.json
-    
-    # Run OFAT for FC model
-    python run_ofat_analysis.py --model FC --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis
-        """
     )
     
     parser.add_argument(
         '--model', '-m',
         required=True,
-        choices=['CNN', 'FC', 'LSTM', 'GRU'],
+        choices=['CNN', 'FC', 'LSTM', 'GRU', 'Transformer', 'xLSTM'],
         help='Model type to analyze'
     )
     
@@ -403,6 +662,26 @@ Examples:
         '--verbose', '-v',
         action='store_true',
         help='Enable verbose logging'
+    )
+    
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=16,
+        help='Batch size for training (default: 16, smaller = less memory)'
+    )
+    
+    parser.add_argument(
+        '--max-samples',
+        type=int,
+        default=10000,
+        help='Maximum number of samples to use (default: 10000 for memory-constrained systems)'
+    )
+    
+    parser.add_argument(
+        '--memory-efficient',
+        action='store_true',
+        help='Use memory-efficient data loading (loads data in chunks)'
     )
     
     return parser

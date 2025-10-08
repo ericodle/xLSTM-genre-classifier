@@ -70,7 +70,7 @@ class ModelConfig:
     lr_scheduler: bool = DEFAULT_LR_SCHEDULER
     
     # CNN-specific parameters
-    num_classes: int = 10
+    num_classes: int = 10  # Default for GTZAN, will be auto-detected from data
     conv_layers: int = 3
     base_filters: int = 16
     kernel_size: int = 3
@@ -93,7 +93,7 @@ class TrainingConfig:
     early_stopping: bool = DEFAULT_EARLY_STOPPING
     patience: int = DEFAULT_PATIENCE
     improvement_threshold: float = 0.001
-    improvement_window: int = 50
+    improvement_window: int = DEFAULT_PATIENCE
 
 
 @dataclass

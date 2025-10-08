@@ -1,6 +1,6 @@
 {
   "baseline_config": {
-    "num_classes": 16,
+    "num_classes": 10,
     "conv_layers": 2,
     "base_filters": 16,
     "kernel_size": 5,

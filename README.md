@@ -15,39 +15,23 @@ python -m venv env
 source env/bin/activate
 ```
 
-- Install CUDA 13.0
-```bash
-wget https://developer.download.nvidia.com/compute/cuda/13.0.1/local_installers/cuda-repo-debian12-13-0-local_13.0.1-580.82.07-1_amd64.deb
-sudo dpkg -i cuda-repo-debian12-13-0-local_13.0.1-580.82.07-1_amd64.deb
-sudo cp /var/cuda-repo-debian12-13-0-local/cuda-*-keyring.gpg /usr/share/keyrings/
-sudo apt-get update
-sudo apt-get -y install cuda-toolkit-13-0
-```
-
 - Install dependencies
 ```bash
 pip install -r requirements.txt
-pip install -r requirements-test.txt  # For testing
 ```
 
 ## Setup (Windows)
 
-- Use pyenv to install python 3.13.0
+- Use pyenv to install python 3.13.1 (Tcl dependency issue with 3.13.0)
 ```bash
-pyenv shell 3.13.0
+pyenv shell 3.13.1
 python -m venv env
-source env/bin/activate
-```
-
-- Install CUDA 13.0
-```bash
-# Download and install CUDA 13.0 from NVIDIA website
+.\env\Scripts\Activate
 ```
 
 - Install dependencies
 ```bash
 pip install -r requirements.txt
-pip install -r requirements-test.txt  # For testing
 ```
 
 ## Environment Setup
@@ -66,86 +50,175 @@ python run_tests.py
 
 ### GTZAN Dataset
 ```bash
-# High-resolution extraction
-python src/main.py extract --input /home/eo/Documents/gtzan/ --output ./mfccs --name gtzan_32 \
-    --n-mfcc 32
-
-# Typical extraction 
-python src/main.py extract --input /home/eo/Documents/gtzan/ --output ./mfccs --name gtzan_13 \
-    --n-mfcc 13
+python src/main.py extract --input /path/to/dataset/ --output ./mfccs --name gtzan_13 --n-mfcc 13
 ```
 
-### FMA Dataset Extraction
+### FMA Dataset Extraction (takes about 45 minutes)
 ```bash
-# Using environment variable for API key
-export FMA_API_KEY="your_api_key_here"
-python src/main.py extract --input /path/to/fma_dataset --output ./mfccs/ --name fma_mfcc --dataset-type fma
-
-# Using command line argument for API key
-python src/main.py extract --input /path/to/fma_dataset --output ./mfccs/ --name fma_mfcc \
-    --dataset-type fma --fma-api-key "your_key"
-
-# With tracks CSV for faster processing (recommended)
-python src/main.py extract --input /path/to/fma_dataset --output ./mfccs/ --name fma_mfcc \
-    --dataset-type fma --fma-tracks-csv /path/to/tracks.csv
-
-# Custom MFCC count for FMA
-python src/main.py extract --input /path/to/fma_dataset --output ./mfccs/ --name fma_mfcc \
-    --dataset-type fma --fma-api-key "your_key" --n-mfcc 24
+python src/MFCC_FMA_extract.py ./mfccs/fma_medium ./mfccs/tracks.csv ./mfccs fma_medium_features --subset medium --mfcc-count 13
 ```
 
 ## Training Commands
 
 ### Single Model Training
-```bash
-# Train FC Model (automatically evaluates after training)
-python src/main.py train --data ./mfccs/gtzan_13.json --model FC --output ./output/fc_model
 
-# Train CNN Model (automatically evaluates after training)
+#### Option 1: Using Main CLI (Recommended)
+```bash
+# Train CNN Model with automatic evaluation
 python src/main.py train --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model
 
-# Train LSTM Model (automatically evaluates after training)
-python src/main.py train --data ./mfccs/gtzan_13.json --model LSTM --output ./output/lstm_model
+# Train LSTM Model with custom parameters
+python src/main.py train --data ./mfccs/gtzan_13.json --model LSTM --output ./output/lstm_model --epochs 50 --batch-size 32
 
-# Train GRU Model (automatically evaluates after training)
-python src/main.py train --data ./mfccs/gtzan_13.json --model GRU --output ./output/gru_model
-
-# Train xLSTM Model (automatically evaluates after training)
+# Train xLSTM Model
 python src/main.py train --data ./mfccs/gtzan_13.json --model xLSTM --output ./output/xlstm_model
-
-# Train with CSV file (pre-extracted MFCC features)
-python src/main.py train --data /home/eo/Documents/FMA_full.csv --model FC --output ./output/csv_fc_model
 ```
 
-### Hyperparameter Optimization
-
-#### Grid Search
+#### Option 2: Using Training Script
 ```bash
-python run_grid_search.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/CNN_run --params ./src/training/cnn_params.json
+# New unified approach (recommended)
+python src/train_model.py --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model --lr 0.001
+
+# Legacy style (still supported)
+python src/train_model.py ./mfccs/gtzan_13.json CNN ./output/cnn_model 0.001
 ```
 
-#### OFAT (One-Factor-at-a-Time) Analysis
+### Grid Search Hyperparameter Optimization
 ```bash
-# Full OFAT analysis
-python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis
+# Run grid search for CNN model
+python run_grid_search.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/cnn_gridsearch
 
-# Custom OFAT configuration
-python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis --config ofat_configs/example_custom_config.json
+# Run grid search with custom parameters
+python run_grid_search.py --model LSTM --data ./mfccs/gtzan_13.json --output ./output/lstm_gridsearch --params ./src/training/lstm_params.json
 
-# Specific parameters only
-python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/ofat_analysis --params conv_layers kernel_size dropout
+# Run grid search with resume capability
+python run_grid_search.py --model GRU --data ./mfccs/gtzan_13.json --output ./output/gru_gridsearch --resume
 ```
 
-## Model Architecture Warning System
+### OFAT (One-Factor-at-a-Time) Analysis
+```bash
+# Run OFAT analysis for CNN model
+python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/cnn_ofat
 
-The system includes automatic warnings for potentially problematic model configurations:
-- **Large model warnings** (>50M parameters)
-- **Deep network warnings** (8+ conv layers)
-- **Memory usage alerts** for GPU training
-- **Parameter sensitivity analysis** via OFAT
+# Run OFAT analysis for LSTM model
+python run_ofat_analysis.py --model LSTM --data ./mfccs/gtzan_13.json --output ./output/lstm_ofat
 
-## Configuration Files
+# Run OFAT analysis with custom config
+python run_ofat_analysis.py --model GRU --data ./mfccs/gtzan_13.json --output ./output/gru_ofat --config ./ofat_configs/gru_gtzan_config.json
 
-- **Grid Search**: `src/training/cnn_params.json`
-- **OFAT Analysis**: `ofat_configs/cnn_ofat_config.json`
-- **Model Parameters**: `src/training/cnn_architecture_params.json`
+# Run OFAT analysis for all models
+python run_all_ofat.py --data ./mfccs/gtzan_13.json
+
+# Run OFAT analysis for all models with FMA dataset
+python run_all_ofat.py --data ./mfccs/fma_13.json
+
+# Run specific models only
+python run_all_ofat.py --data ./mfccs/gtzan_13.json --models CNN LSTM GRU
+```
+
+### Supported Model Types
+- **FC**: Fully Connected Neural Network
+- **CNN**: Convolutional Neural Network  
+- **LSTM**: Long Short-Term Memory
+- **GRU**: Gated Recurrent Unit
+- **xLSTM**: Extended LSTM
+- **Tr_FC**: Transformer with FC layers
+- **Tr_CNN**: Transformer with CNN layers
+- **Tr_LSTM**: Transformer with LSTM layers
+- **Tr_GRU**: Transformer with GRU layers
+
+## Unified Training System
+
+This project uses a **unified training system** that ensures consistency across all training scenarios:
+
+### ✅ **Consistency**
+- Single model training, grid search, and OFAT analysis all use the **same training logic**
+- Identical results across all training scenarios
+- No more inconsistencies between different training approaches
+
+### ✅ **Maintainability** 
+- Single point of maintenance for training logic
+- ~800 lines of duplicated code eliminated
+- Consistent error handling and logging
+
+### ✅ **Backward Compatibility**
+- All existing scripts continue to work
+- Legacy interfaces maintained
+- Gradual migration path available
+
+## Multi-Dataset Support
+
+### Variable Output Size
+The system now automatically detects the number of classes from your dataset and adapts all models accordingly:
+
+- **GTZAN Dataset**: 10 genres (automatically detected)
+- **FMA Dataset**: 16 genres (automatically detected)
+- **Custom Datasets**: Any number of classes (automatically detected)
+
+### Supported Datasets
+```bash
+# GTZAN (10 classes)
+python src/train_model.py mfccs/gtzan_13.json CNN output_dir 0.001
+
+# FMA (16 classes) 
+python src/train_model.py mfccs/fma_13_with_labels.json CNN output_dir 0.001
+
+# Any custom dataset with N classes
+python src/train_model.py mfccs/your_dataset.json CNN output_dir 0.001
+```
+
+### Model Architecture
+All models now support variable output dimensions:
+- **FC_model**: `FC_model(num_classes=10)` or `FC_model(num_classes=16)`
+- **CNN_model**: `CNN_model(num_classes=10)` or `CNN_model(num_classes=16)`
+- **LSTM_model**: `LSTM_model(..., output_dim=10)` or `LSTM_model(..., output_dim=16)`
+- **GRU_model**: `GRU_model(..., output_dim=10)` or `GRU_model(..., output_dim=16)`
+- **Transformer models**: All support `output_dim` parameter
+
+### Data Format Requirements
+Your dataset JSON file must contain:
+```json
+{
+  "features": [[[mfcc_values...], ...], ...],
+  "labels": [0, 1, 2, ...]
+}
+```
+
+The system will automatically:
+1. Detect the number of unique classes from the labels
+2. Adapt all model architectures to the correct output size
+3. Handle variable sequence lengths by padding to max length
+
+## Quick Reference
+
+### Most Common Commands
+```bash
+# Single model training (recommended)
+python src/main.py train --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model
+
+# Grid search
+python run_grid_search.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/cnn_gridsearch
+
+# OFAT analysis  
+python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/cnn_ofat
+```
+
+### Extract MFCC Features
+```bash
+# GTZAN dataset
+python src/main.py extract --input /path/to/gtzan --output ./mfccs --name gtzan_13 --n-mfcc 13
+
+# FMA dataset
+python src/main.py extract --input /path/to/fma --output ./mfccs --name fma_13 --dataset-type fma --fma-api-key YOUR_KEY
+```
+
+### Run Tests
+```bash
+python run_tests.py
+```
+
+
+#TODO
+
+1. add class labels to fma run confusion matrix
+2. generate data class distribution figure
