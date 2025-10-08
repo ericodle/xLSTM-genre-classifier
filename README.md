@@ -216,3 +216,9 @@ python src/main.py extract --input /path/to/fma --output ./mfccs --name fma_13 -
 ```bash
 python run_tests.py
 ```
+
+
+#TODO
+
+1. add class labels to fma run confusion matrix
+2. generate data class distribution figure
