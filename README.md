@@ -55,7 +55,7 @@ python src/main.py extract --input /path/to/dataset/ --output ./mfccs --name gtz
 
 ### FMA Dataset Extraction
 ```bash
-#coming soon
+python src/MFCC_FMA_extract.py ./mfccs/fma_medium ./mfccs/tracks.csv ./mfccs fma_medium_features --subset medium --mfcc-count 13
 ```
 
 ## Training Commands
