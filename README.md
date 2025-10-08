@@ -53,7 +53,7 @@ python run_tests.py
 python src/main.py extract --input /path/to/dataset/ --output ./mfccs --name gtzan_13 --n-mfcc 13
 ```
 
-### FMA Dataset Extraction
+### FMA Dataset Extraction (takes about 45 minutes)
 ```bash
 python src/MFCC_FMA_extract.py ./mfccs/fma_medium ./mfccs/tracks.csv ./mfccs fma_medium_features --subset medium --mfcc-count 13
 ```
