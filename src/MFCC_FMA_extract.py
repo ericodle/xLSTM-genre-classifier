@@ -17,15 +17,63 @@ This script integrates functionality from:
 """
 
 import sys
-import json
 import os
-import librosa
 import argparse
+
+# Set thread limits BEFORE importing any libraries that might use threading
+def set_early_thread_limits(max_threads: int = 8):
+    """Set thread limits before importing heavy libraries."""
+    print(f"🔧 Setting early thread limits to {max_threads} threads")
+    
+    # Set environment variables for different libraries
+    os.environ['OMP_NUM_THREADS'] = str(max_threads)
+    os.environ['OPENBLAS_NUM_THREADS'] = str(max_threads)
+    os.environ['MKL_NUM_THREADS'] = str(max_threads)
+    os.environ['NUMEXPR_NUM_THREADS'] = str(max_threads)
+    os.environ['VECLIB_MAXIMUM_THREADS'] = str(max_threads)
+    os.environ['NUMBA_NUM_THREADS'] = str(max_threads)
+    os.environ['NUMBA_NUMBA_THREADING_LAYER'] = 'omp'
+    
+    # Try to set CPU affinity to limit cores (Linux only)
+    try:
+        total_cores = os.cpu_count()
+        if total_cores and max_threads < total_cores:
+            # Use only the first max_threads cores
+            cpu_list = list(range(max_threads))
+            os.sched_setaffinity(0, cpu_list)
+            print(f"✅ CPU affinity set to cores: {cpu_list}")
+    except (AttributeError, OSError) as e:
+        print(f"⚠️  Warning: Could not set CPU affinity: {e}")
+    
+    print(f"✅ Early thread limits set successfully")
+
+# Parse command line arguments early to get thread settings
+def parse_thread_args():
+    """Parse only thread-related arguments early."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--max-threads", type=int, default=8, help="Maximum number of threads to use")
+    parser.add_argument("--no-thread-limit", action="store_true", help="Disable thread limiting")
+    
+    # Parse only known args to avoid errors with other arguments
+    args, _ = parser.parse_known_args()
+    return args
+
+# Get thread settings and apply them immediately
+thread_args = parse_thread_args()
+if not thread_args.no_thread_limit:
+    set_early_thread_limits(thread_args.max_threads)
+else:
+    print("🔧 Thread limiting disabled - using all available cores")
+
+# Now import the heavy libraries after thread limits are set
+import json
+import librosa
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Union
 from collections import Counter
+import threading
 
 ########################################################################
 # CONSTANT VARIABLES
@@ -449,7 +497,7 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Process FMA medium subset with default parameters
+  # Process FMA medium subset with default parameters (8 threads)
   python MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv /path/to/output fma_features
 
   # Process FMA large subset with custom parameters
@@ -457,6 +505,12 @@ Examples:
 
   # Process with custom segment length and checkpoint interval
   python MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv /path/to/output fma_features --seg-length 45 --checkpoint-interval 500
+
+  # Process with custom thread count (4 threads for lower CPU usage)
+  python MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv /path/to/output fma_features --max-threads 4
+
+  # Process with no thread limiting (use all available cores)
+  python MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv /path/to/output fma_features --no-thread-limit
         """
     )
     
@@ -472,6 +526,8 @@ Examples:
     parser.add_argument("--hop-length", type=int, default=512, help="Hop length (default: 512)")
     parser.add_argument("--seg-length", type=int, default=30, help="Segment length in seconds (default: 30)")
     parser.add_argument("--checkpoint-interval", type=int, default=1000, help="Save checkpoint every N files (default: 1000)")
+    parser.add_argument("--max-threads", type=int, default=8, help="Maximum number of threads to use (default: 8)")
+    parser.add_argument("--no-thread-limit", action="store_true", help="Disable thread limiting (use all available cores)")
     
     args = parser.parse_args()
     
