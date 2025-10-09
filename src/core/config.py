@@ -82,6 +82,7 @@ class TrainingConfig:
     patience: int = DEFAULTS.early_stopping_patience
     improvement_threshold: float = DEFAULTS.improvement_threshold
     improvement_window: int = DEFAULTS.early_stopping_patience
+    gradient_clip_norm: Optional[float] = None
 
 
 @dataclass

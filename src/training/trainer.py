@@ -69,6 +69,7 @@ class ModelTrainer:
         # Training state
         self.current_epoch = 0
         self.best_val_loss = float("inf")
+        self.best_val_acc = 0.0
         self.training_history: dict[str, list[float]] = {
             "train_loss": [],
             "train_acc": [],
@@ -578,10 +579,12 @@ class ModelTrainer:
             self.training_history["val_loss"].append(val_loss)
             self.training_history["val_acc"].append(val_acc)
 
-            # Save best model
-            if val_loss < self.best_val_loss:
-                self.best_val_loss = val_loss
+            # Save best model based on validation accuracy (for classification)
+            if val_acc > self.best_val_acc:
+                self.best_val_acc = val_acc
+                self.best_val_loss = val_loss  # Also track the loss at best accuracy
                 self._save_checkpoint("best_model.onnx")
+                self.logger.info(f"New best model saved! Val Acc: {val_acc:.4f}, Val Loss: {val_loss:.4f}")
 
             # Early stopping check
             if self._should_stop_early():
@@ -617,6 +620,11 @@ class ModelTrainer:
             output = self.model(data)
             loss = self.criterion(output, target)
             loss.backward()
+            
+            # Apply gradient clipping if specified
+            if hasattr(self.config.training, 'gradient_clip_norm') and self.config.training.gradient_clip_norm:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.training.gradient_clip_norm)
+            
             self.optimizer.step()
 
             total_loss += loss.item()

@@ -2,15 +2,22 @@
 """
 Unified Model Training Script for GenreDiscern
 
-This script replaces the legacy train_model.py with a unified approach that:
+This is the single, unified training script that:
 - Uses the same training framework as OFAT/Grid Search
 - Eliminates code duplication
 - Provides consistent behavior across all training scenarios
 - Maintains backward compatibility
+- Supports both legacy and modern CLI interfaces
 
 Usage:
-    python src/train_model_unified.py mfccs/gtzan_13.json CNN output_dir 0.001
-    python src/train_model_unified.py --data mfccs/gtzan_13.json --model CNN --output output_dir --lr 0.001
+    # Legacy style (backward compatible)
+    python src/train_model.py mfccs/gtzan_13.json CNN output_dir 0.001
+    
+    # Modern style with named arguments
+    python src/train_model.py --data mfccs/gtzan_13.json --model CNN --output output_dir --lr 0.001
+    
+    # With configuration file
+    python src/train_model.py --data mfccs/gtzan_13.json --model CNN --output output_dir --config config.json
 """
 
 import sys
@@ -69,13 +76,13 @@ def setup_cli_parser():
         epilog="""
 Examples:
     # Legacy style (backward compatible)
-    python train_model_unified.py mfccs/gtzan_13.json CNN output_dir 0.001
+    python src/train_model.py mfccs/gtzan_13.json CNN output_dir 0.001
     
-    # New style with named arguments
-    python train_model_unified.py --data mfccs/gtzan_13.json --model CNN --output output_dir --lr 0.001
+    # Modern style with named arguments
+    python src/train_model.py --data mfccs/gtzan_13.json --model CNN --output output_dir --lr 0.001
     
     # With configuration file
-    python train_model_unified.py --data mfccs/gtzan_13.json --model CNN --output output_dir --config config.json
+    python src/train_model.py --data mfccs/gtzan_13.json --model CNN --output output_dir --config config.json
         """
     )
     
@@ -96,6 +103,7 @@ Examples:
     parser.add_argument("--improvement-threshold", type=float, help="Early stopping improvement threshold (default: 0.0001)")
     parser.add_argument("--patience", type=int, help="Early stopping patience (epochs)")
     parser.add_argument("--no-early-stopping", action="store_true", help="Disable early stopping")
+    parser.add_argument("--gradient-clip", type=float, help="Gradient clipping norm (default: 1.0)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     
     return parser
@@ -171,6 +179,8 @@ def main():
             kwargs["patience"] = args.patience
         if args.no_early_stopping:
             kwargs["early_stopping"] = False
+        if args.gradient_clip:
+            kwargs["gradient_clip_norm"] = args.gradient_clip
         
         # Use unified training function
         try:

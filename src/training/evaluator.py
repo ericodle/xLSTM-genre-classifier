@@ -364,11 +364,16 @@ class ModelEvaluator:
         else:
             # Multi-class case
             for class_idx, pr_data in precision_recall["multiclass"].items():
-                class_name = (
-                    class_names[int(class_idx.split("_")[1])]
-                    if class_names
-                    else class_idx
-                )
+                # Extract class index from "class_X" format
+                if "_" in class_idx:
+                    class_num = int(class_idx.split("_")[1])
+                    class_name = (
+                        class_names[str(class_num)]
+                        if class_names and str(class_num) in class_names
+                        else f"Class {class_num}"
+                    )
+                else:
+                    class_name = class_idx
                 plt.plot(
                     pr_data["recall"],
                     pr_data["precision"],
