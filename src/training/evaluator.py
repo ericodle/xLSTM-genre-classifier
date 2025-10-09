@@ -21,8 +21,8 @@ from scipy.stats import ks_2samp
 import logging
 import os
 
-from ..core.utils import setup_logging, get_device
-from ..models import BaseModel
+from core.utils import setup_logging, get_device
+from models import BaseModel
 
 
 class ModelEvaluator:

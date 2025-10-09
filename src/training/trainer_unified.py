@@ -63,19 +63,34 @@ class UnifiedTrainer:
         Returns:
             Dictionary containing training results and history
         """
-        self.logger.info(f"Starting unified training for {model_type} model")
-        self.logger.info(f"Data: {data_path}")
-        self.logger.info(f"Output: {output_dir}")
+        # Logging is handled by the calling script to avoid duplication
         
         # Create trainer instance
         self.trainer = ModelTrainer(self.config, self.logger)
         
-        # Setup training
+        # Update config with any provided parameters
+        for key, value in kwargs.items():
+            if hasattr(self.config.model, key):
+                setattr(self.config.model, key, value)
+                self.logger.debug(f"Updated model.{key} = {value}")
+            elif hasattr(self.config.training, key):
+                setattr(self.config.training, key, value)
+                self.logger.debug(f"Updated training.{key} = {value}")
+            else:
+                self.logger.debug(f"Parameter {key} not found in config, skipping")
+        
+        # Setup training (only pass supported parameters)
+        setup_kwargs = {}
+        if 'max_samples' in kwargs:
+            setup_kwargs['max_samples'] = kwargs['max_samples']
+        if 'memory_efficient' in kwargs:
+            setup_kwargs['memory_efficient'] = kwargs['memory_efficient']
+            
         self.trainer.setup_training(
             data_path=data_path,
             model_type=model_type,
             output_dir=output_dir,
-            **kwargs
+            **setup_kwargs
         )
         
         # Train model
@@ -86,13 +101,10 @@ class UnifiedTrainer:
         
         # Run automatic evaluation to generate confusion matrix and KS curves
         try:
-            from src.main import run_automatic_evaluation
-            evaluation_results = run_automatic_evaluation(
-                trainer=self.trainer,
+            evaluation_results = self._run_automatic_evaluation(
                 data_path=data_path,
                 output_dir=output_dir,
-                model_type=model_type,
-                logger=self.logger
+                model_type=model_type
             )
             self.logger.info("Evaluation results generated successfully")
         except Exception as e:
@@ -114,6 +126,77 @@ class UnifiedTrainer:
         self.logger.info(f"Final test accuracy: {test_acc:.4f}")
         
         return results
+    
+    def _run_automatic_evaluation(
+        self, 
+        data_path: str, 
+        output_dir: str, 
+        model_type: str
+    ) -> Dict[str, Any]:
+        """Run automatic evaluation and generate plots."""
+        try:
+            from training.evaluator import ModelEvaluator
+            import json
+            
+            self.logger.info("Starting automatic evaluation...")
+            
+            # Load the dataset to get class names
+            with open(data_path, 'r') as f:
+                data = json.load(f)
+                class_names = data.get('mapping', [])
+            
+            self.logger.info(f"Found {len(class_names)} classes: {class_names}")
+            
+            # Get the trained model
+            model = self.trainer.model
+            if model is None:
+                raise ValueError("No trained model found")
+            
+            self.logger.info("Model loaded successfully")
+            
+            # Create evaluator
+            evaluator = ModelEvaluator(model, logger=self.logger)
+            
+            # Get test data loader
+            test_loader = self.trainer.test_loader
+            if test_loader is None:
+                raise ValueError("No test data loader found")
+            
+            self.logger.info("Test data loader found")
+            
+            # Run evaluation
+            self.logger.info("Running model evaluation...")
+            evaluation_results = evaluator.evaluate_model(test_loader, class_names)
+            
+            # Create evaluation output directory
+            eval_output_dir = os.path.join(output_dir, "evaluation")
+            os.makedirs(eval_output_dir, exist_ok=True)
+            self.logger.info(f"Created evaluation directory: {eval_output_dir}")
+            
+            # Generate plots
+            self.logger.info("Generating evaluation plots...")
+            evaluator.generate_evaluation_plots(
+                evaluation_results, 
+                eval_output_dir, 
+                class_names
+            )
+            
+            # Save results
+            self.logger.info("Saving evaluation results...")
+            evaluator.save_evaluation_results(
+                evaluation_results, 
+                os.path.join(eval_output_dir, "evaluation_results.json")
+            )
+            
+            self.logger.info("Automatic evaluation completed successfully")
+            return evaluation_results
+            
+        except Exception as e:
+            self.logger.error(f"Error in automatic evaluation: {str(e)}")
+            self.logger.error(f"Exception type: {type(e).__name__}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
+            raise
     
     def train_with_parameters(
         self,
@@ -238,6 +321,7 @@ def train_model_unified(
     model_type: str,
     output_dir: str,
     config_path: Optional[str] = None,
+    logger: Optional[logging.Logger] = None,
     **kwargs
 ) -> Dict[str, Any]:
     """
@@ -250,6 +334,7 @@ def train_model_unified(
         model_type: Type of model to train
         output_dir: Output directory for results
         config_path: Path to configuration file
+        logger: Logger instance (optional)
         **kwargs: Additional training parameters
         
     Returns:
@@ -258,8 +343,8 @@ def train_model_unified(
     # Load configuration
     config = Config(config_path) if config_path else Config()
     
-    # Create unified trainer
-    trainer = UnifiedTrainer(config)
+    # Create unified trainer with provided logger
+    trainer = UnifiedTrainer(config, logger)
     
     # Train model
     results = trainer.train_single_model(

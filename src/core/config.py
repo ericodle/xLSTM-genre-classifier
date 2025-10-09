@@ -12,32 +12,15 @@ from .constants import (
     HOP_LENGTH,
     N_FFT,
     DEFAULT_N_MFCC,
-    DEFAULT_BATCH_SIZE,
-    DEFAULT_LEARNING_RATE,
-    DEFAULT_MAX_EPOCHS,
-    DEFAULT_VALIDATION_SPLIT,
-    DEFAULT_TEST_SIZE,
-    DEFAULT_RANDOM_SEED,
-    DEFAULT_EARLY_STOPPING_PATIENCE,
     MIN_AUDIO_DURATION,
     MAX_AUDIO_DURATION,
-    DEFAULT_HIDDEN_SIZE,
-    DEFAULT_NUM_LAYERS,
-    DEFAULT_DROPOUT,
-    DEFAULT_OPTIMIZER,
-    DEFAULT_LOSS_FUNCTION,
-    DEFAULT_WEIGHT_DECAY,
-    DEFAULT_LR_SCHEDULER,
     DEFAULT_DEVICE,
     DEFAULT_NUM_WORKERS,
     DEFAULT_PIN_MEMORY,
-    DEFAULT_SAVE_BEST_MODEL,
-    DEFAULT_SAVE_CHECKPOINTS,
     DEFAULT_CHECKPOINT_INTERVAL,
     DEFAULT_LOG_INTERVAL,
-    DEFAULT_EARLY_STOPPING,
-    DEFAULT_PATIENCE,
 )
+from .model_defaults import DEFAULTS, get_defaults
 
 
 @dataclass
@@ -56,27 +39,27 @@ class AudioConfig:
 class ModelConfig:
     """Model training configuration."""
 
-    batch_size: int = DEFAULT_BATCH_SIZE
-    hidden_size: int = DEFAULT_HIDDEN_SIZE
-    num_layers: int = DEFAULT_NUM_LAYERS
-    dropout: float = DEFAULT_DROPOUT
-    learning_rate: float = DEFAULT_LEARNING_RATE
-    max_epochs: int = DEFAULT_MAX_EPOCHS
-    early_stopping_patience: int = DEFAULT_EARLY_STOPPING_PATIENCE
-    validation_split: float = DEFAULT_VALIDATION_SPLIT
-    optimizer: str = DEFAULT_OPTIMIZER
-    loss_function: str = DEFAULT_LOSS_FUNCTION
-    weight_decay: float = DEFAULT_WEIGHT_DECAY
-    lr_scheduler: bool = DEFAULT_LR_SCHEDULER
-    class_weight: str = "none"  # "none", "auto", or comma-separated weights
+    batch_size: int = DEFAULTS.batch_size
+    hidden_size: int = DEFAULTS.hidden_size
+    num_layers: int = DEFAULTS.num_layers
+    dropout: float = DEFAULTS.dropout
+    learning_rate: float = DEFAULTS.learning_rate
+    max_epochs: int = DEFAULTS.max_epochs
+    early_stopping_patience: int = DEFAULTS.early_stopping_patience
+    validation_split: float = DEFAULTS.validation_split
+    optimizer: str = DEFAULTS.optimizer
+    loss_function: str = DEFAULTS.loss_function
+    weight_decay: float = DEFAULTS.weight_decay
+    lr_scheduler: bool = DEFAULTS.lr_scheduler
+    class_weight: str = DEFAULTS.class_weight
     
     # CNN-specific parameters
     num_classes: int = 10  # Default for GTZAN, will be auto-detected from data
-    conv_layers: int = 3
-    base_filters: int = 16
-    kernel_size: int = 3
-    pool_size: int = 2
-    fc_hidden: int = 64
+    conv_layers: int = DEFAULTS.conv_layers
+    base_filters: int = DEFAULTS.base_filters
+    kernel_size: int = DEFAULTS.kernel_size
+    pool_size: int = DEFAULTS.pool_size
+    fc_hidden: int = DEFAULTS.fc_hidden
 
 
 @dataclass
@@ -86,15 +69,15 @@ class TrainingConfig:
     device: str = DEFAULT_DEVICE
     num_workers: int = DEFAULT_NUM_WORKERS
     pin_memory: bool = DEFAULT_PIN_MEMORY
-    save_best_model: bool = DEFAULT_SAVE_BEST_MODEL
-    save_checkpoints: bool = DEFAULT_SAVE_CHECKPOINTS
+    save_best_model: bool = DEFAULTS.save_best_model
+    save_checkpoints: bool = DEFAULTS.save_checkpoints
     checkpoint_interval: int = DEFAULT_CHECKPOINT_INTERVAL
     log_interval: int = DEFAULT_LOG_INTERVAL
-    random_seed: int = DEFAULT_RANDOM_SEED
-    early_stopping: bool = DEFAULT_EARLY_STOPPING
-    patience: int = DEFAULT_PATIENCE
+    random_seed: int = DEFAULTS.random_seed
+    early_stopping: bool = DEFAULTS.early_stopping
+    patience: int = DEFAULTS.early_stopping_patience
     improvement_threshold: float = 0.001
-    improvement_window: int = DEFAULT_PATIENCE
+    improvement_window: int = DEFAULTS.early_stopping_patience
 
 
 @dataclass
@@ -165,6 +148,15 @@ class Config:
 
         except Exception as e:
             print(f"Warning: Could not save config to {config_path}: {e}")
+
+    def optimize_for_dataset(self, dataset_type: str, model_type: str = "GRU") -> None:
+        """Optimize configuration for specific dataset type."""
+        optimized_defaults = get_defaults(model_type, dataset_type)
+        
+        # Update model config with optimized defaults
+        for key, value in optimized_defaults.items():
+            if hasattr(self.model, key):
+                setattr(self.model, key, value)
 
     def get_audio_config(self) -> Dict[str, Any]:
         """Get audio configuration as dictionary."""

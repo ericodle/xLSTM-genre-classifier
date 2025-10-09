@@ -23,8 +23,42 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from training.trainer_unified import train_model_unified, main as unified_main
+import json
 from core.config import Config
 from core.utils import setup_logging
+
+
+def detect_dataset_type(data_path: str) -> str:
+    """Detect dataset type from data path or content."""
+    if not data_path:
+        return None
+    
+    # Check filename patterns
+    if "fma" in data_path.lower():
+        return "FMA"
+    elif "gtzan" in data_path.lower():
+        return "GTZAN"
+    
+    # Check file content if it's a JSON file
+    if data_path.endswith('.json'):
+        try:
+            with open(data_path, 'r') as f:
+                data = json.load(f)
+                mapping = data.get('mapping', [])
+                
+                # Check for FMA-specific genres
+                fma_genres = ['Blues', 'Classical', 'Country', 'Easy Listening', 'Electronic', 
+                             'Experimental', 'Folk', 'Hip-Hop', 'Instrumental', 'International', 
+                             'Jazz', 'Old-Time / Historic', 'Pop', 'Rock', 'Soul-RnB', 'Spoken']
+                
+                if any(genre in mapping for genre in fma_genres):
+                    return "FMA"
+                elif len(mapping) == 10:  # GTZAN has 10 genres
+                    return "GTZAN"
+        except Exception:
+            pass
+    
+    return None
 
 
 def setup_cli_parser():
@@ -109,6 +143,17 @@ def main():
         logger.info(f"Model: {model_type}")
         logger.info(f"Output: {output_dir}")
         
+        # Auto-detect dataset type and optimize config
+        dataset_type = detect_dataset_type(data_path)
+        if dataset_type:
+            logger.info(f"Detected dataset type: {dataset_type}")
+            # Create config and optimize it
+            config = Config(args.config) if args.config else Config()
+            config.optimize_for_dataset(dataset_type, model_type)
+            logger.info(f"Optimized config for {dataset_type} dataset")
+        else:
+            config = Config(args.config) if args.config else Config()
+        
         # Prepare additional parameters
         kwargs = {}
         if args.lr:
@@ -120,11 +165,15 @@ def main():
         
         # Use unified training function
         try:
-            results = train_model_unified(
+            # Create unified trainer with optimized config
+            from training.trainer_unified import UnifiedTrainer
+            trainer = UnifiedTrainer(config, logger)
+            
+            # Train model
+            results = trainer.train_single_model(
                 data_path=data_path,
                 model_type=model_type,
                 output_dir=output_dir,
-                config_path=args.config,
                 **kwargs
             )
             

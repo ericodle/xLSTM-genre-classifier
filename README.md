@@ -46,39 +46,39 @@ source env/bin/activate
 python run_tests.py
 ```
 
-## MFCC Configuration
+## Feature Extraction
 
 ### GTZAN Dataset
 ```bash
-python src/main.py extract --input /path/to/dataset/ --output ./mfccs --name gtzan_13 --n-mfcc 13
+python src/MFCC_GTZAN_extract.py /path/to/gtzan/dataset ./mfccs gtzan_13 --n-mfcc 13
 ```
 
 ### FMA Dataset Extraction (takes about 45 minutes)
 ```bash
-python src/MFCC_FMA_extract.py ./mfccs/fma_medium ./mfccs/tracks.csv ./mfccs fma_medium_features --subset medium --mfcc-count 13
+python src/MFCC_FMA_extract.py ./mfccs/fma_medium ./mfccs/tracks.csv ./mfccs fma_13 --subset medium --mfcc-count 13
 ```
 
 ## Training Commands
 
 ### Single Model Training
 
-#### Option 1: Using Main CLI (Recommended)
+#### Using Training Script (Recommended)
 ```bash
-# Train CNN Model with automatic evaluation
-python src/main.py train --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model
+# Train GRU Model with FMA data (auto-optimized for imbalanced dataset)
+python src/train_model.py --data ./mfccs/fma_13.json --model GRU --output ./output/gru_fma_model
 
-# Train LSTM Model with custom parameters
-python src/main.py train --data ./mfccs/gtzan_13.json --model LSTM --output ./output/lstm_model --epochs 50 --batch-size 32
-
-# Train xLSTM Model
-python src/main.py train --data ./mfccs/gtzan_13.json --model xLSTM --output ./output/xlstm_model
-```
-
-#### Option 2: Using Training Script
-```bash
-# New unified approach (recommended)
+# Train CNN Model with GTZAN data
 python src/train_model.py --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model --lr 0.001
 
+# Train LSTM Model with custom parameters
+python src/train_model.py --data ./mfccs/gtzan_13.json --model LSTM --output ./output/lstm_model --epochs 50 --batch-size 32
+
+# Train xLSTM Model
+python src/train_xlstm.py ./mfccs/gtzan_13.json xLSTM ./output/xlstm_model 0.001
+```
+
+#### Legacy Training Scripts (Still Supported)
+```bash
 # Legacy style (still supported)
 python src/train_model.py ./mfccs/gtzan_13.json CNN ./output/cnn_model 0.001
 ```
@@ -194,7 +194,7 @@ The system will automatically:
 ### Most Common Commands
 ```bash
 # Single model training (recommended)
-python src/main.py train --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model
+python src/train_model.py --data ./mfccs/gtzan_13.json --model CNN --output ./output/cnn_model
 
 # Grid search
 python run_grid_search.py --model CNN --data ./mfccs/gtzan_13.json --output ./output/cnn_gridsearch
@@ -206,10 +206,10 @@ python run_ofat_analysis.py --model CNN --data ./mfccs/gtzan_13.json --output ./
 ### Extract MFCC Features
 ```bash
 # GTZAN dataset
-python src/main.py extract --input /path/to/gtzan --output ./mfccs --name gtzan_13 --n-mfcc 13
+python src/MFCC_GTZAN_extract.py /path/to/gtzan ./mfccs gtzan_13 --n-mfcc 13
 
 # FMA dataset
-python src/main.py extract --input /path/to/fma --output ./mfccs --name fma_13 --dataset-type fma --fma-api-key YOUR_KEY
+python src/MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv ./mfccs fma_13 --subset medium --mfcc-count 13
 ```
 
 ### Run Tests

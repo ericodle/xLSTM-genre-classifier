@@ -3,8 +3,13 @@ Core module for GenreDiscern.
 """
 
 from .config import Config
-from .data_loader import DataLoader
 from .utils import setup_logging, get_device
+
+# Optional imports to avoid dependency issues
+try:
+    from .data_loader import DataLoader
+except ImportError:
+    DataLoader = None
 from .constants import (
     MFCC_COEFFICIENTS,
     DEFAULT_NUM_CLASSES,
