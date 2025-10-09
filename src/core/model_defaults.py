@@ -40,13 +40,14 @@ class ModelDefaults:
     
     # === TRAINING PROCESS PARAMETERS ===
     validation_split: float = 0.2
-    early_stopping_patience: int = 10
+    early_stopping_patience: int = 20
     random_seed: int = 42
     num_workers: int = 4
     pin_memory: bool = True
     save_best_model: bool = True
     save_checkpoints: bool = True
     early_stopping: bool = True
+    improvement_threshold: float = 0.0001  # 0.01% improvement threshold
     
     # === DATA SPLIT PARAMETERS ===
     train_size: float = 0.7
@@ -119,12 +120,16 @@ class ModelDefaults:
             # FMA is imbalanced, so use more conservative settings
             return {
                 **self.get_model_specific_defaults("GRU"),
-                "learning_rate": 0.0001,  # Lower LR for stability
-                "batch_size": 16,         # Smaller batch for better gradients
-                "dropout": 0.4,           # Higher dropout for regularization
-                "num_layers": 3,          # More layers for complex patterns
-                "class_weight": "auto",   # Enable class weighting
-                "early_stopping_patience": 5,  # More patience for imbalanced data
+                "learning_rate": 0.00005,  # Even lower LR for stability
+                "batch_size": 8,           # Even smaller batch for memory efficiency
+                "dropout": 0.5,            # Higher dropout for regularization
+                "num_layers": 2,           # Fewer layers to prevent overfitting
+                "class_weight": "auto",    # Enable class weighting
+                "early_stopping_patience": 15,  # More patience for imbalanced data
+                "improvement_threshold": 0.00001,  # Very low threshold
+                # Transformer-specific optimizations
+                "num_heads": 4,           # Fewer heads for smaller dataset
+                "ff_dim": 64,             # Smaller feed-forward dimension
             }
         elif dataset_type.upper() == "GTZAN":
             # GTZAN is balanced, use standard settings

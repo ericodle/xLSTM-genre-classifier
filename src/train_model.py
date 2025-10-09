@@ -93,6 +93,9 @@ Examples:
     parser.add_argument("--config", help="Path to configuration file")
     parser.add_argument("--epochs", type=int, help="Maximum number of epochs")
     parser.add_argument("--batch-size", type=int, help="Batch size")
+    parser.add_argument("--improvement-threshold", type=float, help="Early stopping improvement threshold (default: 0.0001)")
+    parser.add_argument("--patience", type=int, help="Early stopping patience (epochs)")
+    parser.add_argument("--no-early-stopping", action="store_true", help="Disable early stopping")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     
     return parser
@@ -162,6 +165,12 @@ def main():
             kwargs["max_epochs"] = args.epochs
         if args.batch_size:
             kwargs["batch_size"] = args.batch_size
+        if args.improvement_threshold:
+            kwargs["improvement_threshold"] = args.improvement_threshold
+        if args.patience:
+            kwargs["patience"] = args.patience
+        if args.no_early_stopping:
+            kwargs["early_stopping"] = False
         
         # Use unified training function
         try:

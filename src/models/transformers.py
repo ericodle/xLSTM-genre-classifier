@@ -75,8 +75,8 @@ class Transformer(BaseModel):
         # Input projection to hidden_dim
         self.input_projection = nn.Linear(input_dim, hidden_dim)
         
-        # Positional encoding
-        self.pos_encoding = nn.Parameter(torch.randn(1, 2000, hidden_dim))  # Max sequence length
+        # Positional encoding (reduced for memory efficiency)
+        self.pos_encoding = nn.Parameter(torch.randn(1, 500, hidden_dim))  # Reduced max sequence length
         
         # Transformer layers
         self.transformer_layers = nn.ModuleList(
@@ -95,6 +95,12 @@ class Transformer(BaseModel):
         # For MFCC: (batch_size, 1292, 13)
         
         batch_size, seq_len, _ = x.shape
+        
+        # Truncate sequence if too long (memory optimization)
+        max_seq_len = 500
+        if seq_len > max_seq_len:
+            x = x[:, :max_seq_len, :]
+            seq_len = max_seq_len
         
         # Project input to hidden dimension
         x = self.input_projection(x)  # (batch_size, seq_len, hidden_dim)

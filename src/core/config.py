@@ -60,6 +60,10 @@ class ModelConfig:
     kernel_size: int = DEFAULTS.kernel_size
     pool_size: int = DEFAULTS.pool_size
     fc_hidden: int = DEFAULTS.fc_hidden
+    
+    # Transformer-specific parameters
+    num_heads: int = DEFAULTS.num_heads
+    ff_dim: int = DEFAULTS.ff_dim
 
 
 @dataclass
@@ -76,7 +80,7 @@ class TrainingConfig:
     random_seed: int = DEFAULTS.random_seed
     early_stopping: bool = DEFAULTS.early_stopping
     patience: int = DEFAULTS.early_stopping_patience
-    improvement_threshold: float = 0.001
+    improvement_threshold: float = DEFAULTS.improvement_threshold
     improvement_window: int = DEFAULTS.early_stopping_patience
 
 
@@ -157,6 +161,13 @@ class Config:
         for key, value in optimized_defaults.items():
             if hasattr(self.model, key):
                 setattr(self.model, key, value)
+            elif hasattr(self.training, key):
+                setattr(self.training, key, value)
+        
+        # Log the optimized parameters for debugging
+        print(f"Optimized parameters for {dataset_type} dataset:")
+        for key, value in optimized_defaults.items():
+            print(f"  {key}: {value}")
 
     def get_audio_config(self) -> Dict[str, Any]:
         """Get audio configuration as dictionary."""

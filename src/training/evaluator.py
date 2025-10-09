@@ -72,11 +72,11 @@ class ModelEvaluator:
         # Classification report
         if class_names:
             results["classification_report"] = classification_report(
-                y_true, y_pred, target_names=class_names, output_dict=True
+                y_true, y_pred, target_names=class_names, output_dict=True, zero_division=0
             )
         else:
             results["classification_report"] = classification_report(
-                y_true, y_pred, output_dict=True
+                y_true, y_pred, output_dict=True, zero_division=0
             )
 
         # Confusion matrix
@@ -86,15 +86,21 @@ class ModelEvaluator:
         if y_probs.shape[1] == 2:  # Binary classification
             results["roc_auc"] = roc_auc_score(y_true, y_probs[:, 1])
         else:  # Multi-class classification
-            results["roc_auc"] = roc_auc_score(
-                y_true, y_probs, multi_class="ovr", average="macro"
-            )
+            # Ensure probabilities sum to 1.0 for each sample
+            y_probs_normalized = y_probs / y_probs.sum(axis=1, keepdims=True)
+            try:
+                results["roc_auc"] = roc_auc_score(
+                    y_true, y_probs_normalized, multi_class="ovr", average="macro"
+                )
+            except ValueError as e:
+                self.logger.warning(f"ROC AUC calculation failed: {e}")
+                results["roc_auc"] = 0.0
 
         # KS test statistics
         results["ks_stats"] = self._calculate_ks_test(y_true, y_probs)
 
         # Precision-Recall curves
-        results["precision_recall"] = self._calculate_precision_recall(y_true, y_probs)
+        results["precision_recall"] = self._calculate_precision_recall(y_true, y_probs_normalized if y_probs.shape[1] > 2 else y_probs)
 
         self.logger.info(f"Evaluation completed. Accuracy: {accuracy:.4f}")
 
@@ -323,7 +329,8 @@ class ModelEvaluator:
         plt.xlabel("Sorted Class Probabilities")
         plt.ylabel("CDF")
         plt.title("KS Curves")
-        plt.legend(loc="lower right")
+        if len(plt.gca().get_lines()) > 0:  # Only add legend if there are lines to show
+            plt.legend(loc="lower right")
         plt.grid(True)
         plt.tight_layout()
         plt.savefig(output_path, dpi=300, bbox_inches="tight")
@@ -383,20 +390,25 @@ class ModelEvaluator:
         """Save evaluation results to file."""
         import json
 
-        # Convert numpy arrays to lists for JSON serialization
-        serializable_results = {}
-        for key, value in results.items():
-            if isinstance(value, np.ndarray):
-                serializable_results[key] = value.tolist()
-            elif isinstance(value, dict):
-                serializable_results[key] = {}
-                for sub_key, sub_value in value.items():
-                    if isinstance(sub_value, np.ndarray):
-                        serializable_results[key][sub_key] = sub_value.tolist()
-                    else:
-                        serializable_results[key][sub_key] = sub_value
+        def convert_to_serializable(obj):
+            """Recursively convert numpy arrays and other non-serializable objects to JSON-serializable types."""
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            elif isinstance(obj, np.integer):
+                return int(obj)
+            elif isinstance(obj, np.floating):
+                return float(obj)
+            elif isinstance(obj, dict):
+                return {key: convert_to_serializable(value) for key, value in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_to_serializable(item) for item in obj]
+            elif isinstance(obj, tuple):
+                return [convert_to_serializable(item) for item in obj]
             else:
-                serializable_results[key] = value
+                return obj
+
+        # Convert all results to JSON-serializable format
+        serializable_results = convert_to_serializable(results)
 
         with open(output_path, "w") as f:
             json.dump(serializable_results, f, indent=2)
