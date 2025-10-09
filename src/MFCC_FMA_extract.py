@@ -328,7 +328,8 @@ def save_fma_data_incremental(
         # Convert to GTZAN format (features and labels)
         gtzan_format_data = {
             "features": extracted_data["mfcc"],
-            "labels": extracted_data["labels"]
+            "labels": extracted_data["labels"],
+            "mapping": extracted_data["mapping"]  # Include genre names
         }
         
         with open(output_file, 'w') as f:

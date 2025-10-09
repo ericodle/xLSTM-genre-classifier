@@ -223,6 +223,16 @@ class ModelTrainer:
             # New format: {"features": [...], "labels": [...]}
             self.logger.info("Detected new data format with features and labels arrays")
 
+            # Extract genre mapping if available
+            if "mapping" in data:
+                self.genre_names = data["mapping"]
+                self.logger.info(f"Found genre mapping: {self.genre_names}")
+            else:
+                # Fallback: create generic genre names
+                unique_labels = sorted(set(data["labels"]))
+                self.genre_names = [f"Genre_{i}" for i in unique_labels]
+                self.logger.warning(f"No genre mapping found, using generic names: {self.genre_names}")
+
             # Limit samples if specified
             features_list = data["features"]
             labels_list = data["labels"]
@@ -297,6 +307,23 @@ class ModelTrainer:
                 labels_list.append(label)
         
         self.logger.info(f"Loaded {len(features_list)} samples using streaming parser")
+        
+        # Extract genre mapping if available (need to reload the file for this)
+        try:
+            with open(data_path, "r") as f:
+                data = json.load(f)
+                if "mapping" in data:
+                    self.genre_names = data["mapping"]
+                    self.logger.info(f"Found genre mapping: {self.genre_names}")
+                else:
+                    # Fallback: create generic genre names
+                    unique_labels = sorted(set(labels_list))
+                    self.genre_names = [f"Genre_{i}" for i in unique_labels]
+                    self.logger.warning(f"No genre mapping found, using generic names: {self.genre_names}")
+        except Exception as e:
+            self.logger.warning(f"Could not load genre mapping: {e}")
+            unique_labels = sorted(set(labels_list))
+            self.genre_names = [f"Genre_{i}" for i in unique_labels]
         
         # Handle variable-length MFCC features by padding/truncating to consistent shape
         max_frames = max(len(feature) for feature in features_list)

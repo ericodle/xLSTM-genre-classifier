@@ -410,7 +410,11 @@ def run_automatic_evaluation(trainer, data_path, output_dir, model_type, logger)
 
                 # Get unique labels for mapping
                 unique_labels = sorted(np.unique(labels))
-                mapping = [f"class_{i}" for i in range(len(unique_labels))]
+                # Use genre names from trainer if available, otherwise use generic names
+                if hasattr(trainer, 'genre_names') and trainer.genre_names:
+                    mapping = trainer.genre_names
+                else:
+                    mapping = [f"class_{i}" for i in range(len(unique_labels))]
 
             elif "genre" in df.columns:
                 # Convert string genres to integer labels
@@ -509,7 +513,11 @@ def run_automatic_evaluation(trainer, data_path, output_dir, model_type, logger)
                 labels = np.array([label_to_idx[label] for label in labels])
 
                 # Create proper string mapping for class names
-                mapping = [str(label) for label in unique_labels]
+                # Use genre names from trainer if available, otherwise use unique labels
+                if hasattr(trainer, 'genre_names') and trainer.genre_names:
+                    mapping = trainer.genre_names
+                else:
+                    mapping = [str(label) for label in unique_labels]
 
                 logger.info(f"Padded features to shape: {features.shape}")
                 logger.info(f"Label mapping: {label_to_idx}")
