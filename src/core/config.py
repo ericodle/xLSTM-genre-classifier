@@ -68,6 +68,7 @@ class ModelConfig:
     loss_function: str = DEFAULT_LOSS_FUNCTION
     weight_decay: float = DEFAULT_WEIGHT_DECAY
     lr_scheduler: bool = DEFAULT_LR_SCHEDULER
+    class_weight: str = "none"  # "none", "auto", or comma-separated weights
     
     # CNN-specific parameters
     num_classes: int = 10  # Default for GTZAN, will be auto-detected from data

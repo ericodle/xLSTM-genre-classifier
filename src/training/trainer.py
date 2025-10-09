@@ -498,9 +498,38 @@ class ModelTrainer:
             raise ValueError(f"Unknown optimizer: {self.config.model.optimizer}")
 
     def _setup_criterion(self):
-        """Setup loss function."""
+        """Setup loss function with optional class weighting."""
         if self.config.model.loss_function.lower() == "crossentropy":
-            self.criterion = nn.CrossEntropyLoss()
+            # Handle class weighting
+            class_weights = None
+            if self.config.model.class_weight != "none":
+                if self.config.model.class_weight == "auto":
+                    # Calculate class weights automatically
+                    if hasattr(self, 'labels') and self.labels is not None:
+                        import numpy as np
+                        labels_array = (
+                            self.labels.values if hasattr(self.labels, "values") else self.labels
+                        )
+                        labels_array = np.asarray(labels_array)
+                        class_sample_count = np.bincount(labels_array.astype(int))
+                        class_weights = 1.0 / (class_sample_count + 1e-8)
+                        class_weights = class_weights / class_weights.sum() * len(class_sample_count)
+                        class_weights = torch.tensor(class_weights, dtype=torch.float32, device=self.device)
+                        self.logger.info(f"Using automatic class weights: {class_weights.tolist()}")
+                else:
+                    # Parse comma-separated weights
+                    try:
+                        class_weights = torch.tensor(
+                            [float(x) for x in self.config.model.class_weight.split(",")],
+                            dtype=torch.float32,
+                            device=self.device,
+                        )
+                        self.logger.info(f"Using manual class weights: {class_weights.tolist()}")
+                    except ValueError as e:
+                        self.logger.warning(f"Failed to parse class weights: {e}")
+                        class_weights = None
+            
+            self.criterion = nn.CrossEntropyLoss(weight=class_weights)
         else:
             raise ValueError(
                 f"Unknown loss function: {self.config.model.loss_function}"
