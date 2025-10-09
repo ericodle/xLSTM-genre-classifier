@@ -122,9 +122,6 @@ class UnifiedTrainer:
             "evaluation_results": evaluation_results
         }
         
-        self.logger.info(f"Training completed successfully")
-        self.logger.info(f"Final test accuracy: {test_acc:.4f}")
-        
         return results
     
     def _run_automatic_evaluation(

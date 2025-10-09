@@ -13,7 +13,7 @@ class ModelDefaults:
     
     # === CORE TRAINING PARAMETERS ===
     batch_size: int = 32  # Reduced from 64 for better memory efficiency
-    learning_rate: float = 0.001  # Reduced from 0.01 for better stability
+    learning_rate: float = 0.0005  # Reduced from 0.001 for better stability
     max_epochs: int = 500
     weight_decay: float = 1e-4  # Increased from 1e-5 for better regularization
     optimizer: str = "adam"
@@ -119,22 +119,23 @@ class ModelDefaults:
     def get_optimized_defaults_for_dataset(self, dataset_type: str) -> Dict[str, Any]:
         """Get optimized defaults for specific datasets."""
         if dataset_type.upper() == "FMA":
-            # FMA is imbalanced, so use more aggressive settings to break plateaus
+            # FMA is imbalanced, use conservative settings to prevent gradient explosion
             return {
                 **self.get_model_specific_defaults("GRU"),
-                "learning_rate": 0.002,    # Higher LR to break plateaus
-                "batch_size": 32,          # Larger batch for better gradients
-                "dropout": 0.2,            # Lower dropout to allow more learning
-                "num_layers": 4,           # More layers for complex patterns
-                "hidden_size": 256,        # Much larger hidden size for capacity
+                "learning_rate": 0.0001,   # Much lower LR to prevent explosion
+                "batch_size": 16,          # Smaller batch for stability
+                "dropout": 0.3,            # Higher dropout for regularization
+                "num_layers": 2,           # Fewer layers for stability
+                "hidden_size": 64,         # Smaller hidden size for stability
                 "class_weight": "auto",    # Enable class weighting
-                "early_stopping_patience": 50,  # Much more patience
-                "improvement_threshold": 0.005,  # Less sensitive stopping
-                "weight_decay": 1e-4,      # Lower weight decay to allow more learning
+                "early_stopping_patience": 30,  # Reasonable patience
+                "improvement_threshold": 0.001,  # Sensitive stopping
+                "weight_decay": 1e-4,      # Moderate weight decay
                 "lr_scheduler": True,      # Ensure LR scheduling is on
+                "gradient_clip_norm": 0.5, # Stronger gradient clipping
                 # Transformer-specific optimizations
-                "num_heads": 8,           # More heads for better attention
-                "ff_dim": 128,            # Larger FF dimension
+                "num_heads": 4,           # Fewer heads for stability
+                "ff_dim": 64,             # Smaller FF dimension
             }
         elif dataset_type.upper() == "GTZAN":
             # GTZAN is balanced, use standard settings
@@ -170,17 +171,17 @@ class ModelDefaults:
                 "early_stopping_patience": 25,
             }
         elif model_type.upper() in ["LSTM", "GRU"]:
-            # RNN-specific optimizations - more aggressive for plateau breaking
+            # RNN-specific optimizations - conservative for stability
             return {
                 **base_params,
-                "learning_rate": 0.001,   # Higher LR to break plateaus
-                "batch_size": 32,         # Larger batch for better gradients
-                "dropout": 0.15,          # Lower dropout to allow more learning
-                "num_layers": 3,          # More layers for better representation
-                "hidden_size": 128,       # Larger hidden size for capacity
-                "early_stopping_patience": 40,  # More patience
-                "weight_decay": 1e-5,     # Lower weight decay
-                "gradient_clip_norm": 1.0, # Add gradient clipping
+                "learning_rate": 0.0003,  # Lower LR for stability
+                "batch_size": 24,         # Moderate batch size
+                "dropout": 0.25,          # Moderate dropout
+                "num_layers": 2,          # Fewer layers for stability
+                "hidden_size": 64,        # Moderate hidden size
+                "early_stopping_patience": 30,  # Reasonable patience
+                "weight_decay": 1e-4,     # Moderate weight decay
+                "gradient_clip_norm": 0.5, # Stronger gradient clipping
             }
         else:
             return base_params
