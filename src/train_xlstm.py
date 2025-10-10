@@ -60,9 +60,24 @@ def load_data(data_path):
     with open(data_path, "r") as fp:
         data = json.load(fp)
 
-    # convert lists to numpy arrays
-    X = np.array(data["features"])
-    y = np.array(data["labels"])
+    # Convert variable-length feature sequences to a padded array
+    features_list = data["features"]
+    # Determine max frames (time steps) and mfcc dimension
+    max_frames = max(len(f) for f in features_list)
+    mfcc_dim = len(features_list[0][0]) if features_list and features_list[0] else 13
+
+    padded_features = []
+    for f in features_list:
+        if len(f) < max_frames:
+            pad_len = max_frames - len(f)
+            padding = [[0.0] * mfcc_dim for _ in range(pad_len)]
+            f_padded = f + padding
+        else:
+            f_padded = f
+        padded_features.append(f_padded)
+
+    X = np.asarray(padded_features, dtype=np.float32)
+    y = np.asarray(data["labels"])  # labels list -> array
 
     # Pad MFCC features to 16 if needed
     if X.shape[-1] == 13:
