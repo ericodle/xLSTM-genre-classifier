@@ -38,6 +38,9 @@ class FC_model(BaseModel):
 
         if hidden_dims is None:
             hidden_dims = DEFAULT_FC_HIDDEN_DIMS
+        # Normalize hidden_dims to a list if an int (or other scalar) was provided
+        if isinstance(hidden_dims, (int, float)):
+            hidden_dims = [int(hidden_dims)]
 
         self.input_dim = input_dim
         self.hidden_dims = hidden_dims
