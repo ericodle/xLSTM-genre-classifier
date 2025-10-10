@@ -1,21 +1,4 @@
 #!/usr/bin/env python3
-"""
-FMA MFCC Extraction Script for Music Genre Classification
-
-This script extracts MFCC features from the FMA dataset (MP3 files, JSON-based genre mapping).
-The FMA dataset requires:
-1. Track-to-genre mapping from FMA CSV
-2. MP3-to-genre mapping creation
-3. MFCC extraction with incremental saving
-4. Label processing and validation
-
-This script integrates functionality from:
-- extract_fma_track_genres.py (track-to-genre mapping)
-- map_mp3_to_genres.py (MP3-to-genre mapping)
-- add_labels_to_fma.py (label processing)
-- MFCC_extraction_unified.py (MFCC extraction)
-"""
-
 import sys
 import os
 import argparse
