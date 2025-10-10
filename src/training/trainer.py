@@ -7,6 +7,7 @@ import sys
 import json
 import logging
 import numpy as np
+from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 import torch
@@ -88,6 +89,7 @@ class ModelTrainer:
         self.criterion: Optional[torch.nn.Module] = None
         self.scheduler = None
         self.preprocessor = AudioPreprocessor(logger)
+        self.tb_writer: Optional[SummaryWriter] = None
 
         # Training state
         self.current_epoch = 0
@@ -127,6 +129,13 @@ class ModelTrainer:
         # Ensure output directory exists
         ensure_directory(output_dir)
         self.output_dir = Path(output_dir)
+
+        # Initialize TensorBoard writer
+        try:
+            self.tb_writer = SummaryWriter(log_dir=str(self.output_dir))
+            self.tb_writer.add_text("info", "Training started", 0)
+        except Exception:
+            self.tb_writer = None
 
         self.logger.info("Training setup completed")
 
@@ -612,6 +621,18 @@ class ModelTrainer:
             self.training_history["val_loss"].append(val_loss)
             self.training_history["val_acc"].append(val_acc)
 
+            # TensorBoard scalars
+            if self.tb_writer is not None:
+                try:
+                    self.tb_writer.add_scalar("Loss/Train", train_loss, self.current_epoch)
+                    self.tb_writer.add_scalar("Loss/Validation", val_loss, self.current_epoch)
+                    self.tb_writer.add_scalar("Accuracy/Train", train_acc, self.current_epoch)
+                    self.tb_writer.add_scalar("Accuracy/Validation", val_acc, self.current_epoch)
+                    if self.optimizer is not None and len(self.optimizer.param_groups) > 0:
+                        self.tb_writer.add_scalar("LearningRate", self.optimizer.param_groups[0].get("lr", 0.0), self.current_epoch)
+                except Exception:
+                    pass
+
             # Save best model based on validation accuracy (for classification)
             if val_acc > self.best_val_acc:
                 self.best_val_acc = val_acc
@@ -633,6 +654,14 @@ class ModelTrainer:
 
         # Export final model to ONNX
         self._export_to_onnx()
+
+        # Close TensorBoard writer
+        if self.tb_writer is not None:
+            try:
+                self.tb_writer.add_text("info", "Training finished", self.current_epoch)
+                self.tb_writer.close()
+            except Exception:
+                pass
 
         return self.training_history
 
