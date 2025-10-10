@@ -10,6 +10,7 @@ mfccs/
 training_plots/
 evaluation_results/
 gridsearch/
+outputs/
 
 # Python cache files
 __pycache__/
