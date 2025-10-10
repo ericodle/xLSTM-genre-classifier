@@ -54,7 +54,7 @@ python run_tests.py
 
 ### Most Common Commands
 ```bash
-src/train_model.py --data mfccs/gtzan_13.json --model GRU --output outputs/gru-gtzan-run --batch-size 32 --lr 1e-4 --hidden-size 256 --num-layers 2 --dropout 0.2 --gradient-clip 0.5 --improvement-threshold 0.001
+python src/train_model.py --data mfccs/gtzan_13.json --model GRU --output outputs/gru-gtzan-run --batch-size 32 --lr 1e-4 --hidden-size 256 --num-layers 2 --dropout 0.2 --gradient-clip 0.5 --improvement-threshold 0.001
 
 tensorboard --logdir outputs --port 6006
 ```

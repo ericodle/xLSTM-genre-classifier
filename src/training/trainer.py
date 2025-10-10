@@ -7,6 +7,7 @@ import sys
 import json
 import logging
 import numpy as np
+import torch
 from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
@@ -138,6 +139,45 @@ class ModelTrainer:
             self.tb_writer = None
 
         self.logger.info("Training setup completed")
+
+        # Log model graph and a sample input image to TensorBoard (best-effort)
+        try:
+            sample_batch = next(iter(self.train_loader))[0].to(self.device)
+            # Log graph
+            if self.tb_writer is not None:
+                try:
+                    self.tb_writer.add_graph(self.model, sample_batch)
+                except Exception:
+                    pass
+            # Log MFCC heatmap of first sample if 2D/3D input
+            if self.tb_writer is not None and sample_batch.dim() in (2, 3):
+                try:
+                    # Expect (batch, time, feats) or (batch, feats)
+                    sample = sample_batch[0]
+                    if sample.dim() == 2:
+                        mfcc = sample.detach().cpu().numpy().T  # (feats, time)
+                    else:
+                        mfcc = sample.detach().cpu().numpy()[None, :]  # fallback
+                    import matplotlib.pyplot as plt
+                    import io
+                    from PIL import Image
+                    fig, ax = plt.subplots()
+                    cax = ax.imshow(mfcc, aspect="auto", origin="lower")
+                    plt.colorbar(cax)
+                    ax.set_title("Sample MFCC")
+                    buf = io.BytesIO()
+                    plt.savefig(buf, format="png")
+                    buf.seek(0)
+                    image = Image.open(buf)
+                    import torchvision.transforms as transforms
+                    image_tensor = transforms.ToTensor()(image)
+                    self.tb_writer.add_image("Input/MFCC_Sample0", image_tensor, 0)
+                    plt.close(fig)
+                    buf.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
     def _load_data(self, data_path: str, max_samples: int = None, memory_efficient: bool = False):
         """Load and preprocess training data."""
@@ -630,6 +670,23 @@ class ModelTrainer:
                     self.tb_writer.add_scalar("Accuracy/Validation", val_acc, self.current_epoch)
                     if self.optimizer is not None and len(self.optimizer.param_groups) > 0:
                         self.tb_writer.add_scalar("LearningRate", self.optimizer.param_groups[0].get("lr", 0.0), self.current_epoch)
+                    # Weights histograms (per parameter)
+                    for name, param in self.model.named_parameters():
+                        try:
+                            self.tb_writer.add_histogram(f"Weights/{name}", param, self.current_epoch)
+                        except Exception:
+                            pass
+                    # Gradient histograms using collected values (best-effort)
+                    grad_vals = getattr(self, "_last_gradient_values", None)
+                    if isinstance(grad_vals, dict):
+                        for gname, chunks in grad_vals.items():
+                            if not chunks:
+                                continue
+                            try:
+                                flat = torch.cat(chunks)
+                                self.tb_writer.add_histogram(f"Gradients/{gname}", flat, self.current_epoch)
+                            except Exception:
+                                pass
                 except Exception:
                     pass
 
@@ -658,6 +715,25 @@ class ModelTrainer:
         # Close TensorBoard writer
         if self.tb_writer is not None:
             try:
+                # Log hparams summary
+                try:
+                    hparams = {
+                        "batch_size": self.config.model.batch_size,
+                        "learning_rate": self.config.model.learning_rate,
+                        "hidden_size": getattr(self.config.model, "hidden_size", None),
+                        "num_layers": getattr(self.config.model, "num_layers", None),
+                        "dropout": self.config.model.dropout,
+                        "optimizer": self.config.model.optimizer,
+                    }
+                    metrics = {
+                        "final_test_accuracy": float(self.best_val_acc if hasattr(self, "best_val_acc") else 0.0),
+                        "final_test_loss": float(self.best_val_loss if hasattr(self, "best_val_loss") else 0.0),
+                    }
+                    # Filter None keys
+                    hparams = {k: v for k, v in hparams.items() if v is not None}
+                    self.tb_writer.add_hparams(hparams, metrics)
+                except Exception:
+                    pass
                 self.tb_writer.add_text("info", "Training finished", self.current_epoch)
                 self.tb_writer.close()
             except Exception:
