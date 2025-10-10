@@ -21,6 +21,11 @@ from core.constants import (
     DEFAULT_CNN_DROPOUT,
     DEFAULT_TRANSFORMER_HEADS,
     DEFAULT_TRANSFORMER_FF_DIM,
+    DEFAULT_CNN_CONV_LAYERS,
+    DEFAULT_CNN_BASE_FILTERS,
+    DEFAULT_CNN_KERNEL_SIZE,
+    DEFAULT_CNN_POOL_SIZE,
+    DEFAULT_CNN_FC_HIDDEN,
 )
 
 
@@ -145,11 +150,11 @@ class CNN_model(BaseModel):
         input_channels: int = 1,
         num_classes: int = DEFAULT_NUM_CLASSES,
         dropout: float = DEFAULT_CNN_DROPOUT,
-        conv_layers: int = 3,
-        base_filters: int = 16,
-        kernel_size: int = 3,
-        pool_size: int = 2,
-        fc_hidden: int = 64,
+        conv_layers: int = DEFAULT_CNN_CONV_LAYERS,
+        base_filters: int = DEFAULT_CNN_BASE_FILTERS,
+        kernel_size: int = DEFAULT_CNN_KERNEL_SIZE,
+        pool_size: int = DEFAULT_CNN_POOL_SIZE,
+        fc_hidden: int = DEFAULT_CNN_FC_HIDDEN,
     ):
         super().__init__(model_name="CNN_model")
 
@@ -202,9 +207,10 @@ class CNN_model(BaseModel):
             ))
             layers.append(nn.ReLU())
             
-            # Use adaptive pooling to handle variable input sizes
-            if i < self.conv_layers - 1:  # Don't pool on the last layer
-                layers.append(nn.AdaptiveAvgPool2d(1))  # Use 1x1 output for ONNX compatibility
+            # Downsample less aggressively: pool every second block (except last)
+            # This preserves spatial resolution longer compared to global pooling
+            if i % 2 == 1 and i < self.conv_layers - 1:
+                layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
             
             # Batch normalization
             layers.append(nn.BatchNorm2d(out_channels))
