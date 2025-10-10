@@ -6,15 +6,13 @@ import os
 import sys
 import logging
 import numpy as np
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from core.utils import normalize_audio, pad_or_truncate
 from core.constants import (
     DEFAULT_TRAIN_SIZE,
     DEFAULT_VAL_SIZE,

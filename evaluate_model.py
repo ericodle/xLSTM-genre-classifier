@@ -337,8 +337,8 @@ def main():
     dataset = SimpleDataset(features, labels)
     test_loader = DataLoader(dataset, batch_size=32, shuffle=False)
     
-    # GTZAN genre names (standard order)
-    class_names = ['blues', 'classical', 'country', 'disco', 'hiphop', 'jazz', 'metal', 'pop', 'reggae', 'rock']
+    # Use mapping from data if available (supports GTZAN, FMA, etc.)
+    class_names = mapping if mapping else [f"Class_{i}" for i in range(int(labels.max()) + 1)]
     
     print("Evaluating model...")
     results = evaluate_model(model, test_loader, class_names)

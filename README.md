@@ -33,11 +33,10 @@ source env/bin/activate
 ```
 
 ### Extract MFCC Features
+Use the unified extractor API:
 ```bash
-# GTZAN dataset
-python src/MFCC_GTZAN_extract.py /path/to/gtzan ./mfccs gtzan_13 --n-mfcc 13
-# FMA dataset
-python src/MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv ./mfccs fma_13 --subset medium --mfcc-count 13
+python -c "from src.core.config import AudioConfig; from src.data.mfcc_extractor import MFCCExtractor; import json; \
+cfg=AudioConfig(); ex=MFCCExtractor(cfg); print(ex.extract_mfcc_from_directory('/path/to/music','./mfccs','dataset_13'))"
 ```
 
 
