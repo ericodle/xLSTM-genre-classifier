@@ -13,10 +13,10 @@ class ModelDefaults:
     
     # === CORE TRAINING PARAMETERS ===
     batch_size: int = 32  # Reduced from 64 for better memory efficiency
-    learning_rate: float = 0.0005  # Reduced from 0.001 for better stability
+    learning_rate: float = 0.00001  # Reduced from 0.001 for better stability
     max_epochs: int = 500
     weight_decay: float = 1e-4  # Increased from 1e-5 for better regularization
-    optimizer: str = "adam"
+    optimizer: str = "adamw"  # AdamW often better for CNNs
     loss_function: str = "crossentropy"
     lr_scheduler: bool = True
     class_weight: str = "auto"  # Enable by default for imbalanced datasets
@@ -47,7 +47,7 @@ class ModelDefaults:
     save_best_model: bool = True
     save_checkpoints: bool = True
     early_stopping: bool = True
-    improvement_threshold: float = 0.001  # Increased from 0.0001 for less aggressive stopping
+    improvement_threshold: float = 0.0005  # More lenient for CNN models
     gradient_clip_norm: float = 1.0  # Enable gradient clipping by default
     
     # === DATA SPLIT PARAMETERS ===
@@ -116,27 +116,24 @@ class ModelDefaults:
                 "dropout": self.dropout,
             }
     
-    def get_optimized_defaults_for_dataset(self, dataset_type: str) -> Dict[str, Any]:
+    def get_optimized_defaults_for_dataset(self, dataset_type: str, model_type: str = "GRU") -> Dict[str, Any]:
         """Get optimized defaults for specific datasets."""
         if dataset_type.upper() == "FMA":
             # FMA is imbalanced, use conservative settings to prevent gradient explosion
-            return {
-                **self.get_model_specific_defaults("GRU"),
+            base_fma_params = {
                 "learning_rate": 0.0001,   # Much lower LR to prevent explosion
                 "batch_size": 16,          # Smaller batch for stability
-                "dropout": 0.3,            # Higher dropout for regularization
-                "num_layers": 2,           # Fewer layers for stability
-                "hidden_size": 64,         # Smaller hidden size for stability
                 "class_weight": "auto",    # Enable class weighting
                 "early_stopping_patience": 30,  # Reasonable patience
-                "improvement_threshold": 0.001,  # Sensitive stopping
+                "improvement_threshold": 0.0005,  # More lenient stopping
                 "weight_decay": 1e-4,      # Moderate weight decay
                 "lr_scheduler": True,      # Ensure LR scheduling is on
                 "gradient_clip_norm": 0.5, # Stronger gradient clipping
-                # Transformer-specific optimizations
-                "num_heads": 4,           # Fewer heads for stability
-                "ff_dim": 64,             # Smaller FF dimension
             }
+            
+            # Add model-specific FMA optimizations
+            model_params = self.get_model_specific_defaults(model_type)
+            return {**model_params, **base_fma_params}
         elif dataset_type.upper() == "GTZAN":
             # GTZAN is balanced, use standard settings
             return self.get_model_specific_defaults("GRU")
@@ -160,15 +157,18 @@ class ModelDefaults:
                 "early_stopping_patience": 35,  # More patience for transformers
             }
         elif model_type.upper() == "CNN":
-            # CNN-specific optimizations
+            # CNN-specific optimizations - more aggressive for FMA
             return {
                 **base_params,
-                "learning_rate": 0.001,   # Standard LR for CNNs
-                "batch_size": 32,         # Good batch size for CNNs
-                "dropout": 0.2,           # Moderate dropout
-                "conv_layers": 4,         # More conv layers
-                "base_filters": 32,       # More filters
-                "early_stopping_patience": 25,
+                "learning_rate": 0.0005,  # Lower LR for stability
+                "batch_size": 16,         # Smaller batch for better gradients
+                "dropout": 0.4,           # Higher dropout for regularization
+                "conv_layers": 6,         # More conv layers for complex patterns
+                "base_filters": 64,       # More filters for better features
+                "kernel_size": 5,         # Larger kernels for MFCC patterns
+                "fc_hidden": 256,         # Larger FC layer
+                "early_stopping_patience": 40,  # More patience
+                "weight_decay": 1e-4,     # Stronger regularization
             }
         elif model_type.upper() in ["LSTM", "GRU"]:
             # RNN-specific optimizations - conservative for stability
@@ -203,12 +203,8 @@ def get_defaults(model_type: str = "GRU", dataset_type: Optional[str] = None) ->
         Dictionary of parameter defaults
     """
     if dataset_type:
-        # Get dataset-specific optimizations
-        dataset_params = DEFAULTS.get_optimized_defaults_for_dataset(dataset_type)
-        # Override with model-specific optimizations
-        model_params = DEFAULTS.get_optimized_defaults_for_model(model_type)
-        # Merge with dataset params taking precedence
-        return {**model_params, **dataset_params}
+        # Get dataset-specific optimizations (includes model-specific params)
+        return DEFAULTS.get_optimized_defaults_for_dataset(dataset_type, model_type)
     else:
         return DEFAULTS.get_optimized_defaults_for_model(model_type)
 

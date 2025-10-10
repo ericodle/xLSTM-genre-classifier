@@ -41,6 +41,28 @@ from models import get_model
 from data.preprocessing import AudioPreprocessor
 
 
+class FocalLoss(nn.Module):
+    """Focal Loss for addressing class imbalance."""
+    
+    def __init__(self, alpha=1.0, gamma=2.0, reduction='mean'):
+        super().__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+        
+    def forward(self, inputs, targets):
+        ce_loss = F.cross_entropy(inputs, targets, reduction='none')
+        pt = torch.exp(-ce_loss)
+        focal_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
+        
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss
+
+
 class ModelTrainer:
     """Manage the entire model training lifecycle."""
 
@@ -488,6 +510,12 @@ class ModelTrainer:
                 lr=self.config.model.learning_rate,
                 weight_decay=self.config.model.weight_decay,
             )
+        elif self.config.model.optimizer.lower() == "adamw":
+            self.optimizer = optim.AdamW(
+                self.model.parameters(),
+                lr=self.config.model.learning_rate,
+                weight_decay=self.config.model.weight_decay,
+            )
         elif self.config.model.optimizer.lower() == "sgd":
             self.optimizer = optim.SGD(
                 self.model.parameters(),
@@ -531,6 +559,10 @@ class ModelTrainer:
                         class_weights = None
             
             self.criterion = nn.CrossEntropyLoss(weight=class_weights)
+        elif self.config.model.loss_function.lower() == "focal":
+            # Use Focal Loss for imbalanced datasets
+            self.criterion = FocalLoss(alpha=1.0, gamma=2.0)
+            self.logger.info("Using Focal Loss for imbalanced dataset")
         else:
             raise ValueError(
                 f"Unknown loss function: {self.config.model.loss_function}"
