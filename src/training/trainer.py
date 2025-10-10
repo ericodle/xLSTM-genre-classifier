@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -288,7 +289,7 @@ class ModelTrainer:
                 padded_features.append(padded_feature)
 
             self.features = np.array(padded_features, dtype=np.float32)
-            self.labels = np.array(labels_list, dtype=np.int64)
+            self.labels = np.array(labels_list)  # Keep as strings, will be encoded in preprocessing
 
             self.logger.info(f"Padded features to shape: {self.features.shape}")
             
@@ -371,7 +372,7 @@ class ModelTrainer:
             padded_features.append(padded_feature)
 
         self.features = np.array(padded_features, dtype=np.float32)
-        self.labels = np.array(labels_list, dtype=np.int64)
+        self.labels = np.array(labels_list)  # Keep as strings, will be encoded in preprocessing
 
         self.logger.info(f"Padded features to shape: {self.features.shape}")
         

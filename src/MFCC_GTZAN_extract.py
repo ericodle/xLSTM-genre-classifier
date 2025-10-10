@@ -110,37 +110,52 @@ def process_gtzan_dataset(
     """
     print("🎵 Processing GTZAN dataset (WAV files, folder-based genres)...")
     
+    # First pass: collect all genre folders and create mapping
+    genre_folders = []
+    for root, dirs, files in os.walk(music_path):
+        if root != music_path and any(f.endswith('.wav') for f in files):
+            genre_label = os.path.basename(root)
+            genre_folders.append((root, genre_label))
+    
+    # Sort genres for consistent ordering
+    genre_folders.sort(key=lambda x: x[1])
+    
+    # Create genre-to-index mapping
+    genre_to_index = {genre: idx for idx, (_, genre) in enumerate(genre_folders)}
+    unique_genres = [genre for _, genre in genre_folders]
+    
+    print(f"   Found {len(unique_genres)} genres: {unique_genres}")
+    
     # Initialize the data dictionary
     extracted_data = {
         "dataset_type": "gtzan",
-        "mapping": [],  # List to map numeric labels to genre names
-        "labels": [],   # List to store numeric labels for each audio clip
-        "mfcc": [],     # List to store extracted MFCCs
+        "mapping": unique_genres,  # List to map numeric labels to genre names
+        "labels": [],              # List to store numeric labels for each audio clip
+        "mfcc": [],                # List to store extracted MFCCs
     }
 
     # Process each genre folder
-    for i, (folder_path, folder_name, file_name) in enumerate(os.walk(music_path)):
-        if folder_path != music_path:
-            # Extract genre label from folder path
-            genre_label = folder_path.split("/")[-1]
-            extracted_data["mapping"].append(genre_label)
-            print(f"\nProcessing: {genre_label}")
+    for folder_path, genre_label in genre_folders:
+        genre_index = genre_to_index[genre_label]
+        print(f"\nProcessing: {genre_label} (index: {genre_index})")
 
-            # Iterate over each audio file in the genre folder
-            for song_clip in file_name:
-                if song_clip.endswith('.wav'):
-                    file_path = os.path.join(folder_path, song_clip)
-                    
-                    # Extract MFCC features
-                    mfcc = extract_mfcc_from_audio(
-                        file_path, mfcc_count, n_fft, hop_length, seg_length
-                    )
-                    
-                    if mfcc is not None:
-                        # Append MFCCs and label to the data dictionary
-                        extracted_data["mfcc"].append(mfcc.tolist())
-                        extracted_data["labels"].append(i - 1)
-                        print(f"  {song_clip}")
+        # Get all WAV files in this genre folder
+        wav_files = [f for f in os.listdir(folder_path) if f.endswith('.wav')]
+        
+        # Iterate over each audio file in the genre folder
+        for song_clip in wav_files:
+            file_path = os.path.join(folder_path, song_clip)
+            
+            # Extract MFCC features
+            mfcc = extract_mfcc_from_audio(
+                file_path, mfcc_count, n_fft, hop_length, seg_length
+            )
+            
+            if mfcc is not None:
+                # Append MFCCs and label to the data dictionary
+                extracted_data["mfcc"].append(mfcc.tolist())
+                extracted_data["labels"].append(genre_index)  # Use proper integer index
+                print(f"  {song_clip}")
 
     print(f"\n✅ GTZAN processing complete!")
     print(f"   Genres: {extracted_data['mapping']}")
@@ -150,15 +165,22 @@ def process_gtzan_dataset(
 
 def save_gtzan_data(extracted_data: Dict, output_file: str) -> None:
     """
-    Save GTZAN data to JSON file.
+    Save GTZAN data to JSON file in the same format as FMA (features and labels arrays).
     
     Args:
         extracted_data: Extracted data dictionary
         output_file: Path to output JSON file
     """
     try:
+        # Convert to FMA format (features and labels arrays)
+        gtzan_format_data = {
+            "features": extracted_data["mfcc"],
+            "labels": extracted_data["labels"],
+            "mapping": extracted_data["mapping"]  # Include genre names
+        }
+        
         with open(output_file, "w") as fp:
-            json.dump(extracted_data, fp, indent=4)
+            json.dump(gtzan_format_data, fp, indent=2)
             print(f"\n💾 Successfully wrote data to {output_file}")
     except Exception as e:
         print(f"❌ Error writing data to {output_file}: {e}")
