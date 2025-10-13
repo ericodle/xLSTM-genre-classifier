@@ -45,8 +45,10 @@ cfg=AudioConfig(); ex=MFCCExtractor(cfg); print(ex.extract_mfcc_from_directory('
 ### Most Common Commands
 ```bash
 python src/train_model.py --data mfccs/gtzan_13.json --model GRU --output outputs/gru-gtzan-run
+python src/training/train_svm.py --data mfccs/gtzan_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-gtzan
 
 tensorboard --logdir outputs --port 6006
 
 netron outputs/your_run/model.onnx
+
 ```

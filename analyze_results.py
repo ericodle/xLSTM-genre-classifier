@@ -27,6 +27,11 @@ import seaborn as sns
 # Set a clean theme with larger fonts
 sns.set_theme(style="whitegrid", context="talk")
 
+# Display label mapping for models in plots
+MODEL_LABEL_MAP = {
+    "TRANSFORMER": "TR",
+}
+
 
 def infer_dataset_from_path(p: str) -> str:
     s = p.lower()
@@ -174,7 +179,7 @@ def collect_results(outputs_dir: str) -> pd.DataFrame:
 def _annotate_bars(ax: plt.Axes, fmt: str = "{:.2f}") -> None:
     for p in ax.patches:
         height = p.get_height()
-        if np.isnan(height):
+        if np.isnan(height) or height <= 1e-6:
             continue
         ax.annotate(
             fmt.format(height),
@@ -191,8 +196,15 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     if df.empty:
         return
     plt.figure(figsize=(12, 7))
+    df_plot = df.copy()
+    df_plot["model"] = df_plot["model"].replace(MODEL_LABEL_MAP)
+    # Drop rows with missing metric to avoid zero bars/labels
+    df_plot = df_plot[~df_plot[metric].isna()]
+    if df_plot.empty:
+        plt.close()
+        return
     ax = sns.barplot(
-        data=df,
+        data=df_plot,
         x="model",
         y=metric,
         hue="dataset",
@@ -221,8 +233,13 @@ def plot_model_grid(df: pd.DataFrame, out_dir: Path) -> None:
     if df.empty:
         return
     for metric in ["train_acc", "val_acc", "test_acc"]:
+        df_plot = df.copy()
+        df_plot["model"] = df_plot["model"].replace(MODEL_LABEL_MAP)
+        df_plot = df_plot[~df_plot[metric].isna()]
+        if df_plot.empty:
+            continue
         g = sns.catplot(
-            data=df,
+            data=df_plot,
             x="model",
             y=metric,
             col="dataset",

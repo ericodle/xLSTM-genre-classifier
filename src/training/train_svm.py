@@ -8,10 +8,10 @@ Input JSON formats supported:
 
 Example usage:
   # GTZAN
-  python train_svm.py --data mfccs/gtzan_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-gtzan
+  python src/training/train_svm.py --data mfccs/gtzan_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-gtzan
 
   # FMA
-  python train_svm.py --data mfccs/fma_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-fma
+  python src/training/train_svm.py --data mfccs/fma_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-fma
 """
 
 import argparse
