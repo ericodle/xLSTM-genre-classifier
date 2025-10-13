@@ -52,6 +52,8 @@ class ModelConfig:
     weight_decay: float = DEFAULTS.weight_decay
     lr_scheduler: bool = DEFAULTS.lr_scheduler
     class_weight: str = DEFAULTS.class_weight
+    # Optional initializer (none|xavier|kaiming|orthogonal|rnn). None by default
+    init: Optional[str] = None
     
     # CNN-specific parameters
     num_classes: int = 10  # Default for GTZAN, will be auto-detected from data

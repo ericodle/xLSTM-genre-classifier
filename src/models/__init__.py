@@ -7,6 +7,7 @@ from .base import BaseModel
 from .neural_networks import FC_model, CNN_model, LSTM_model, GRU_model
 from .transformers import Transformer
 from .xlstm import SimpleXLSTM
+from .vgg import VGG16Classifier
 
 __all__ = [
     "BaseModel",
@@ -59,6 +60,7 @@ def get_model(
         "GRU",
         "xLSTM",
         "Transformer",
+        "VGG16",
     ]
     if model_type not in valid_types:
         raise ValueError(
@@ -120,6 +122,9 @@ def get_model(
                 output_dim,
                 dropout,
             )
+        elif model_type == "VGG16":
+            # For VGG16, ignore input_dim; model expects (batch, 1, H, W)
+            return VGG16Classifier(num_classes=output_dim, pretrained=True, dropout=dropout)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
     except Exception as e:

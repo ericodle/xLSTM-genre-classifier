@@ -103,6 +103,7 @@ Examples:
     parser.add_argument("--hidden-size", type=int, help="Hidden size (RNN/GRU/LSTM)")
     parser.add_argument("--num-layers", type=int, help="Number of layers (RNN/GRU/LSTM)")
     parser.add_argument("--dropout", type=float, help="Dropout probability (0-1)")
+    parser.add_argument("--init", choices=["xavier", "kaiming", "orthogonal", "rnn"], help="Optional weight initializer to apply after model creation")
     parser.add_argument("--improvement-threshold", type=float, help="Early stopping improvement threshold (default: 0.0001)")
     parser.add_argument("--patience", type=int, help="Early stopping patience (epochs)")
     parser.add_argument("--no-early-stopping", action="store_true", help="Disable early stopping")
@@ -182,6 +183,8 @@ def main():
             kwargs["num_layers"] = args.num_layers
         if args.dropout is not None:
             kwargs["dropout"] = args.dropout
+        if args.init:
+            kwargs["init"] = args.init
         if args.improvement_threshold:
             kwargs["improvement_threshold"] = args.improvement_threshold
         if args.patience:

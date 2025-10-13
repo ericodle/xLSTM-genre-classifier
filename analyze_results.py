@@ -49,7 +49,7 @@ def infer_model_from_path_or_json(dir_path: Path, payload: Dict[str, Any]) -> st
     if name.startswith("tr-") or "-tr-" in name or name.endswith("-tr"):
         return "TRANSFORMER"
     # Order matters: check 'xlstm' before 'lstm' to avoid substring collisions
-    for m in ["xlstm", "transformer", "cnn", "lstm", "gru", "svm", "fc"]:
+    for m in ["xlstm", "transformer", "vgg", "cnn", "lstm", "gru", "svm", "fc"]:
         if m in name:
             return m.upper()
     # Try JSON fields

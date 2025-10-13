@@ -552,6 +552,57 @@ class ModelTrainer:
             f"Model created with {self.model.count_parameters()} parameters"
         )
 
+        # Optional initializer (no-op by default)
+        init_scheme = getattr(self.config.model, "init", None)
+        if init_scheme:
+            self._apply_initializer(init_scheme)
+            self.logger.info(f"Applied initializer: {init_scheme}")
+
+    def _apply_initializer(self, init_scheme: str) -> None:
+        import torch.nn.init as init
+
+        def init_linear(m: torch.nn.Module):
+            if isinstance(m, torch.nn.Linear):
+                if init_scheme == "xavier":
+                    init.xavier_uniform_(m.weight)
+                elif init_scheme == "kaiming":
+                    init.kaiming_uniform_(m.weight, nonlinearity="relu")
+                else:
+                    init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    init.zeros_(m.bias)
+
+        def init_conv(m: torch.nn.Module):
+            if isinstance(m, torch.nn.Conv2d):
+                if init_scheme == "kaiming":
+                    init.kaiming_normal_(m.weight, nonlinearity="relu")
+                else:
+                    init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    init.zeros_(m.bias)
+
+        def init_rnn(m: torch.nn.Module):
+            if isinstance(m, (torch.nn.LSTM, torch.nn.GRU, torch.nn.RNN)):
+                for name, param in m.named_parameters():
+                    if "weight_ih" in name:
+                        init.xavier_uniform_(param)
+                    elif "weight_hh" in name:
+                        if init_scheme in ("orthogonal", "rnn"):
+                            init.orthogonal_(param)
+                        else:
+                            init.xavier_uniform_(param)
+                    elif "bias" in name:
+                        init.zeros_(param)
+                        # LSTM forget gate bias to 1
+                        if isinstance(m, torch.nn.LSTM) and param.shape[0] % 4 == 0:
+                            hidden = param.shape[0] // 4
+                            param.data[hidden:2*hidden] = 1.0
+
+        # Apply by module type
+        self.model.apply(init_linear)
+        self.model.apply(init_conv)
+        self.model.apply(init_rnn)
+
     def _setup_optimizer(self):
         """Setup optimizer."""
         if self.config.model.optimizer.lower() == "adam":
@@ -930,6 +981,18 @@ class ModelTrainer:
                 return (sample_data.shape[1], sample_data.shape[2])
             else:
                 return sample_data.shape[1:]
+        # VGG-style CNNs (no conv_layers attribute)
+        elif hasattr(self.model, "vgg") or getattr(self.model, "model_name", "").upper() == "VGG16":
+            if len(sample_data.shape) == 3:
+                # Provide (time, features); model will add channel internally
+                return (sample_data.shape[1], sample_data.shape[2])
+            elif len(sample_data.shape) == 4:
+                # Already (batch, C, H, W) or (batch, H, W); drop batch/channel as needed
+                # Prefer (H, W)
+                if sample_data.shape[1] in (1, 3):
+                    return (sample_data.shape[2], sample_data.shape[3])
+                else:
+                    return (sample_data.shape[1], sample_data.shape[2])
         elif (
             hasattr(self.model, "rnn")
             or hasattr(self.model, "lstm")
