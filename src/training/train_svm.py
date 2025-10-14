@@ -194,8 +194,19 @@ def main() -> int:
     # Save artifacts
     model_path = Path(args.output) / "svm.joblib"
     results_path = Path(args.output) / "results.json"
-    joblib.dump(clf, model_path)
-    with open(results_path, "w") as f:
+    
+    # Ensure the output directory exists (defensive programming)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Convert to absolute path to avoid any path issues
+    model_path_abs = str(model_path.absolute())
+    results_path_abs = str(results_path.absolute())
+    
+    print(f"Saving model to: {model_path_abs}")
+    print(f"Saving results to: {results_path_abs}")
+    
+    joblib.dump(clf, model_path_abs)
+    with open(results_path_abs, "w") as f:
         json.dump(results, f, indent=2)
 
     # Plot and save confusion matrix for test split
@@ -221,8 +232,8 @@ def main() -> int:
     except Exception as e:
         print(f"Warning: failed to save confusion matrix plot: {e}")
 
-    print(f"Saved model to: {model_path}")
-    print(f"Saved results to: {results_path}")
+    print(f"Saved model to: {model_path_abs}")
+    print(f"Saved results to: {results_path_abs}")
     return 0
 
 
