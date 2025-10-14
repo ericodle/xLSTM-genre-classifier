@@ -30,3 +30,7 @@ __pycache__/
 # IDE and editor configurations
 install-pyenv-win.ps1
 devnotes.txt
+
+# Log files
+*.log
+auto_train_fma13.log
