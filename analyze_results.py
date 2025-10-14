@@ -10,7 +10,7 @@ Aggregate and visualize comparative results across runs.
 - Saves summary CSV and comparative plots.
 
 Usage:
-  python analyze_results.py --outputs ./outputs --out ./outputs/analysis
+  python analyze_results.py --input-dir ./outputs --output-dir ./outputs/analysis
 """
 
 import argparse
@@ -263,15 +263,15 @@ def plot_model_grid(df: pd.DataFrame, out_dir: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Aggregate and plot results from outputs/")
-    parser.add_argument("--outputs", default="./outputs", help="Outputs root directory")
-    parser.add_argument("--out", default="./outputs/analysis", help="Where to save analysis")
+    parser = argparse.ArgumentParser(description="Aggregate and plot results from training outputs")
+    parser.add_argument("--input-dir", "--input", default="./outputs", help="Directory containing training results to analyze")
+    parser.add_argument("--output-dir", "--output", default="./outputs/analysis", help="Directory where analysis results will be saved")
     args = parser.parse_args()
 
-    out_dir = Path(args.out)
+    out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    df = collect_results(args.outputs)
+    df = collect_results(args.input_dir)
     if df.empty:
         print("No results found.")
         return 0
