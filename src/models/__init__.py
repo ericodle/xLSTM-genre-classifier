@@ -6,7 +6,7 @@ from typing import Optional
 from .base import BaseModel
 from .neural_networks import FC_model, CNN_model, LSTM_model, GRU_model
 from .transformers import Transformer
-from .xlstm import SimpleXLSTM
+from .xlstm import xLSTM
 from .vgg import VGG16Classifier
 
 __all__ = [
@@ -16,7 +16,7 @@ __all__ = [
     "LSTM_model",
     "GRU_model",
     "Transformer",
-    "SimpleXLSTM",
+    "xLSTM",
     "get_model",
 ]
 
@@ -35,6 +35,8 @@ def get_model(
     kernel_size: int = 3,
     pool_size: int = 2,
     fc_hidden: int = 64,
+    block_types: Optional[list] = None,
+    conv_kernel_size: int = 3,
 ) -> BaseModel:
     """
     Factory function to create model instances.
@@ -109,8 +111,9 @@ def get_model(
         elif model_type == "GRU":
             return GRU_model(input_dim_int, hidden_dim, num_layers, output_dim, dropout)
         elif model_type == "xLSTM":
-            return SimpleXLSTM(
-                input_dim_int, hidden_dim, num_layers, output_dim, dropout
+            return xLSTM(
+                input_dim_int, hidden_dim, num_layers, output_dim, dropout,
+                block_types=block_types, num_heads=num_heads, conv_kernel_size=conv_kernel_size
             )
         elif model_type == "Transformer":
             return Transformer(

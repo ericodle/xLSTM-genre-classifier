@@ -1003,6 +1003,9 @@ class ModelTrainer:
         elif hasattr(self.model, "transformer_layers"):
             # Transformer model - keep 3D format (batch, time_steps, features)
             return sample_data.shape[1:]
+        elif hasattr(self.model, "xlstm_blocks") or getattr(self.model, "model_name", "").upper() == "XLSTM":
+            # xLSTM model - keep 3D format (batch, time_steps, features)
+            return sample_data.shape[1:]
         else:
             # FC model - flatten to 2D (batch, features)
             if len(sample_data.shape) == 3:

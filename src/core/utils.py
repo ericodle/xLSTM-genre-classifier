@@ -30,20 +30,22 @@ def setup_logging(
     logger = logging.getLogger("GenreDiscern")
     logger.setLevel(getattr(logging, log_level.upper()))
 
-    # Create formatter
-    formatter = logging.Formatter(log_format)
+    # Only add handlers if they don't already exist
+    if not logger.handlers:
+        # Create formatter
+        formatter = logging.Formatter(log_format)
 
-    # Create console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+        # Create console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
-    # Create file handler if log_file is specified
-    if log_file:
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        # Create file handler if log_file is specified
+        if log_file:
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
 
     return logger
 

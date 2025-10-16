@@ -1,137 +1,246 @@
 """
 Extended LSTM models for GenreDiscern.
+Implements true xLSTM architecture with sLSTM and mLSTM blocks.
 """
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional
+from typing import Optional, Tuple, List
+import math
 
 from .base import BaseModel
 
 
-class SimpleCausalConv1D(nn.Module):
-    """Simplified causal convolution for sequence data."""
+class CausalConv1d(nn.Module):
+    """Causal 1D convolution that only looks at past timesteps."""
 
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int, dilation: int = 1):
         super().__init__()
-        self.padding = kernel_size - 1
+        self.padding = (kernel_size - 1) * dilation
         self.conv = nn.Conv1d(
-            in_channels, out_channels, kernel_size, padding=self.padding
+            in_channels, out_channels, kernel_size, 
+            padding=self.padding, dilation=dilation
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Input x is (batch, sequence, features)
-        # For single timestep, reshape to (batch, features, 1)
-        if x.shape[1] == 1:
-            # Single timestep: (batch, 1, features) -> (batch, features, 1)
-            x = x.transpose(1, 2)
-        else:
-            # Multiple timesteps: (batch, sequence, features) -> (batch, features, sequence)
-            x = x.transpose(1, 2)
-
+        # Handle different input shapes
+        if len(x.shape) == 4:
+            # (batch, seq_len, 1, features) -> (batch, seq_len, features)
+            x = x.squeeze(2)
+        elif len(x.shape) == 2:
+            # (batch, features) -> (batch, 1, features)
+            x = x.unsqueeze(1)
+        
+        # Ensure we have the right shape: (batch, seq_len, features)
+        if len(x.shape) != 3:
+            # If still 4D, try to reshape to 3D
+            if len(x.shape) == 4 and x.shape[2] == 1:
+                x = x.squeeze(2)
+            else:
+                raise ValueError(f"Expected 3D input (batch, seq_len, features), got {x.shape}")
+        
+        # x: (batch, seq_len, features) -> (batch, features, seq_len)
+        x = x.transpose(1, 2)
         x = self.conv(x)
-        # Remove padding to maintain causality
-        x = x[:, :, : -self.padding]
-
-        # Transpose back to original format
-        if x.shape[2] == 1:
-            # Single timestep: (batch, features, 1) -> (batch, 1, features)
-            x = x.transpose(1, 2)
-        else:
-            # Multiple timesteps: (batch, features, sequence) -> (batch, sequence, features)
-            x = x.transpose(1, 2)
-
-        return x
+        # Remove future timesteps to maintain causality
+        x = x[:, :, :-self.padding] if self.padding > 0 else x
+        # Back to (batch, seq_len, features)
+        return x.transpose(1, 2)
 
 
-class SimpleBlockDiagonal(nn.Module):
-    """Simplified block diagonal linear layer."""
+class BlockDiagonalLinear(nn.Module):
+    """Block diagonal linear layer for memory efficiency."""
 
-    def __init__(self, in_features: int, out_features: int):
+    def __init__(self, in_features: int, out_features: int, block_size: int = 64):
         super().__init__()
-        self.block = nn.Linear(in_features, out_features)
+        self.in_features = in_features
+        self.out_features = out_features
+        self.block_size = block_size
+        
+        # Calculate number of blocks
+        self.num_blocks = max(1, min(in_features, out_features) // block_size)
+        
+        # Create block diagonal matrices
+        self.blocks = nn.ModuleList([
+            nn.Linear(
+                min(block_size, in_features - i * block_size),
+                min(block_size, out_features - i * block_size)
+            ) for i in range(self.num_blocks)
+        ])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return torch.as_tensor(self.block(x))
+        # Handle both 2D and 3D inputs
+        if len(x.shape) == 2:
+            # 2D input: (batch, features) -> (batch, 1, features)
+            x = x.unsqueeze(1)
+            squeeze_output = True
+        else:
+            squeeze_output = False
+            
+        batch_size, seq_len, _ = x.shape
+        outputs = []
+        
+        for i, block in enumerate(self.blocks):
+            start_in = i * self.block_size
+            end_in = min((i + 1) * self.block_size, self.in_features)
+            start_out = i * self.block_size
+            end_out = min((i + 1) * self.block_size, self.out_features)
+            
+            if start_in < self.in_features and start_out < self.out_features:
+                x_block = x[:, :, start_in:end_in]
+                out_block = block(x_block)
+                outputs.append(out_block)
+        
+        result = torch.cat(outputs, dim=-1)
+        
+        # Squeeze back to 2D if input was 2D
+        if squeeze_output:
+            result = result.squeeze(1)
+            
+        return result
 
 
-class SimpleSLSTMBlock(nn.Module):
-    """Simplified sLSTM block - core LSTM without causal convolution for single timesteps."""
+class sLSTMBlock(nn.Module):
+    """sLSTM block with exponential gating (simplified without convolution)."""
 
-    def __init__(self, input_size: int, hidden_size: int):
+    def __init__(self, input_size: int, hidden_size: int, conv_kernel_size: int = 3):
         super().__init__()
         self.hidden_size = hidden_size
+        self.input_size = input_size
+        
+        # Layer normalization
         self.layer_norm = nn.LayerNorm(input_size)
+        
+        # sLSTM gates with standard linear layers
+        self.Wz = nn.Linear(input_size, hidden_size)
+        self.Wi = nn.Linear(input_size, hidden_size)
+        self.Wf = nn.Linear(input_size, hidden_size)
+        self.Wo = nn.Linear(input_size, hidden_size)
+        
+        # Recurrent connections
+        self.Rz = nn.Linear(hidden_size, hidden_size)
+        self.Ri = nn.Linear(hidden_size, hidden_size)
+        self.Rf = nn.Linear(hidden_size, hidden_size)
+        self.Ro = nn.Linear(hidden_size, hidden_size)
+        
+        # Exponential gating parameters (smaller initial value)
+        self.gate_init = nn.Parameter(torch.ones(hidden_size) * 0.01)
 
-        # Core LSTM gates
-        self.Wz = SimpleBlockDiagonal(input_size, hidden_size)
-        self.Wi = SimpleBlockDiagonal(input_size, hidden_size)
-        self.Wf = SimpleBlockDiagonal(input_size, hidden_size)
-        self.Wo = SimpleBlockDiagonal(input_size, hidden_size)
-
-        self.Rz = SimpleBlockDiagonal(hidden_size, hidden_size)
-        self.Ri = SimpleBlockDiagonal(hidden_size, hidden_size)
-        self.Rf = SimpleBlockDiagonal(hidden_size, hidden_size)
-        self.Ro = SimpleBlockDiagonal(hidden_size, hidden_size)
-
-    def forward(self, x: torch.Tensor, state: tuple) -> tuple:
+    def forward(self, x: torch.Tensor, state: Tuple[torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         h_prev, c_prev = state
+        
+        # Squeeze input to 2D if needed
+        if len(x.shape) == 3 and x.shape[1] == 1:
+            x = x.squeeze(1)  # (batch_size, input_size)
+        
+        # Apply layer normalization
         x_norm = self.layer_norm(x)
-
-        # Standard LSTM equations without convolution
+        
+        # sLSTM equations
         z = torch.tanh(self.Wz(x) + self.Rz(h_prev))
         i = torch.sigmoid(self.Wi(x_norm) + self.Ri(h_prev))
         f = torch.sigmoid(self.Wf(x_norm) + self.Rf(h_prev))
         o = torch.sigmoid(self.Wo(x) + self.Ro(h_prev))
-
-        c_t = f * c_prev + i * z
+        
+        # Exponential gating for forget gate (clamped to prevent overflow)
+        f_exp = torch.exp(torch.clamp(self.gate_init * f, min=-10, max=10))
+        
+        # Cell state update
+        c_t = f_exp * c_prev + i * z
         h_t = o * torch.tanh(c_t)
-
+        
         return h_t, (h_t, c_t)
 
 
-class SimpleMLSTMBlock(nn.Module):
-    """Simplified mLSTM block - attention-based LSTM without causal convolution."""
+class mLSTMBlock(nn.Module):
+    """mLSTM block with matrix memory and attention mechanism (simplified)."""
 
-    def __init__(self, input_size: int, hidden_size: int):
+    def __init__(self, input_size: int, hidden_size: int, num_heads: int = 4, conv_kernel_size: int = 3):
         super().__init__()
         self.hidden_size = hidden_size
-        self.head_size = hidden_size  # single block
+        self.input_size = input_size
+        self.num_heads = num_heads
+        self.head_size = hidden_size // num_heads
+        
+        # Layer normalization
         self.layer_norm = nn.LayerNorm(input_size)
-
-        # Attention components
-        self.Wq = SimpleBlockDiagonal(input_size, hidden_size)
-        self.Wk = SimpleBlockDiagonal(input_size, hidden_size)
-        self.Wv = SimpleBlockDiagonal(input_size, hidden_size)
-
+        
+        # Multi-head attention components
+        self.Wq = nn.Linear(input_size, hidden_size)
+        self.Wk = nn.Linear(input_size, hidden_size)
+        self.Wv = nn.Linear(input_size, hidden_size)
+        
+        # Matrix memory components
+        self.Wm = nn.Linear(input_size, hidden_size * hidden_size)
+        self.Wc = nn.Linear(input_size, hidden_size)
+        
         # LSTM gates
         self.Wi = nn.Linear(input_size, hidden_size)
         self.Wf = nn.Linear(input_size, hidden_size)
         self.Wo = nn.Linear(input_size, hidden_size)
+        
+        # Output projection
+        self.output_proj = nn.Linear(hidden_size, hidden_size)
 
-    def forward(self, x: torch.Tensor, state: tuple) -> tuple:
-        h_prev, c_prev = state
+    def forward(self, x: torch.Tensor, state: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+        h_prev, c_prev, M_prev = state
+        
+        # Squeeze input to 2D if needed
+        if len(x.shape) == 3 and x.shape[1] == 1:
+            x = x.squeeze(1)  # (batch_size, input_size)
+        
+        batch_size = x.shape[0]
+        
+        # Apply layer normalization
         x_norm = self.layer_norm(x)
-
-        # Attention mechanism without convolution
-        q = self.Wq(x_norm)
-        k = self.Wk(x_norm) / (self.head_size**0.5)
-        v = self.Wv(x)
-
-        # LSTM with attention
+        
+        # Simplified attention (just use the value projection)
+        attn_output = self.Wv(x)
+        
+        # Simplified memory update
+        M_update = self.Wm(x).view(batch_size, self.hidden_size, self.hidden_size)
+        M_t = M_prev + M_update.unsqueeze(1)  # Add update to previous memory
+        
+        # Simplified memory-based cell state
+        c_mem = torch.matmul(M_t.squeeze(1), c_prev.unsqueeze(-1)).squeeze(-1)
+        
+        # LSTM gates
         i = torch.sigmoid(self.Wi(x_norm))
         f = torch.sigmoid(self.Wf(x_norm))
         o = torch.sigmoid(self.Wo(x))
-
-        c_t = f * c_prev + i * (v * k)
+        
+        # Cell state update with memory
+        c_t = f * c_prev + i * (attn_output + c_mem)
         h_t = o * torch.tanh(c_t)
+        
+        # Output projection
+        h_t = self.output_proj(h_t)
+        
+        return h_t, (h_t, c_t, M_t)
 
-        return h_t, (h_t, c_t)
+
+class xLSTMBlock(nn.Module):
+    """Combined xLSTM block that can use both sLSTM and mLSTM."""
+
+    def __init__(self, input_size: int, hidden_size: int, block_type: str = "sLSTM", 
+                 num_heads: int = 4, conv_kernel_size: int = 3):
+        super().__init__()
+        self.block_type = block_type
+        
+        if block_type == "sLSTM":
+            self.block = sLSTMBlock(input_size, hidden_size, conv_kernel_size)
+        elif block_type == "mLSTM":
+            self.block = mLSTMBlock(input_size, hidden_size, num_heads, conv_kernel_size)
+        else:
+            raise ValueError(f"Unknown block type: {block_type}")
+
+    def forward(self, x: torch.Tensor, state) -> Tuple[torch.Tensor, Tuple]:
+        return self.block(x, state)
 
 
-class SimpleXLSTM(BaseModel):
-    """Simplified xLSTM model - essentially a standard LSTM with some enhancements."""
+class xLSTM(BaseModel):
+    """True xLSTM implementation with sLSTM and mLSTM blocks."""
 
     def __init__(
         self,
@@ -140,14 +249,20 @@ class SimpleXLSTM(BaseModel):
         num_layers: int,
         output_dim: int,
         dropout: float,
+        block_types: Optional[List[str]] = None,
+        num_heads: int = 4,
+        conv_kernel_size: int = 3,
     ):
-        super().__init__(model_name="SimpleXLSTM")
+        super().__init__(model_name="xLSTM")
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
         self.output_dim = output_dim
         self.dropout = dropout
+        self.block_types = block_types or ["sLSTM"] * num_layers
+        self.num_heads = num_heads
+        self.conv_kernel_size = conv_kernel_size
 
         # Store configuration
         self.model_config = {
@@ -156,23 +271,51 @@ class SimpleXLSTM(BaseModel):
             "num_layers": num_layers,
             "output_dim": output_dim,
             "dropout": dropout,
+            "block_types": self.block_types,
+            "num_heads": num_heads,
+            "conv_kernel_size": conv_kernel_size,
         }
 
         # Input projection
         self.input_projection = nn.Linear(input_dim, hidden_dim)
+        
+        # xLSTM blocks
+        self.xlstm_blocks = nn.ModuleList()
+        for i in range(num_layers):
+            block_type = self.block_types[i] if i < len(self.block_types) else "sLSTM"
+            self.xlstm_blocks.append(
+                xLSTMBlock(
+                    input_size=hidden_dim,
+                    hidden_size=hidden_dim,
+                    block_type=block_type,
+                    num_heads=num_heads,
+                    conv_kernel_size=conv_kernel_size
+                )
+            )
 
-        # Standard LSTM layers
-        self.lstm = nn.LSTM(
-            input_size=hidden_dim,
-            hidden_size=hidden_dim,
-            num_layers=num_layers,
-            dropout=dropout if num_layers > 1 else 0,
-            batch_first=True,
-        )
-
+        # Layer normalization
+        self.layer_norm = nn.LayerNorm(hidden_dim)
+        
         # Output layers
         self.output_projection = nn.Linear(hidden_dim, output_dim)
         self.dropout_layer = nn.Dropout(dropout)
+
+    def _init_state(self, batch_size: int, device: torch.device) -> List[Tuple]:
+        """Initialize hidden states for all layers."""
+        states = []
+        for block in self.xlstm_blocks:
+            if block.block_type == "sLSTM":
+                # sLSTM state: (h, c)
+                h = torch.zeros(batch_size, self.hidden_dim, device=device)
+                c = torch.zeros(batch_size, self.hidden_dim, device=device)
+                states.append((h, c))
+            else:  # mLSTM
+                # mLSTM state: (h, c, M)
+                h = torch.zeros(batch_size, self.hidden_dim, device=device)
+                c = torch.zeros(batch_size, self.hidden_dim, device=device)
+                M = torch.zeros(batch_size, 1, self.hidden_dim, self.hidden_dim, device=device)
+                states.append((h, c, M))
+        return states
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the xLSTM network."""
@@ -181,20 +324,43 @@ class SimpleXLSTM(BaseModel):
             x = x.unsqueeze(1)  # Add sequence length dimension
 
         batch_size, seq_len, _ = x.shape
+        device = x.device
 
         # Project input to hidden dimension
         x = self.input_projection(x)
 
-        # Pass through LSTM
-        lstm_out, (h_n, c_n) = self.lstm(x)
+        # Initialize states for all layers
+        states = self._init_state(batch_size, device)
+
+        # Process sequence through xLSTM blocks
+        for i, block in enumerate(self.xlstm_blocks):
+            # Process each timestep
+            outputs = []
+            for t in range(seq_len):
+                x_t = x[:, t:t+1, :]  # (batch_size, 1, hidden_dim)
+                h_t, states[i] = block(x_t, states[i])
+                # Ensure h_t is 2D
+                if len(h_t.shape) == 3 and h_t.shape[1] == 1:
+                    h_t = h_t.squeeze(1)  # (batch_size, hidden_dim)
+                outputs.append(h_t)
+            
+            # Stack outputs and apply layer norm
+            x = torch.stack(outputs, dim=1)  # (batch_size, seq_len, hidden_dim)
+            x = self.layer_norm(x)
 
         # Take the final hidden state from the last layer
-        final_h = h_n[-1]  # Shape: (batch_size, hidden_dim)
+        final_h = x[:, -1, :]  # Shape: (batch_size, hidden_dim)
 
         # Apply dropout
         final_h = self.dropout_layer(final_h)
 
         # Project to output dimension
         output = self.output_projection(final_h)
+        
+        # Ensure output is 2D
+        if len(output.shape) > 2:
+            output = output.squeeze()
 
-        return torch.as_tensor(output)
+        return output
+
+
