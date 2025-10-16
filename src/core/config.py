@@ -167,10 +167,7 @@ class Config:
             elif hasattr(self.training, key):
                 setattr(self.training, key, value)
         
-        # Log the optimized parameters for debugging
-        print(f"Optimized parameters for {dataset_type} dataset:")
-        for key, value in optimized_defaults.items():
-            print(f"  {key}: {value}")
+        # Note: Optimized parameters are loaded but may be overridden by user CLI arguments
 
     def get_audio_config(self) -> Dict[str, Any]:
         """Get audio configuration as dictionary."""

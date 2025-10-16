@@ -119,7 +119,7 @@ def main():
         # Create config and optimize it
         config = Config(args.config) if args.config else Config()
         config.optimize_for_dataset(dataset_type, args.model)
-        logger.info(f"Optimized config for {dataset_type} dataset")
+        logger.info(f"Loaded optimized defaults for {dataset_type} dataset")
     else:
         config = Config(args.config) if args.config else Config()
     
@@ -174,7 +174,8 @@ def main():
     
     # Log user overrides
     if user_overrides:
-        logger.info(f"User parameter overrides: {', '.join(user_overrides)}")
+        logger.info(f"User parameter overrides applied: {', '.join(user_overrides)}")
+        logger.info("Final training parameters will use user-specified values where provided")
     else:
         logger.info("Using optimized defaults for all parameters")
     
