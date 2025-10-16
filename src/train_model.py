@@ -123,30 +123,60 @@ def main():
     else:
         config = Config(args.config) if args.config else Config()
     
-    # Prepare additional parameters
+    # Prepare additional parameters - these will override optimized defaults
     kwargs = {}
+    user_overrides = []
+    
     if args.lr:
         kwargs["learning_rate"] = args.lr
+        config.model.learning_rate = args.lr
+        user_overrides.append(f"learning_rate: {args.lr}")
     if args.epochs:
         kwargs["max_epochs"] = args.epochs
+        config.model.max_epochs = args.epochs
+        user_overrides.append(f"max_epochs: {args.epochs}")
     if args.batch_size:
         kwargs["batch_size"] = args.batch_size
+        config.model.batch_size = args.batch_size
+        user_overrides.append(f"batch_size: {args.batch_size}")
     if args.hidden_size:
         kwargs["hidden_size"] = args.hidden_size
+        config.model.hidden_size = args.hidden_size
+        user_overrides.append(f"hidden_size: {args.hidden_size}")
     if args.num_layers:
         kwargs["num_layers"] = args.num_layers
+        config.model.num_layers = args.num_layers
+        user_overrides.append(f"num_layers: {args.num_layers}")
     if args.dropout is not None:
         kwargs["dropout"] = args.dropout
+        config.model.dropout = args.dropout
+        user_overrides.append(f"dropout: {args.dropout}")
     if args.init:
         kwargs["init"] = args.init
+        config.model.init = args.init
+        user_overrides.append(f"init: {args.init}")
     if args.improvement_threshold:
         kwargs["improvement_threshold"] = args.improvement_threshold
+        config.training.improvement_threshold = args.improvement_threshold
+        user_overrides.append(f"improvement_threshold: {args.improvement_threshold}")
     if args.patience:
         kwargs["patience"] = args.patience
+        config.model.early_stopping_patience = args.patience
+        user_overrides.append(f"patience: {args.patience}")
     if args.no_early_stopping:
         kwargs["early_stopping"] = False
+        config.training.early_stopping = False
+        user_overrides.append("early_stopping: False")
     if args.gradient_clip:
         kwargs["gradient_clip_norm"] = args.gradient_clip
+        config.training.gradient_clip_norm = args.gradient_clip
+        user_overrides.append(f"gradient_clip_norm: {args.gradient_clip}")
+    
+    # Log user overrides
+    if user_overrides:
+        logger.info(f"User parameter overrides: {', '.join(user_overrides)}")
+    else:
+        logger.info("Using optimized defaults for all parameters")
     
     # Use unified training function
     try:
