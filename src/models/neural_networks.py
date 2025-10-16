@@ -73,9 +73,8 @@ class FC_model(BaseModel):
             )
             prev_dim = hidden_dim
 
-        # Output layer
+        # Output layer - raw logits for CrossEntropyLoss
         layers.append(nn.Linear(prev_dim, output_dim))
-        layers.append(nn.Softmax(dim=1))
 
         self.fc_layers = nn.Sequential(*layers)
 
@@ -294,8 +293,7 @@ class CNN_model(BaseModel):
                 nn.Linear(flatten_size, self.fc_hidden),
                 nn.ReLU(),
                 nn.Dropout(p=self.dropout),
-                nn.Linear(self.fc_hidden, self.num_classes),
-                nn.Softmax(dim=1),
+                nn.Linear(self.fc_hidden, self.num_classes),  # Raw logits for CrossEntropyLoss
             )
             # Move FC layers to the same device as the model
             if hasattr(self, "conv_layers_seq"):
@@ -376,8 +374,7 @@ class LSTM_model(BaseModel):
             dropout=dropout_prob,
         )
 
-        self.fc = nn.Linear(hidden_dim, output_dim)
-        self.softmax = nn.Softmax(dim=1)
+        self.fc = nn.Linear(hidden_dim, output_dim)  # Raw logits for CrossEntropyLoss
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the LSTM."""
@@ -393,8 +390,7 @@ class LSTM_model(BaseModel):
         out, _ = self.rnn(x, (h0, c0))
 
         # Decode the hidden state of the last time step
-        out = self.fc(out[:, -1, :])
-        out = self.softmax(out)
+        out = self.fc(out[:, -1, :])  # Raw logits for CrossEntropyLoss
 
         return torch.as_tensor(out)
 
@@ -436,8 +432,7 @@ class GRU_model(BaseModel):
             dropout=dropout_prob,
         )
 
-        self.fc = nn.Linear(hidden_dim, output_dim)
-        self.softmax = nn.Softmax(dim=1)
+        self.fc = nn.Linear(hidden_dim, output_dim)  # Raw logits for CrossEntropyLoss
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the GRU."""
@@ -452,7 +447,6 @@ class GRU_model(BaseModel):
         out, _ = self.rnn(x, h0)
 
         # Decode the hidden state of the last time step
-        out = self.fc(out[:, -1, :])
-        out = self.softmax(out)
+        out = self.fc(out[:, -1, :])  # Raw logits for CrossEntropyLoss
 
         return torch.as_tensor(out)

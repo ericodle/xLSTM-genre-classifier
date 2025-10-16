@@ -124,8 +124,8 @@ class sLSTMBlock(nn.Module):
         self.Rf = nn.Linear(hidden_size, hidden_size)
         self.Ro = nn.Linear(hidden_size, hidden_size)
         
-        # Exponential gating parameters (smaller initial value)
-        self.gate_init = nn.Parameter(torch.ones(hidden_size) * 0.01)
+        # Exponential gating parameters (very small initial value for stability)
+        self.gate_init = nn.Parameter(torch.ones(hidden_size) * 0.0001)  # Much smaller initial value
 
     def forward(self, x: torch.Tensor, state: Tuple[torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         h_prev, c_prev = state
@@ -133,6 +133,11 @@ class sLSTMBlock(nn.Module):
         # Squeeze input to 2D if needed
         if len(x.shape) == 3 and x.shape[1] == 1:
             x = x.squeeze(1)  # (batch_size, input_size)
+        
+        # Check for NaN in input
+        if torch.isnan(x).any():
+            print(f"Warning: NaN detected in sLSTM input")
+            x = torch.nan_to_num(x, nan=0.0)
         
         # Apply layer normalization
         x_norm = self.layer_norm(x)
@@ -143,12 +148,24 @@ class sLSTMBlock(nn.Module):
         f = torch.sigmoid(self.Wf(x_norm) + self.Rf(h_prev))
         o = torch.sigmoid(self.Wo(x) + self.Ro(h_prev))
         
-        # Exponential gating for forget gate (clamped to prevent overflow)
-        f_exp = torch.exp(torch.clamp(self.gate_init * f, min=-10, max=10))
+        # More stable forget gate: use sigmoid instead of exponential
+        # This avoids the numerical instability of exponential gating
+        f_stable = torch.sigmoid(self.gate_init * f)
+        
+        # Use a small positive offset to ensure f_stable > 0
+        f_exp = f_stable + 0.1
         
         # Cell state update
         c_t = f_exp * c_prev + i * z
         h_t = o * torch.tanh(c_t)
+        
+        # Check for NaN in outputs and replace with zeros
+        if torch.isnan(c_t).any():
+            print(f"Warning: NaN detected in sLSTM cell state, replacing with zeros")
+            c_t = torch.nan_to_num(c_t, nan=0.0)
+        if torch.isnan(h_t).any():
+            print(f"Warning: NaN detected in sLSTM hidden state, replacing with zeros")
+            h_t = torch.nan_to_num(h_t, nan=0.0)
         
         return h_t, (h_t, c_t)
 
@@ -190,6 +207,11 @@ class mLSTMBlock(nn.Module):
         if len(x.shape) == 3 and x.shape[1] == 1:
             x = x.squeeze(1)  # (batch_size, input_size)
         
+        # Check for NaN in input
+        if torch.isnan(x).any():
+            print(f"Warning: NaN detected in mLSTM input")
+            x = torch.nan_to_num(x, nan=0.0)
+        
         batch_size = x.shape[0]
         
         # Apply layer normalization
@@ -216,6 +238,17 @@ class mLSTMBlock(nn.Module):
         
         # Output projection
         h_t = self.output_proj(h_t)
+        
+        # Check for NaN in outputs and replace with zeros
+        if torch.isnan(c_t).any():
+            print(f"Warning: NaN detected in mLSTM cell state, replacing with zeros")
+            c_t = torch.nan_to_num(c_t, nan=0.0)
+        if torch.isnan(h_t).any():
+            print(f"Warning: NaN detected in mLSTM hidden state, replacing with zeros")
+            h_t = torch.nan_to_num(h_t, nan=0.0)
+        if torch.isnan(M_t).any():
+            print(f"Warning: NaN detected in mLSTM memory matrix, replacing with zeros")
+            M_t = torch.nan_to_num(M_t, nan=0.0)
         
         return h_t, (h_t, c_t, M_t)
 
@@ -299,6 +332,26 @@ class xLSTM(BaseModel):
         # Output layers
         self.output_projection = nn.Linear(hidden_dim, output_dim)
         self.dropout_layer = nn.Dropout(dropout)
+        
+        # Initialize weights for better stability
+        self._init_weights()
+
+    def _init_weights(self):
+        """Initialize weights for better numerical stability."""
+        for name, param in self.named_parameters():
+            if 'weight' in name:
+                if len(param.shape) >= 2:
+                    # Xavier/Glorot initialization for linear layers
+                    nn.init.xavier_uniform_(param)
+                else:
+                    # Small random values for 1D parameters
+                    nn.init.normal_(param, mean=0.0, std=0.01)
+            elif 'bias' in name:
+                # Initialize biases to zero
+                nn.init.constant_(param, 0.0)
+            elif 'gate_init' in name:
+                # Keep gate_init very small for stability
+                nn.init.constant_(param, 0.0001)
 
     def _init_state(self, batch_size: int, device: torch.device) -> List[Tuple]:
         """Initialize hidden states for all layers."""
@@ -323,11 +376,21 @@ class xLSTM(BaseModel):
         if len(x.shape) == 2:
             x = x.unsqueeze(1)  # Add sequence length dimension
 
+        # Check for NaN in input
+        if torch.isnan(x).any():
+            print(f"Warning: NaN detected in xLSTM input")
+            x = torch.nan_to_num(x, nan=0.0)
+
         batch_size, seq_len, _ = x.shape
         device = x.device
 
         # Project input to hidden dimension
         x = self.input_projection(x)
+        
+        # Check for NaN after input projection
+        if torch.isnan(x).any():
+            print(f"Warning: NaN detected after input projection")
+            x = torch.nan_to_num(x, nan=0.0)
 
         # Initialize states for all layers
         states = self._init_state(batch_size, device)
@@ -342,11 +405,22 @@ class xLSTM(BaseModel):
                 # Ensure h_t is 2D
                 if len(h_t.shape) == 3 and h_t.shape[1] == 1:
                     h_t = h_t.squeeze(1)  # (batch_size, hidden_dim)
+                
+                # Check for NaN in timestep output
+                if torch.isnan(h_t).any():
+                    print(f"Warning: NaN detected in timestep {t} of layer {i}")
+                    h_t = torch.nan_to_num(h_t, nan=0.0)
+                
                 outputs.append(h_t)
             
             # Stack outputs and apply layer norm
             x = torch.stack(outputs, dim=1)  # (batch_size, seq_len, hidden_dim)
             x = self.layer_norm(x)
+            
+            # Check for NaN after layer processing
+            if torch.isnan(x).any():
+                print(f"Warning: NaN detected after layer {i}")
+                x = torch.nan_to_num(x, nan=0.0)
 
         # Take the final hidden state from the last layer
         final_h = x[:, -1, :]  # Shape: (batch_size, hidden_dim)
@@ -356,6 +430,11 @@ class xLSTM(BaseModel):
 
         # Project to output dimension
         output = self.output_projection(final_h)
+        
+        # Check for NaN in final output
+        if torch.isnan(output).any():
+            print(f"Warning: NaN detected in final output")
+            output = torch.nan_to_num(output, nan=0.0)
         
         # Ensure output is 2D
         if len(output.shape) > 2:

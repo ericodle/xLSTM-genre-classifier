@@ -118,6 +118,6 @@ class Transformer(BaseModel):
 
         # Global average pooling and classification
         x = x.mean(dim=1)  # Average across sequence length
-        x = self.classifier(x)
+        x = self.classifier(x)  # Raw logits for CrossEntropyLoss
         
-        return F.log_softmax(x, dim=1)
+        return x
