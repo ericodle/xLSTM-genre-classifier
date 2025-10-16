@@ -47,7 +47,6 @@ cfg=AudioConfig(); ex=MFCCExtractor(cfg); print(ex.extract_mfcc_from_directory('
 python src/train_model.py --data mfccs/gtzan_13.json --model GRU --output outputs/gru-gtzan-run
 python src/training/train_svm.py --data mfccs/gtzan_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-gtzan
 python src/train_model.py --data mfccs/gtzan_13.json --model VGG16 --output outputs/vgg-gtzan-run --lr 0.0005 --batch-size 16 --dropout 0.3
-python auto_train_fma13.py --data mfccs/fma_13.json --output outputs/auto_fma13 --models FC CNN GRU
 python analyze_results.py --input-dir ./outputs --output-dir ./outputs/analysis
 
 tensorboard --logdir outputs --port 6006
