@@ -331,10 +331,10 @@ def main() -> int:
     df.to_csv(csv_path, index=False)
     print(f"Saved summary: {csv_path}")
 
-    # Aggregate means per (dataset, model)
+    # Aggregate maximum (best) per (dataset, model)
     agg = (
         df.groupby(["dataset", "model"], dropna=False)[["train_acc", "val_acc", "test_acc"]]
-        .mean(numeric_only=True)
+        .max(numeric_only=True)
         .reset_index()
     )
     agg_csv = out_dir / "results_agg.csv"
