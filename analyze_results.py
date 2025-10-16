@@ -24,13 +24,31 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# Set a clean theme with larger fonts
-sns.set_theme(style="whitegrid", context="talk")
+# Set a clean theme with larger fonts for conference presentation
+sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+plt.rcParams.update({
+    'font.family': 'serif',
+    'font.serif': ['Times New Roman', 'DejaVu Serif'],
+    'font.size': 12,
+    'axes.titlesize': 16,
+    'axes.labelsize': 14,
+    'xtick.labelsize': 12,
+    'ytick.labelsize': 12,
+    'legend.fontsize': 12,
+    'figure.titlesize': 18,
+    'axes.linewidth': 1.2,
+    'grid.linewidth': 0.8,
+    'lines.linewidth': 2,
+    'patch.linewidth': 1.2
+})
 
 # Display label mapping for models in plots
 MODEL_LABEL_MAP = {
     "TRANSFORMER": "TR",
 }
+
+# Define the desired model order for plots (using display names after label mapping)
+MODEL_ORDER = ["SVM", "FC", "CNN", "LSTM", "XLSTM", "GRU", "TR", "VGG"]
 
 
 def infer_dataset_from_path(p: str) -> str:
@@ -195,7 +213,9 @@ def _annotate_bars(ax: plt.Axes, fmt: str = "{:.2f}") -> None:
 def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     if df.empty:
         return
-    plt.figure(figsize=(12, 7))
+    
+    # Create figure with better proportions for conference presentation
+    fig, ax = plt.subplots(figsize=(14, 8))
     df_plot = df.copy()
     df_plot["model"] = df_plot["model"].replace(MODEL_LABEL_MAP)
     # Drop rows with missing metric to avoid zero bars/labels
@@ -203,28 +223,58 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     if df_plot.empty:
         plt.close()
         return
-    ax = sns.barplot(
-        data=df_plot,
-        x="model",
-        y=metric,
-        hue="dataset",
-        errorbar=None,
+    
+    # Filter to only include models in our desired order
+    df_plot = df_plot[df_plot["model"].isin(MODEL_ORDER)]
+    
+    # Define a professional color palette
+    colors = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#6A994E', '#7209B7', '#F77F00', '#FCBF49']
+    
+    # Create the bar plot with enhanced styling
+    bars = ax.bar(
+        range(len(MODEL_ORDER)),
+        [df_plot[df_plot["model"] == model][metric].iloc[0] if len(df_plot[df_plot["model"] == model]) > 0 else 0 for model in MODEL_ORDER],
+        color=colors[:len(MODEL_ORDER)],
+        alpha=0.8,
+        edgecolor='white',
+        linewidth=1.5,
+        capsize=5
     )
-    ax.set_title(f"{metric} by model and dataset")
+    
+    # Customize the plot
+    ax.set_title(f"Test Accuracy by Model Type", fontsize=18, fontweight='bold', pad=20)
     ax.set_ylim(0, 1)
-    ax.set_xlabel("Model")
-    ax.set_ylabel(metric.replace("_", " ").title())
-    # Rotate labels for readability
-    for label in ax.get_xticklabels():
-        label.set_rotation(20)
-        label.set_horizontalalignment("right")
-    # Place legend outside if crowded
-    ax.legend(title="Dataset", bbox_to_anchor=(1.02, 1), loc="upper left", borderaxespad=0)
-    # Optional: annotate bars
-    _annotate_bars(ax)
+    ax.set_xlabel("Model Type", fontsize=14, fontweight='bold')
+    ax.set_ylabel("Test Accuracy", fontsize=14, fontweight='bold')
+    
+    # Set x-axis labels
+    ax.set_xticks(range(len(MODEL_ORDER)))
+    ax.set_xticklabels(MODEL_ORDER, rotation=45, ha='right', fontsize=12)
+    
+    # Add grid for better readability
+    ax.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+    ax.set_axisbelow(True)
+    
+    # Add value labels on top of bars
+    for i, bar in enumerate(bars):
+        height = bar.get_height()
+        if height > 0:
+            ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
+                   f'{height:.3f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
+    
+    # Customize spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_linewidth(1.2)
+    ax.spines['bottom'].set_linewidth(1.2)
+    
+    # Add subtle background
+    ax.set_facecolor('#FAFAFA')
+    
+    # Adjust layout and save
     plt.tight_layout()
     path = out_dir / f"{metric}_by_model_dataset.png"
-    plt.savefig(path, dpi=300, bbox_inches="tight")
+    plt.savefig(path, dpi=300, bbox_inches="tight", facecolor='white', edgecolor='none')
     plt.close()
 
 
@@ -291,11 +341,8 @@ def main() -> int:
     agg.to_csv(agg_csv, index=False)
     print(f"Saved aggregates: {agg_csv}")
 
-    # Plots
+    # Plots - only generate test_acc plot
     plot_bars(agg, out_dir, "test_acc")
-    plot_bars(agg, out_dir, "val_acc")
-    plot_bars(agg, out_dir, "train_acc")
-    plot_model_grid(df, out_dir)
 
     print(f"Plots saved to: {out_dir}")
     return 0
