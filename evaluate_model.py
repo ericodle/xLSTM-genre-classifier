@@ -426,7 +426,7 @@ def create_metrics_table(results, class_names, output_path):
         if isinstance(metrics, dict) and "precision" in metrics:
             # This is a class entry
             class_display_name = class_name
-            if class_names and class_name.isdigit():
+            if class_names and str(class_name).isdigit():
                 class_idx = int(class_name)
                 if class_idx < len(class_names):
                     class_display_name = class_names[class_idx]
