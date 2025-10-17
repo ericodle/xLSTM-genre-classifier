@@ -27,8 +27,8 @@ import seaborn as sns
 # Set a clean theme with larger fonts for conference presentation
 sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
 plt.rcParams.update({
-    'font.family': 'serif',
-    'font.serif': ['Times New Roman', 'DejaVu Serif'],
+    'font.family': 'sans-serif',
+    'font.sans-serif': ['Arial', 'DejaVu Sans', 'Helvetica'],
     'font.size': 12,
     'axes.titlesize': 16,
     'axes.labelsize': 14,
@@ -215,7 +215,7 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
         return
     
     # Create figure with better proportions for conference presentation
-    fig, ax = plt.subplots(figsize=(14, 8))
+    fig, ax = plt.subplots(figsize=(16, 8))
     df_plot = df.copy()
     df_plot["model"] = df_plot["model"].replace(MODEL_LABEL_MAP)
     # Drop rows with missing metric to avoid zero bars/labels
@@ -227,19 +227,49 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     # Filter to only include models in our desired order
     df_plot = df_plot[df_plot["model"].isin(MODEL_ORDER)]
     
-    # Define a professional color palette
-    colors = ['#2E86AB', '#A23B72', '#F18F01', '#C73E1D', '#6A994E', '#7209B7', '#F77F00', '#FCBF49']
+    # Define colors for datasets
+    dataset_colors = {'GTZAN': '#2E86AB', 'FMA': '#A23B72'}
     
-    # Create the bar plot with enhanced styling
-    bars = ax.bar(
-        range(len(MODEL_ORDER)),
-        [df_plot[df_plot["model"] == model][metric].iloc[0] if len(df_plot[df_plot["model"] == model]) > 0 else 0 for model in MODEL_ORDER],
-        color=colors[:len(MODEL_ORDER)],
-        alpha=0.8,
-        edgecolor='white',
-        linewidth=1.5,
-        capsize=5
-    )
+    # Get unique datasets and models
+    datasets = df_plot['dataset'].unique()
+    models = MODEL_ORDER
+    
+    # Set up bar positions
+    x = np.arange(len(models))
+    width = 0.35  # Width of bars
+    
+    # Create bars for each dataset
+    bars = []
+    for i, dataset in enumerate(datasets):
+        dataset_data = df_plot[df_plot['dataset'] == dataset]
+        values = []
+        for model in models:
+            model_data = dataset_data[dataset_data['model'] == model]
+            if len(model_data) > 0:
+                values.append(model_data[metric].iloc[0])
+            else:
+                values.append(0)
+        
+        # Offset bars for grouped display
+        x_pos = x + i * width - width * (len(datasets) - 1) / 2
+        
+        bar = ax.bar(
+            x_pos,
+            values,
+            width,
+            label=dataset,
+            color=dataset_colors.get(dataset, '#666666'),
+            alpha=0.8,
+            edgecolor='white',
+            linewidth=1.5
+        )
+        bars.extend(bar)
+        
+        # Add value labels on top of bars
+        for j, (bar_item, value) in enumerate(zip(bar, values)):
+            if value > 0:
+                ax.text(bar_item.get_x() + bar_item.get_width()/2., value + 0.01,
+                       f'{value:.3f}', ha='center', va='bottom', fontsize=9, fontweight='bold')
     
     # Customize the plot
     ax.set_title(f"Test Accuracy by Model Type", fontsize=18, fontweight='bold', pad=20)
@@ -248,19 +278,15 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     ax.set_ylabel("Test Accuracy", fontsize=14, fontweight='bold')
     
     # Set x-axis labels
-    ax.set_xticks(range(len(MODEL_ORDER)))
-    ax.set_xticklabels(MODEL_ORDER, rotation=45, ha='right', fontsize=12)
+    ax.set_xticks(x)
+    ax.set_xticklabels(models, rotation=45, ha='right', fontsize=12)
+    
+    # Add legend in top right
+    ax.legend(loc='upper right', fontsize=12, framealpha=0.9)
     
     # Add grid for better readability
     ax.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
     ax.set_axisbelow(True)
-    
-    # Add value labels on top of bars
-    for i, bar in enumerate(bars):
-        height = bar.get_height()
-        if height > 0:
-            ax.text(bar.get_x() + bar.get_width()/2., height + 0.01,
-                   f'{height:.3f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
     
     # Customize spines
     ax.spines['top'].set_visible(False)
