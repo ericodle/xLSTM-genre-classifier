@@ -112,11 +112,15 @@ def load_mfcc_data(json_path):
         
         features = np.array(padded_features)
         
-        # Create mapping from unique labels and convert to integers
-        unique_labels = sorted(list(set(labels)))
-        mapping = unique_labels
-        label_to_idx = {label: idx for idx, label in enumerate(unique_labels)}
-        labels = np.array([label_to_idx[label] for label in labels])
+        # Use the mapping from the data if available, otherwise create from unique labels
+        if 'mapping' in mfcc_data:
+            mapping = mfcc_data['mapping']
+        else:
+            # Create mapping from unique labels and convert to integers
+            unique_labels = sorted(list(set(labels)))
+            mapping = unique_labels
+            label_to_idx = {label: idx for idx, label in enumerate(unique_labels)}
+            labels = np.array([label_to_idx[label] for label in labels])
         
         return features, labels, mapping
     else:
@@ -426,7 +430,7 @@ def create_metrics_table(results, class_names, output_path):
         if isinstance(metrics, dict) and "precision" in metrics:
             # This is a class entry
             class_display_name = class_name
-            if class_names and class_name.isdigit():
+            if class_names and str(class_name).isdigit():
                 class_idx = int(class_name)
                 if class_idx < len(class_names):
                     class_display_name = class_names[class_idx]
@@ -490,8 +494,12 @@ def create_metrics_table(results, class_names, output_path):
     plt.savefig(output_path, dpi=300, bbox_inches='tight')
     plt.close()
 
-def save_results(results, output_path):
+def save_results(results, output_path, class_names=None):
     """Save evaluation results to file."""
+    # Use provided class names or default to Class_X format
+    if class_names is None:
+        class_names = [f"Class_{i}" for i in range(len(results['ks_stats']))]
+    
     # Save metrics to text file
     metrics_file = os.path.join(output_path, 'evaluation_metrics.txt')
     with open(metrics_file, 'w') as f:
@@ -500,11 +508,11 @@ def save_results(results, output_path):
         
         f.write("KS Statistics:\n")
         for i, ks_stat in enumerate(results['ks_stats']):
-            f.write(f"Class {i}: {ks_stat:.4f}\n")
+            f.write(f"{class_names[i]}: {ks_stat:.4f}\n")
         
         f.write("\nClassification Report:\n")
         f.write(classification_report(results['y_true'], results['y_pred'], 
-                                   target_names=[f"Class_{i}" for i in range(len(results['ks_stats']))], zero_division=0))
+                                   target_names=class_names, zero_division=0))
     
     print(f"Results saved to {metrics_file}")
 
@@ -558,7 +566,7 @@ def main():
     create_metrics_table(results, class_names, os.path.join(output_dir, 'metrics_table.png'))
     
     print("Saving results...")
-    save_results(results, output_dir)
+    save_results(results, output_dir, class_names)
     
     print("Evaluation completed successfully!")
 
