@@ -111,8 +111,13 @@ def get_model(
         elif model_type == "GRU":
             return GRU_model(input_dim_int, hidden_dim, num_layers, output_dim, dropout)
         elif model_type == "xLSTM":
+            # Use xLSTM-specific parameters
+            from core.model_defaults import DEFAULTS
+            xlstm_hidden = getattr(DEFAULTS, 'xlstm_hidden_size', hidden_dim)
+            xlstm_layers = getattr(DEFAULTS, 'xlstm_num_layers', num_layers)
+            xlstm_dropout = getattr(DEFAULTS, 'xlstm_dropout', dropout)
             return xLSTM(
-                input_dim_int, hidden_dim, num_layers, output_dim, dropout,
+                input_dim_int, xlstm_hidden, xlstm_layers, output_dim, xlstm_dropout,
                 block_types=block_types, num_heads=num_heads, conv_kernel_size=conv_kernel_size
             )
         elif model_type == "Transformer":

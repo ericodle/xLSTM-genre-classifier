@@ -38,6 +38,11 @@ class ModelDefaults:
     num_heads: int = 4  # Reduced from 8 for memory efficiency
     ff_dim: int = 64  # Reduced from 128 for memory efficiency
     
+    # xLSTM parameters
+    xlstm_hidden_size: int = 128  # xLSTM typically uses larger hidden dimensions
+    xlstm_num_layers: int = 2
+    xlstm_dropout: float = 0.3
+    
     # === TRAINING PROCESS PARAMETERS ===
     validation_split: float = 0.2
     early_stopping_patience: int = 25  # Increased from 20 for more patience

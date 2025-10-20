@@ -293,7 +293,7 @@ class xLSTM(BaseModel):
         self.num_layers = num_layers
         self.output_dim = output_dim
         self.dropout = dropout
-        self.block_types = block_types or ["sLSTM"] * num_layers
+        self.block_types = block_types or ["sLSTM", "mLSTM"] * (num_layers // 2) + (["sLSTM"] if num_layers % 2 == 1 else [])
         self.num_heads = num_heads
         self.conv_kernel_size = conv_kernel_size
 
