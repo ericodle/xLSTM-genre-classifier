@@ -200,8 +200,8 @@ class mLSTMBlock(nn.Module):
         # Output projection
         self.output_proj = nn.Linear(hidden_size, hidden_size)
 
-    def forward(self, x: torch.Tensor, state: Tuple[torch.Tensor, torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-        h_prev, c_prev, M_prev = state
+    def forward(self, x: torch.Tensor, state: Tuple[torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        h_prev, c_prev = state
         
         # Squeeze input to 2D if needed
         if len(x.shape) == 3 and x.shape[1] == 1:
@@ -220,12 +220,13 @@ class mLSTMBlock(nn.Module):
         # Simplified attention (just use the value projection)
         attn_output = self.Wv(x)
         
-        # Simplified memory update
-        M_update = self.Wm(x).view(batch_size, self.hidden_size, self.hidden_size)
-        M_t = M_prev + M_update.unsqueeze(1)  # Add update to previous memory
+        # Much simpler memory update - just use a linear transformation
+        # This avoids the complex matrix operations that cause NaN
+        memory_contribution = self.Wc(x)  # Direct memory contribution
+        memory_contribution = torch.clamp(memory_contribution, -2.0, 2.0)
         
         # Simplified memory-based cell state
-        c_mem = torch.matmul(M_t.squeeze(1), c_prev.unsqueeze(-1)).squeeze(-1)
+        c_mem = memory_contribution
         
         # LSTM gates
         i = torch.sigmoid(self.Wi(x_norm))
@@ -246,11 +247,9 @@ class mLSTMBlock(nn.Module):
         if torch.isnan(h_t).any():
             print(f"Warning: NaN detected in mLSTM hidden state, replacing with zeros")
             h_t = torch.nan_to_num(h_t, nan=0.0)
-        if torch.isnan(M_t).any():
-            print(f"Warning: NaN detected in mLSTM memory matrix, replacing with zeros")
-            M_t = torch.nan_to_num(M_t, nan=0.0)
         
-        return h_t, (h_t, c_t, M_t)
+        # Return simplified state without memory matrix
+        return h_t, (h_t, c_t)
 
 
 class xLSTMBlock(nn.Module):
@@ -357,17 +356,10 @@ class xLSTM(BaseModel):
         """Initialize hidden states for all layers."""
         states = []
         for block in self.xlstm_blocks:
-            if block.block_type == "sLSTM":
-                # sLSTM state: (h, c)
-                h = torch.zeros(batch_size, self.hidden_dim, device=device)
-                c = torch.zeros(batch_size, self.hidden_dim, device=device)
-                states.append((h, c))
-            else:  # mLSTM
-                # mLSTM state: (h, c, M)
-                h = torch.zeros(batch_size, self.hidden_dim, device=device)
-                c = torch.zeros(batch_size, self.hidden_dim, device=device)
-                M = torch.zeros(batch_size, 1, self.hidden_dim, self.hidden_dim, device=device)
-                states.append((h, c, M))
+            # Both sLSTM and mLSTM now use the same state format: (h, c)
+            h = torch.zeros(batch_size, self.hidden_dim, device=device)
+            c = torch.zeros(batch_size, self.hidden_dim, device=device)
+            states.append((h, c))
         return states
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

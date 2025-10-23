@@ -39,7 +39,7 @@ class ModelDefaults:
     ff_dim: int = 64  # Reduced from 128 for memory efficiency
     
     # xLSTM parameters
-    xlstm_hidden_size: int = 128  # xLSTM typically uses larger hidden dimensions
+    xlstm_hidden_size: int = 64  # Reduced for memory efficiency
     xlstm_num_layers: int = 2
     xlstm_dropout: float = 0.3
     
@@ -159,7 +159,7 @@ class ModelDefaults:
                 "dropout": 0.1,           # Lower dropout for transformers
                 "num_heads": 4,           # Fewer heads for memory efficiency
                 "ff_dim": 64,             # Smaller FF dimension
-                "early_stopping_patience": 35,  # More patience for transformers
+                "early_stopping_patience": 25,  # Uniform patience across models
             }
         elif model_type.upper() == "CNN":
             # CNN-specific optimizations - more aggressive for FMA
@@ -187,6 +187,17 @@ class ModelDefaults:
                 "early_stopping_patience": 30,  # Reasonable patience
                 "weight_decay": 1e-4,     # Moderate weight decay
                 "gradient_clip_norm": 0.5, # Stronger gradient clipping
+            }
+        elif model_type.upper() == "XLSTM":
+            # xLSTM-specific optimizations - very conservative for numerical stability
+            return {
+                **base_params,
+                "learning_rate": 0.0001,  # Very low LR for stability
+                "batch_size": 8,          # Very small batch size for memory
+                "dropout": 0.3,           # Standard dropout
+                "early_stopping_patience": 40,  # More patience
+                "weight_decay": 1e-4,     # Moderate weight decay
+                "gradient_clip_norm": 0.5, # Same as LSTM/GRU for consistency
             }
         else:
             return base_params
