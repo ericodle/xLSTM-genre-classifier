@@ -14,10 +14,17 @@ from data.extract_autoencoded_features import extract_song_level_features_json
 
 def main():
     """Extract fresh song-level autoencoded features with checkpoint support."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Extract autoencoded features for GTZAN dataset")
+    parser.add_argument("--latent_dim", type=int, default=64, help="Latent dimension for autoencoder (default: 64)")
+    parser.add_argument("--output_dir", type=str, default="outputs", help="Output directory (default: outputs)")
+    
+    args = parser.parse_args()
     
     gtzan_path = "/home/eo/Documents/gtzan"
-    song_output = "outputs/gtzan_song_level_autoencoded.json"
-    checkpoint_file = "outputs/gtzan_song_level_autoencoded_checkpoint.json"
+    song_output = f"{args.output_dir}/gtzan_song_level_autoencoded_{args.latent_dim}d.json"
+    checkpoint_file = f"{args.output_dir}/gtzan_song_level_autoencoded_{args.latent_dim}d_checkpoint.json"
     
     print("🎵 Extracting Fresh Autoencoded Features for GTZAN Dataset")
     print("=" * 60)
@@ -25,7 +32,8 @@ def main():
     print("✅ Incremental saving (every 10 songs)")
     print("✅ Checkpoint resuming")
     print("✅ One autoencoder per song")
-    print("✅ 128D latent space")
+    print(f"✅ {args.latent_dim}D latent space")
+    print("✅ 50 epochs per song")
     print("=" * 60)
     
     # Check if resuming
@@ -44,8 +52,8 @@ def main():
     extract_song_level_features_json(
         gtzan_path=gtzan_path,
         output_file=song_output,
-        latent_dim=128,  # 128D latent space
-        epochs=20,       # 20 epochs per song
+        latent_dim=args.latent_dim,
+        epochs=50,  # Hard-coded to 50 epochs
         song_length=30.0,
         checkpoint_file=checkpoint_file,
         resume=resume

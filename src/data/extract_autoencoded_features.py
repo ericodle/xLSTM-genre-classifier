@@ -139,15 +139,23 @@ def extract_song_level_features_json(gtzan_path: str, output_file: str,
             # Normalize
             audio = (audio - audio.mean()) / (audio.std() + 1e-8)
             
+            # Add slight noise for regularization
+            noise = torch.randn_like(torch.FloatTensor(audio)) * 0.01
+            audio = audio + noise.numpy()
+            
             # Convert to tensor
             audio_tensor = torch.FloatTensor(audio).unsqueeze(0).unsqueeze(0)
             audio_tensor = audio_tensor.to(extractor.device)
             
-            # Train this fresh autoencoder
+            # Train this fresh autoencoder with regularization
             criterion = nn.MSELoss()
-            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=1e-3)
+            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=1e-3, weight_decay=1e-5)
             
             song_losses = []
+            best_loss = float('inf')
+            patience = 10
+            patience_counter = 0
+            
             for epoch in range(epochs):
                 fresh_autoencoder.train()
                 optimizer.zero_grad()
@@ -159,7 +167,18 @@ def extract_song_level_features_json(gtzan_path: str, output_file: str,
                 
                 song_losses.append(loss.item())
                 
-                if epoch % 2 == 0:
+                # Early stopping
+                if loss.item() < best_loss:
+                    best_loss = loss.item()
+                    patience_counter = 0
+                else:
+                    patience_counter += 1
+                
+                if patience_counter >= patience:
+                    logger.info(f"Song {song_idx + 1}, Early stopping at epoch {epoch + 1}")
+                    break
+                
+                if epoch % 10 == 0:
                     logger.info(f"Song {song_idx + 1}, Epoch {epoch + 1}/{epochs}, Loss: {loss.item():.6f}")
             
             # Extract final encoding

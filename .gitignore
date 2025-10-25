@@ -35,3 +35,6 @@ devnotes.txt
 # Log files
 *.log
 auto_train_fma13.log
+
+
+autoencoded_data/
