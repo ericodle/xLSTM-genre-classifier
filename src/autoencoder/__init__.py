@@ -12,10 +12,20 @@ from .song_level_autoencoder import (
     extract_song_level_features
 )
 
+from .recurrent_autoencoder import (
+    RecurrentAutoencoder,
+    RecurrentAutoencoderExtractor,
+    extract_recurrent_features
+)
+
 __all__ = [
     # Fresh song-level autoencoder (one autoencoder per song)
     'SongLevelDataset',
     'SongLevelAutoencoder',
     'SongLevelAutoencoderExtractor',
-    'extract_song_level_features'
+    'extract_song_level_features',
+    # Recurrent autoencoder (RNN-based for temporal patterns)
+    'RecurrentAutoencoder',
+    'RecurrentAutoencoderExtractor',
+    'extract_recurrent_features'
 ]
