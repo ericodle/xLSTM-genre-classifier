@@ -107,9 +107,13 @@ def extract_song_level_features_json(gtzan_path: str, output_file: str,
         logger=logger
     )
     
-    # Force CPU due to GPU memory constraints
-    logger.warning("Using CPU due to GPU memory constraints")
-    extractor.device = torch.device('cpu')
+    # Use GPU if available, otherwise CPU
+    if torch.cuda.is_available():
+        logger.info(f"Using GPU: {torch.cuda.get_device_name()}")
+        extractor.device = torch.device('cuda')
+    else:
+        logger.warning("CUDA not available, using CPU")
+        extractor.device = torch.device('cpu')
     
     # Process songs incrementally
     logger.info(f"Processing songs {start_idx + 1} to {len(audio_files)}...")

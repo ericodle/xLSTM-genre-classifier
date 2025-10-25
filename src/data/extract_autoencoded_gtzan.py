@@ -45,7 +45,7 @@ def main():
         gtzan_path=gtzan_path,
         output_file=song_output,
         latent_dim=128,  # 128D latent space
-        epochs=10,       # 10 epochs per song
+        epochs=20,       # 20 epochs per song
         song_length=30.0,
         checkpoint_file=checkpoint_file,
         resume=resume
