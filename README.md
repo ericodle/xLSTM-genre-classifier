@@ -49,7 +49,7 @@ python src/training/train_svm.py --data mfccs/gtzan_13.json --kernel rbf --C 10 
 python src/train_model.py --data mfccs/gtzan_13.json --model VGG16 --output outputs/vgg-gtzan-run --lr 0.0005 --batch-size 16 --dropout 0.3
 python src/analysis/analyze_results.py --input-dir ./outputs --output-dir ./outputs/analysis
 python generate_overfitting_table.py
-python src/data/extract_autoencoded_gtzan.py --latent_dim 16
+python src/data/extract_gtzan.py --gtzan-path /home/eo/Documents/gtzan --output-file outputs/gtzan_cnn_16d_improved.json --approach cnn_autoencoder --latent-dim 16
 tensorboard --logdir outputs --port 6006
 netron outputs/your_run/model.onnx
 

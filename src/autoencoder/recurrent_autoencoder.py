@@ -58,7 +58,7 @@ class RecurrentAutoencoder(nn.Module):
         self.num_layers = num_layers
         
         # Downsample audio to manageable sequence length for RNN
-        self.downsample_factor = 100  # Reduce 661500 to 6615 samples
+        self.downsample_factor = 50  # Reduce 661500 to 13230 samples (less aggressive)
         self.downsampled_length = song_length // self.downsample_factor
         
         # Encoder: LSTM to compress temporal patterns

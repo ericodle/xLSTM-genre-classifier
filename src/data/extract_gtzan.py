@@ -22,6 +22,7 @@ import torch.optim as optim
 from pathlib import Path
 import librosa
 from sklearn.preprocessing import LabelEncoder
+import matplotlib.pyplot as plt
 
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -29,6 +30,58 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from autoencoder import SongLevelAutoencoderExtractor, RecurrentAutoencoderExtractor, SongLevelAutoencoder, RecurrentAutoencoder
 from core.config import AudioConfig
 from core.constants import SAMPLE_RATE
+
+
+def save_training_plots(song_losses: list, output_dir: str, song_name: str, approach: str):
+    """Save training loss plots for the first song to monitor training health."""
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create loss plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(song_losses, 'b-', linewidth=2)
+    plt.title(f'{approach.upper()} Autoencoder Training - {song_name}', fontsize=14, fontweight='bold')
+    plt.xlabel('Epoch', fontsize=12)
+    plt.ylabel('Reconstruction Loss (MSE)', fontsize=12)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    # Save plot
+    plot_file = os.path.join(output_dir, f'{approach}_autoencoder_training_plot.png')
+    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    # Create detailed plot with early stopping info
+    plt.figure(figsize=(12, 8))
+    
+    # Main loss plot
+    plt.subplot(2, 1, 1)
+    plt.plot(song_losses, 'b-', linewidth=2, label='Training Loss')
+    plt.title(f'{approach.upper()} Autoencoder Training - {song_name}', fontsize=14, fontweight='bold')
+    plt.xlabel('Epoch', fontsize=12)
+    plt.ylabel('Reconstruction Loss (MSE)', fontsize=12)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    
+    # Loss improvement plot
+    plt.subplot(2, 1, 2)
+    if len(song_losses) > 1:
+        improvements = [song_losses[i] - song_losses[i-1] for i in range(1, len(song_losses))]
+        plt.plot(range(1, len(song_losses)), improvements, 'r-', linewidth=2, label='Loss Improvement')
+        plt.axhline(y=0, color='k', linestyle='--', alpha=0.5)
+        plt.title('Loss Improvement per Epoch', fontsize=12, fontweight='bold')
+        plt.xlabel('Epoch', fontsize=12)
+        plt.ylabel('Loss Improvement', fontsize=12)
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+    
+    plt.tight_layout()
+    
+    # Save detailed plot
+    detailed_plot_file = os.path.join(output_dir, f'{approach}_autoencoder_detailed_plot.png')
+    plt.savefig(detailed_plot_file, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    return plot_file, detailed_plot_file
 
 
 def extract_mfcc_features(gtzan_path: str, output_file: str, 
@@ -166,8 +219,9 @@ def extract_autoencoded_features(gtzan_path: str, output_file: str,
     # Process songs with fresh autoencoders
     for song_idx in range(start_idx, len(audio_files)):
         file_path, genre = audio_files[song_idx]
+        song_name = os.path.basename(file_path)
         
-        logger.info(f"Processing song {song_idx + 1}/{len(audio_files)}: {os.path.basename(file_path)} ({genre})")
+        logger.info(f"Processing song {song_idx + 1}/{len(audio_files)}: {song_name} ({genre})")
         
         # Create fresh autoencoder for this song
         fresh_autoencoder = SongLevelAutoencoder(
@@ -190,15 +244,16 @@ def extract_autoencoded_features(gtzan_path: str, output_file: str,
             audio_tensor = torch.FloatTensor(audio).unsqueeze(0).unsqueeze(0)  # (1, 1, length)
             audio_tensor = audio_tensor.to(extractor.device)
             
-            # Train this fresh autoencoder with regularization
+            # Train this fresh autoencoder with better settings for CNN
             criterion = nn.MSELoss()
-            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=1e-3, weight_decay=1e-5)
+            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=5e-4, weight_decay=1e-4)  # Lower LR, more regularization
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5)
             
             song_losses = []
             best_loss = float('inf')
-            patience = 10
+            patience = 15  # More patience for CNN
             patience_counter = 0
-            improvement_threshold = 0.0001  # Same as main training: 0.01% improvement
+            improvement_threshold = 0.001  # 0.1% improvement threshold (less strict)
             
             for epoch in range(epochs):
                 fresh_autoencoder.train()
@@ -207,10 +262,14 @@ def extract_autoencoded_features(gtzan_path: str, output_file: str,
                 reconstructed, latent = fresh_autoencoder(audio_tensor)
                 loss = criterion(reconstructed, audio_tensor)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(fresh_autoencoder.parameters(), max_norm=1.0)  # Gradient clipping
                 optimizer.step()
                 
                 current_loss = loss.item()
                 song_losses.append(current_loss)
+                
+                # Update learning rate
+                scheduler.step(current_loss)
                 
                 # Early stopping with improvement threshold (same as main training)
                 if current_loss < best_loss - improvement_threshold:
@@ -238,6 +297,14 @@ def extract_autoencoded_features(gtzan_path: str, output_file: str,
             all_genres.append(genre)
             
             logger.info(f"Song {song_idx + 1} completed. Encoding shape: {final_encoding.shape}")
+            
+            # Save training plots for the first song only
+            if song_idx == 0:
+                output_dir = os.path.dirname(output_file)
+                plot_file, detailed_plot_file = save_training_plots(
+                    song_losses, output_dir, song_name, "cnn"
+                )
+                logger.info(f"Training plots saved: {plot_file}, {detailed_plot_file}")
             
             # Clean up
             del fresh_autoencoder
@@ -371,8 +438,9 @@ def extract_recurrent_features(gtzan_path: str, output_file: str,
     # Process songs with fresh recurrent autoencoders
     for song_idx in range(start_idx, len(audio_files)):
         file_path, genre = audio_files[song_idx]
+        song_name = os.path.basename(file_path)
         
-        logger.info(f"Processing song {song_idx + 1}/{len(audio_files)}: {os.path.basename(file_path)} ({genre})")
+        logger.info(f"Processing song {song_idx + 1}/{len(audio_files)}: {song_name} ({genre})")
         
         # Create fresh recurrent autoencoder for this song
         fresh_autoencoder = RecurrentAutoencoder(
@@ -396,15 +464,16 @@ def extract_recurrent_features(gtzan_path: str, output_file: str,
             audio_tensor = torch.FloatTensor(audio).unsqueeze(0)  # (1, length)
             audio_tensor = audio_tensor.to(extractor.device)
             
-            # Train this fresh autoencoder with regularization
+            # Train this fresh autoencoder with better settings for RNN
             criterion = nn.MSELoss()
-            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=1e-3, weight_decay=1e-5)
+            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=5e-3, weight_decay=1e-4)  # Higher LR, more regularization
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5)
             
             song_losses = []
             best_loss = float('inf')
-            patience = 10
+            patience = 15  # More patience for RNN
             patience_counter = 0
-            improvement_threshold = 0.0001  # Same as main training: 0.01% improvement
+            improvement_threshold = 0.001  # 0.1% improvement threshold (less strict)
             
             for epoch in range(epochs):
                 fresh_autoencoder.train()
@@ -413,10 +482,14 @@ def extract_recurrent_features(gtzan_path: str, output_file: str,
                 reconstructed, latent = fresh_autoencoder(audio_tensor)
                 loss = criterion(reconstructed, audio_tensor)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(fresh_autoencoder.parameters(), max_norm=1.0)  # Gradient clipping
                 optimizer.step()
                 
                 current_loss = loss.item()
                 song_losses.append(current_loss)
+                
+                # Update learning rate
+                scheduler.step(current_loss)
                 
                 # Early stopping with improvement threshold (same as main training)
                 if current_loss < best_loss - improvement_threshold:
@@ -456,6 +529,14 @@ def extract_recurrent_features(gtzan_path: str, output_file: str,
             
             logger.info(f"Song {song_idx + 1} completed. Encoding shape: {final_encoding.shape}")
             logger.info(f"Saved to {output_file} - {len(output_data['features'])} songs processed")
+            
+            # Save training plots for the first song only
+            if song_idx == 0:
+                output_dir = os.path.dirname(output_file)
+                plot_file, detailed_plot_file = save_training_plots(
+                    song_losses, output_dir, song_name, "rnn"
+                )
+                logger.info(f"Training plots saved: {plot_file}, {detailed_plot_file}")
             
             # Clean up
             del fresh_autoencoder
