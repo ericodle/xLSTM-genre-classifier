@@ -466,7 +466,7 @@ def extract_recurrent_features(gtzan_path: str, output_file: str,
             
             # Train this fresh autoencoder with better settings for RNN
             criterion = nn.MSELoss()
-            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=5e-3, weight_decay=1e-4)  # Higher LR, more regularization
+            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=5e-4, weight_decay=1e-4)  # Lower LR like CNN
             scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5)
             
             song_losses = []
