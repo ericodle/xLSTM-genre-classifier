@@ -200,21 +200,34 @@ def extract_autoencoded_features(gtzan_path: str, output_file: str,
         logger=logger
     )
     
+    # Initialize output file with empty structure
+    output_data = {
+        'features': [],
+        'labels': [],
+        'mapping': [],
+        'config': {
+            'latent_dim': latent_dim,
+            'sample_rate': config.sample_rate,
+            'song_length': song_length,
+            'num_songs': 0,
+            'extraction_type': 'cnn_autoencoder'
+        }
+    }
+    
     # Load checkpoint if resuming
     start_idx = 0
-    all_encodings = []
-    all_labels = []
-    all_genres = []
-    
     if resume and checkpoint_file and os.path.exists(checkpoint_file):
         logger.info(f"Resuming from checkpoint: {checkpoint_file}")
         with open(checkpoint_file, 'r') as f:
             checkpoint = json.load(f)
             start_idx = checkpoint['processed_songs']
-            all_encodings = checkpoint['encodings']
-            all_labels = checkpoint['labels']
-            all_genres = checkpoint['genres']
+            output_data = checkpoint['output_data']
         logger.info(f"Resuming from song {start_idx + 1}")
+    else:
+        # Create empty output file
+        with open(output_file, 'w') as f:
+            json.dump(output_data, f, indent=2)
+        logger.info(f"Created empty output file: {output_file}")
     
     # Process songs with fresh autoencoders
     for song_idx in range(start_idx, len(audio_files)):
@@ -291,12 +304,24 @@ def extract_autoencoded_features(gtzan_path: str, output_file: str,
                 _, final_encoding = fresh_autoencoder(audio_tensor)
                 final_encoding = final_encoding.cpu().numpy().flatten()  # (latent_dim,)
             
-            # Store results
-            all_encodings.append(final_encoding.tolist())
-            all_labels.append(genre)
-            all_genres.append(genre)
+            # Store results immediately
+            # Format: features should be array of songs, each song is array of frames
+            # For autoencoder: each song has 1 frame with latent_dim features
+            song_features = [final_encoding.tolist()]  # Wrap in array to represent 1 frame
+            
+            # Add to output data
+            output_data['features'].append(song_features)
+            output_data['labels'].append(genre)
+            if genre not in output_data['mapping']:
+                output_data['mapping'].append(genre)
+            output_data['config']['num_songs'] = len(output_data['features'])
+            
+            # Save immediately to file
+            with open(output_file, 'w') as f:
+                json.dump(output_data, f, indent=2)
             
             logger.info(f"Song {song_idx + 1} completed. Encoding shape: {final_encoding.shape}")
+            logger.info(f"Saved to {output_file} - {len(output_data['features'])} songs processed")
             
             # Save training plots for the first song only
             if song_idx == 0:
@@ -314,51 +339,35 @@ def extract_autoencoded_features(gtzan_path: str, output_file: str,
             if (song_idx + 1) % 10 == 0:
                 checkpoint_data = {
                     'processed_songs': song_idx + 1,
-                    'encodings': all_encodings,
-                    'labels': all_labels,
-                    'genres': all_genres,
-                    'config': {
-                        'latent_dim': latent_dim,
-                        'sample_rate': config.sample_rate,
-                        'song_length': song_length
-                    }
+                    'output_data': output_data
                 }
                 with open(checkpoint_file, 'w') as f:
                     json.dump(checkpoint_data, f, indent=2)
-                logger.info(f"Checkpoint saved: {len(all_encodings)} songs processed")
+                logger.info(f"Checkpoint saved: {len(output_data['features'])} songs processed")
             
         except Exception as e:
             logger.warning(f"Failed to process {file_path}: {e}")
             continue
     
-    # Create label mapping
-    unique_genres = sorted(list(set(all_genres)))
+    # Final processing: encode labels and sort mapping to match MFCC format
+    unique_genres = sorted(output_data['mapping'])
     label_encoder = LabelEncoder()
-    encoded_labels = label_encoder.fit_transform(all_labels)
+    encoded_labels = label_encoder.fit_transform(output_data['labels'])
     
-    # Reshape encodings to match MFCC format: (samples, 1, latent_dim)
-    reshaped_encodings = [[[val] for val in encoding] for encoding in all_encodings]
+    # Update with encoded labels (integers 0-9)
+    output_data['labels'] = encoded_labels.tolist()
+    output_data['mapping'] = unique_genres
     
-    # Create output data in same format as MFCC extractions
-    output_data = {
-        'features': reshaped_encodings,
-        'labels': encoded_labels.tolist(),
-        'mapping': unique_genres,
-        'config': {
-            'latent_dim': latent_dim,
-            'sample_rate': config.sample_rate,
-            'song_length': song_length,
-            'num_songs': len(all_encodings),
-            'extraction_type': 'cnn_autoencoder'
-        }
-    }
+    # Remove config section to match MFCC format exactly
+    if 'config' in output_data:
+        del output_data['config']
     
-    # Save final output
+    # Save final version with encoded labels
     with open(output_file, 'w') as f:
         json.dump(output_data, f, indent=2)
     
     logger.info(f"CNN autoencoded features saved to {output_file}")
-    logger.info(f"Features shape: {len(all_encodings)} x 1 x {latent_dim}")
+    logger.info(f"Features shape: {len(output_data['features'])} x 1 x {latent_dim}")
     logger.info(f"Genres: {unique_genres}")
     
     # Clean up checkpoint file
