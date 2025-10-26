@@ -33,7 +33,7 @@ DEFAULT_N_MFCC = N_MFCC
 
 # Core model parameters
 BATCH_SIZE = 64  # Restored from working value
-LEARNING_RATE = 0.01  # Restored from working value
+LEARNING_RATE = 0.0001  # Restored from working value
 MAX_EPOCHS = 500
 WEIGHT_DECAY = 1e-5  # Restored from working value
 OPTIMIZER = "adam"  # Restored from working value
