@@ -18,6 +18,7 @@ from core.constants import (
     DEFAULT_NUM_CLASSES,
     DEFAULT_FC_HIDDEN_DIMS,
     DEFAULT_FC_DROPOUT,
+    DEFAULT_FC_INPUT_DIM,
     DEFAULT_CNN_DROPOUT,
     DEFAULT_TRANSFORMER_HEADS,
     DEFAULT_TRANSFORMER_FF_DIM,
@@ -34,7 +35,7 @@ class FC_model(BaseModel):
 
     def __init__(
         self,
-        input_dim: int = 16796,
+        input_dim: int = DEFAULT_FC_INPUT_DIM,
         hidden_dims: Optional[List[int]] = None,
         output_dim: int = DEFAULT_NUM_CLASSES,
         dropout: float = DEFAULT_FC_DROPOUT,

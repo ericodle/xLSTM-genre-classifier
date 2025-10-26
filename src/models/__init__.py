@@ -8,6 +8,19 @@ from .neural_networks import FC_model, CNN_model, LSTM_model, GRU_model
 from .transformers import Transformer
 from .xlstm import xLSTM
 from .vgg import VGG16Classifier
+from src.core.constants import (
+    DEFAULT_HIDDEN_SIZE,
+    DEFAULT_NUM_LAYERS,
+    DEFAULT_DROPOUT,
+    DEFAULT_NUM_HEADS,
+    DEFAULT_FF_DIM,
+    DEFAULT_CONV_LAYERS,
+    DEFAULT_BASE_FILTERS,
+    DEFAULT_KERNEL_SIZE,
+    DEFAULT_POOL_SIZE,
+    DEFAULT_FC_HIDDEN,
+    DEFAULT_NUM_CLASSES,
+)
 
 __all__ = [
     "BaseModel",
@@ -24,19 +37,19 @@ __all__ = [
 def get_model(
     model_type: str,
     input_dim: Optional[int] = None,
-    hidden_dim: int = 32,
-    num_layers: int = 1,
-    output_dim: int = 10,
-    dropout: float = 0.1,
-    num_heads: int = 8,
-    ff_dim: int = 128,
-    conv_layers: int = 3,
-    base_filters: int = 16,
-    kernel_size: int = 3,
-    pool_size: int = 2,
-    fc_hidden: int = 64,
+    hidden_dim: int = DEFAULT_HIDDEN_SIZE,
+    num_layers: int = DEFAULT_NUM_LAYERS,
+    output_dim: int = DEFAULT_NUM_CLASSES,
+    dropout: float = DEFAULT_DROPOUT,
+    num_heads: int = DEFAULT_NUM_HEADS,
+    ff_dim: int = DEFAULT_FF_DIM,
+    conv_layers: int = DEFAULT_CONV_LAYERS,
+    base_filters: int = DEFAULT_BASE_FILTERS,
+    kernel_size: int = DEFAULT_KERNEL_SIZE,
+    pool_size: int = DEFAULT_POOL_SIZE,
+    fc_hidden: int = DEFAULT_FC_HIDDEN,
     block_types: Optional[list] = None,
-    conv_kernel_size: int = 3,
+    conv_kernel_size: int = DEFAULT_KERNEL_SIZE,
 ) -> BaseModel:
     """
     Factory function to create model instances.

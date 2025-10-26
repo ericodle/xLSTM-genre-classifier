@@ -11,6 +11,15 @@ import math
 
 from .base import BaseModel
 
+# Add src directory to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from core.constants import (
+    DEFAULT_XLSTM_NUM_HEADS,
+    DEFAULT_XLSTM_CONV_KERNEL_SIZE,
+)
+
 
 class CausalConv1d(nn.Module):
     """Causal 1D convolution that only looks at past timesteps."""
@@ -104,7 +113,7 @@ class BlockDiagonalLinear(nn.Module):
 class sLSTMBlock(nn.Module):
     """sLSTM block with exponential gating (simplified without convolution)."""
 
-    def __init__(self, input_size: int, hidden_size: int, conv_kernel_size: int = 3):
+    def __init__(self, input_size: int, hidden_size: int, conv_kernel_size: int = DEFAULT_XLSTM_CONV_KERNEL_SIZE):
         super().__init__()
         self.hidden_size = hidden_size
         self.input_size = input_size
@@ -173,7 +182,7 @@ class sLSTMBlock(nn.Module):
 class mLSTMBlock(nn.Module):
     """mLSTM block with matrix memory and attention mechanism (simplified)."""
 
-    def __init__(self, input_size: int, hidden_size: int, num_heads: int = 4, conv_kernel_size: int = 3):
+    def __init__(self, input_size: int, hidden_size: int, num_heads: int = DEFAULT_XLSTM_NUM_HEADS, conv_kernel_size: int = DEFAULT_XLSTM_CONV_KERNEL_SIZE):
         super().__init__()
         self.hidden_size = hidden_size
         self.input_size = input_size
@@ -256,7 +265,7 @@ class xLSTMBlock(nn.Module):
     """Combined xLSTM block that can use both sLSTM and mLSTM."""
 
     def __init__(self, input_size: int, hidden_size: int, block_type: str = "sLSTM", 
-                 num_heads: int = 4, conv_kernel_size: int = 3):
+                 num_heads: int = DEFAULT_XLSTM_NUM_HEADS, conv_kernel_size: int = DEFAULT_XLSTM_CONV_KERNEL_SIZE):
         super().__init__()
         self.block_type = block_type
         
@@ -282,8 +291,8 @@ class xLSTM(BaseModel):
         output_dim: int,
         dropout: float,
         block_types: Optional[List[str]] = None,
-        num_heads: int = 4,
-        conv_kernel_size: int = 3,
+        num_heads: int = DEFAULT_XLSTM_NUM_HEADS,
+        conv_kernel_size: int = DEFAULT_XLSTM_CONV_KERNEL_SIZE,
     ):
         super().__init__(model_name="xLSTM")
 

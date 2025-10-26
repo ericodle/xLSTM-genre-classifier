@@ -6,59 +6,96 @@ This eliminates DRY violations and ensures consistency across the codebase.
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
+from .constants import (
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_LEARNING_RATE,
+    DEFAULT_MAX_EPOCHS,
+    DEFAULT_WEIGHT_DECAY,
+    DEFAULT_OPTIMIZER,
+    DEFAULT_LOSS_FUNCTION,
+    DEFAULT_LR_SCHEDULER,
+    DEFAULT_CLASS_WEIGHT,
+    DEFAULT_HIDDEN_SIZE,
+    DEFAULT_NUM_LAYERS,
+    DEFAULT_DROPOUT,
+    DEFAULT_CONV_LAYERS,
+    DEFAULT_BASE_FILTERS,
+    DEFAULT_KERNEL_SIZE,
+    DEFAULT_POOL_SIZE,
+    DEFAULT_FC_HIDDEN,
+    DEFAULT_NUM_HEADS,
+    DEFAULT_FF_DIM,
+    DEFAULT_XLSTM_HIDDEN_SIZE,
+    DEFAULT_XLSTM_NUM_LAYERS,
+    DEFAULT_XLSTM_DROPOUT,
+    DEFAULT_VALIDATION_SPLIT,
+    DEFAULT_EARLY_STOPPING_PATIENCE,
+    DEFAULT_RANDOM_SEED,
+    DEFAULT_NUM_WORKERS,
+    DEFAULT_PIN_MEMORY,
+    DEFAULT_SAVE_BEST_MODEL,
+    DEFAULT_SAVE_CHECKPOINTS,
+    DEFAULT_EARLY_STOPPING,
+    DEFAULT_IMPROVEMENT_THRESHOLD,
+    DEFAULT_GRADIENT_CLIP_NORM,
+    DEFAULT_TRAIN_SIZE,
+    DEFAULT_VAL_SIZE,
+    DEFAULT_TEST_SIZE,
+)
+
 
 @dataclass
 class ModelDefaults:
     """Single source of truth for all model parameter defaults."""
     
     # === CORE TRAINING PARAMETERS ===
-    batch_size: int = 32  # Reduced from 64 for better memory efficiency
-    learning_rate: float = 0.00001  # Reduced from 0.001 for better stability
-    max_epochs: int = 500
-    weight_decay: float = 1e-4  # Increased from 1e-5 for better regularization
-    optimizer: str = "adamw"  # AdamW often better for CNNs
-    loss_function: str = "crossentropy"
-    lr_scheduler: bool = True
-    class_weight: str = "auto"  # Enable by default for imbalanced datasets
+    batch_size: int = DEFAULT_BATCH_SIZE
+    learning_rate: float = DEFAULT_LEARNING_RATE
+    max_epochs: int = DEFAULT_MAX_EPOCHS
+    weight_decay: float = DEFAULT_WEIGHT_DECAY
+    optimizer: str = DEFAULT_OPTIMIZER
+    loss_function: str = DEFAULT_LOSS_FUNCTION
+    lr_scheduler: bool = DEFAULT_LR_SCHEDULER
+    class_weight: str = DEFAULT_CLASS_WEIGHT
     
     # === MODEL ARCHITECTURE PARAMETERS ===
     # RNN/LSTM/GRU parameters
-    hidden_size: int = 64  # Increased from 32 for better capacity
-    num_layers: int = 2  # Increased from 1 for better representation
-    dropout: float = 0.3  # Increased from 0.1 for better regularization
+    hidden_size: int = DEFAULT_HIDDEN_SIZE
+    num_layers: int = DEFAULT_NUM_LAYERS
+    dropout: float = DEFAULT_DROPOUT
     
     # CNN parameters
-    conv_layers: int = 4  # Increased for better feature extraction
-    base_filters: int = 32  # Increased from 16 for more filters
-    kernel_size: int = 3
-    pool_size: int = 2
-    fc_hidden: int = 128  # Increased from 64 for better capacity
+    conv_layers: int = DEFAULT_CONV_LAYERS
+    base_filters: int = DEFAULT_BASE_FILTERS
+    kernel_size: int = DEFAULT_KERNEL_SIZE
+    pool_size: int = DEFAULT_POOL_SIZE
+    fc_hidden: int = DEFAULT_FC_HIDDEN
     
     # Transformer parameters
-    num_heads: int = 4  # Reduced from 8 for memory efficiency
-    ff_dim: int = 64  # Reduced from 128 for memory efficiency
+    num_heads: int = DEFAULT_NUM_HEADS
+    ff_dim: int = DEFAULT_FF_DIM
     
     # xLSTM parameters
-    xlstm_hidden_size: int = 64  # Reduced for memory efficiency
-    xlstm_num_layers: int = 2
-    xlstm_dropout: float = 0.3
+    xlstm_hidden_size: int = DEFAULT_XLSTM_HIDDEN_SIZE
+    xlstm_num_layers: int = DEFAULT_XLSTM_NUM_LAYERS
+    xlstm_dropout: float = DEFAULT_XLSTM_DROPOUT
     
     # === TRAINING PROCESS PARAMETERS ===
-    validation_split: float = 0.2
-    early_stopping_patience: int = 25  # Increased from 20 for more patience
-    random_seed: int = 42
-    num_workers: int = 4
-    pin_memory: bool = True
-    save_best_model: bool = True
-    save_checkpoints: bool = True
-    early_stopping: bool = True
-    improvement_threshold: float = 0.0005  # More lenient for CNN models
-    gradient_clip_norm: float = 1.0  # Enable gradient clipping by default
+    validation_split: float = DEFAULT_VALIDATION_SPLIT
+    early_stopping_patience: int = DEFAULT_EARLY_STOPPING_PATIENCE
+    random_seed: int = DEFAULT_RANDOM_SEED
+    num_workers: int = DEFAULT_NUM_WORKERS
+    pin_memory: bool = DEFAULT_PIN_MEMORY
+    save_best_model: bool = DEFAULT_SAVE_BEST_MODEL
+    save_checkpoints: bool = DEFAULT_SAVE_CHECKPOINTS
+    early_stopping: bool = DEFAULT_EARLY_STOPPING
+    improvement_threshold: float = DEFAULT_IMPROVEMENT_THRESHOLD
+    gradient_clip_norm: float = DEFAULT_GRADIENT_CLIP_NORM
     
     # === DATA SPLIT PARAMETERS ===
-    train_size: float = 0.7
-    val_size: float = 0.15
-    test_size: float = 0.15
+    train_size: float = DEFAULT_TRAIN_SIZE
+    val_size: float = DEFAULT_VAL_SIZE
+    test_size: float = DEFAULT_TEST_SIZE
     
     def get_model_specific_defaults(self, model_type: str) -> Dict[str, Any]:
         """Get model-specific parameter defaults."""

@@ -9,9 +9,15 @@ from torchvision import models
 
 from .base import BaseModel
 
+# Add src directory to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from core.constants import DEFAULT_VGG_NUM_CLASSES, DEFAULT_VGG_PRETRAINED, DEFAULT_VGG_DROPOUT
+
 
 class VGG16Classifier(BaseModel):
-    def __init__(self, num_classes: int = 10, pretrained: bool = True, dropout: float = 0.3):
+    def __init__(self, num_classes: int = DEFAULT_VGG_NUM_CLASSES, pretrained: bool = DEFAULT_VGG_PRETRAINED, dropout: float = DEFAULT_VGG_DROPOUT):
         super().__init__(model_name="VGG16")
         self.num_classes = num_classes
         self.dropout = dropout

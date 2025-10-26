@@ -19,6 +19,33 @@ from .constants import (
     DEFAULT_PIN_MEMORY,
     DEFAULT_CHECKPOINT_INTERVAL,
     DEFAULT_LOG_INTERVAL,
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_LEARNING_RATE,
+    DEFAULT_MAX_EPOCHS,
+    DEFAULT_WEIGHT_DECAY,
+    DEFAULT_OPTIMIZER,
+    DEFAULT_LOSS_FUNCTION,
+    DEFAULT_LR_SCHEDULER,
+    DEFAULT_CLASS_WEIGHT,
+    DEFAULT_HIDDEN_SIZE,
+    DEFAULT_NUM_LAYERS,
+    DEFAULT_DROPOUT,
+    DEFAULT_CONV_LAYERS,
+    DEFAULT_BASE_FILTERS,
+    DEFAULT_KERNEL_SIZE,
+    DEFAULT_POOL_SIZE,
+    DEFAULT_FC_HIDDEN,
+    DEFAULT_NUM_HEADS,
+    DEFAULT_FF_DIM,
+    DEFAULT_VALIDATION_SPLIT,
+    DEFAULT_EARLY_STOPPING_PATIENCE,
+    DEFAULT_RANDOM_SEED,
+    DEFAULT_SAVE_BEST_MODEL,
+    DEFAULT_SAVE_CHECKPOINTS,
+    DEFAULT_EARLY_STOPPING,
+    DEFAULT_IMPROVEMENT_THRESHOLD,
+    DEFAULT_GRADIENT_CLIP_NORM,
+    DEFAULT_NUM_CLASSES,
 )
 from .model_defaults import DEFAULTS, get_defaults
 
@@ -39,33 +66,33 @@ class AudioConfig:
 class ModelConfig:
     """Model training configuration."""
 
-    batch_size: int = DEFAULTS.batch_size
-    hidden_size: int = DEFAULTS.hidden_size
-    num_layers: int = DEFAULTS.num_layers
-    dropout: float = DEFAULTS.dropout
-    learning_rate: float = DEFAULTS.learning_rate
-    max_epochs: int = DEFAULTS.max_epochs
-    early_stopping_patience: int = DEFAULTS.early_stopping_patience
-    validation_split: float = DEFAULTS.validation_split
-    optimizer: str = DEFAULTS.optimizer
-    loss_function: str = DEFAULTS.loss_function
-    weight_decay: float = DEFAULTS.weight_decay
-    lr_scheduler: bool = DEFAULTS.lr_scheduler
-    class_weight: str = DEFAULTS.class_weight
+    batch_size: int = DEFAULT_BATCH_SIZE
+    hidden_size: int = DEFAULT_HIDDEN_SIZE
+    num_layers: int = DEFAULT_NUM_LAYERS
+    dropout: float = DEFAULT_DROPOUT
+    learning_rate: float = DEFAULT_LEARNING_RATE
+    max_epochs: int = DEFAULT_MAX_EPOCHS
+    early_stopping_patience: int = DEFAULT_EARLY_STOPPING_PATIENCE
+    validation_split: float = DEFAULT_VALIDATION_SPLIT
+    optimizer: str = DEFAULT_OPTIMIZER
+    loss_function: str = DEFAULT_LOSS_FUNCTION
+    weight_decay: float = DEFAULT_WEIGHT_DECAY
+    lr_scheduler: bool = DEFAULT_LR_SCHEDULER
+    class_weight: str = DEFAULT_CLASS_WEIGHT
     # Optional initializer (none|xavier|kaiming|orthogonal|rnn). None by default
     init: Optional[str] = None
     
     # CNN-specific parameters
-    num_classes: int = 10  # Default for GTZAN, will be auto-detected from data
-    conv_layers: int = DEFAULTS.conv_layers
-    base_filters: int = DEFAULTS.base_filters
-    kernel_size: int = DEFAULTS.kernel_size
-    pool_size: int = DEFAULTS.pool_size
-    fc_hidden: int = DEFAULTS.fc_hidden
+    num_classes: int = DEFAULT_NUM_CLASSES
+    conv_layers: int = DEFAULT_CONV_LAYERS
+    base_filters: int = DEFAULT_BASE_FILTERS
+    kernel_size: int = DEFAULT_KERNEL_SIZE
+    pool_size: int = DEFAULT_POOL_SIZE
+    fc_hidden: int = DEFAULT_FC_HIDDEN
     
     # Transformer-specific parameters
-    num_heads: int = DEFAULTS.num_heads
-    ff_dim: int = DEFAULTS.ff_dim
+    num_heads: int = DEFAULT_NUM_HEADS
+    ff_dim: int = DEFAULT_FF_DIM
 
 
 @dataclass
@@ -75,16 +102,16 @@ class TrainingConfig:
     device: str = DEFAULT_DEVICE
     num_workers: int = DEFAULT_NUM_WORKERS
     pin_memory: bool = DEFAULT_PIN_MEMORY
-    save_best_model: bool = DEFAULTS.save_best_model
-    save_checkpoints: bool = DEFAULTS.save_checkpoints
+    save_best_model: bool = DEFAULT_SAVE_BEST_MODEL
+    save_checkpoints: bool = DEFAULT_SAVE_CHECKPOINTS
     checkpoint_interval: int = DEFAULT_CHECKPOINT_INTERVAL
     log_interval: int = DEFAULT_LOG_INTERVAL
-    random_seed: int = DEFAULTS.random_seed
-    early_stopping: bool = DEFAULTS.early_stopping
-    patience: int = DEFAULTS.early_stopping_patience
-    improvement_threshold: float = DEFAULTS.improvement_threshold
-    improvement_window: int = DEFAULTS.early_stopping_patience
-    gradient_clip_norm: Optional[float] = None
+    random_seed: int = DEFAULT_RANDOM_SEED
+    early_stopping: bool = DEFAULT_EARLY_STOPPING
+    patience: int = DEFAULT_EARLY_STOPPING_PATIENCE
+    improvement_threshold: float = DEFAULT_IMPROVEMENT_THRESHOLD
+    improvement_window: int = DEFAULT_EARLY_STOPPING_PATIENCE
+    gradient_clip_norm: Optional[float] = DEFAULT_GRADIENT_CLIP_NORM
 
 
 @dataclass

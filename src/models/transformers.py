@@ -7,6 +7,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .base import BaseModel
 
+# Add src directory to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from core.constants import DEFAULT_TRANSFORMER_MAX_SEQ_LEN
+
 
 class TransformerLayer(nn.Module):
     """Single transformer layer with self-attention and feed-forward network."""
@@ -97,7 +103,7 @@ class Transformer(BaseModel):
         batch_size, seq_len, _ = x.shape
         
         # Truncate sequence if too long (memory optimization)
-        max_seq_len = 500
+        max_seq_len = DEFAULT_TRANSFORMER_MAX_SEQ_LEN
         if seq_len > max_seq_len:
             x = x[:, :max_seq_len, :]
             seq_len = max_seq_len
