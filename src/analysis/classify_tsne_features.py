@@ -62,6 +62,9 @@ def run_classification_tests(X_original, X_tsne, y, mapping, output_dir):
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
     
+    # Get feature dimension for dynamic labeling
+    feature_dim = X_original.shape[1]
+    
     # Define classifiers
     classifiers = {
         'Logistic Regression': LogisticRegression(random_state=42, max_iter=1000),
@@ -83,7 +86,7 @@ def run_classification_tests(X_original, X_tsne, y, mapping, output_dir):
     }
     
     # Test on original features
-    print("\n--- Testing Original 13D MFCC Features ---")
+    print(f"\n--- Testing Original {feature_dim}D MFCC Features ---")
     scaler_orig = StandardScaler()
     X_orig_scaled = scaler_orig.fit_transform(X_original)
     
@@ -107,7 +110,7 @@ def run_classification_tests(X_original, X_tsne, y, mapping, output_dir):
         print(f"{name:20}: {mean_score:.4f} ± {std_score:.4f}")
     
     # Create comparison plots
-    create_comparison_plots(results, mapping, output_dir)
+    create_comparison_plots(results, mapping, output_dir, feature_dim)
     
     # Detailed analysis with best classifier
     best_orig = max(results['original'].items(), key=lambda x: x[1]['mean'])
@@ -123,7 +126,7 @@ def run_classification_tests(X_original, X_tsne, y, mapping, output_dir):
     
     return results
 
-def create_comparison_plots(results, mapping, output_dir):
+def create_comparison_plots(results, mapping, output_dir, feature_dim):
     """Create comparison plots for classification results."""
     print("Creating comparison plots...")
     
@@ -140,7 +143,7 @@ def create_comparison_plots(results, mapping, output_dir):
     width = 0.35
     
     plt.bar(x - width/2, orig_means, width, yerr=orig_stds, 
-            label='Original 13D MFCC', alpha=0.8, capsize=5)
+            label=f'Original {feature_dim}D MFCC', alpha=0.8, capsize=5)
     plt.bar(x + width/2, tsne_means, width, yerr=tsne_stds, 
             label='2D t-SNE', alpha=0.8, capsize=5)
     
@@ -171,7 +174,7 @@ def create_comparison_plots(results, mapping, output_dir):
         plt.annotate(clf, (orig_means[i], tsne_means[i]), 
                     xytext=(5, 5), textcoords='offset points', fontsize=8)
     
-    plt.xlabel('Original 13D MFCC Accuracy', fontsize=12)
+    plt.xlabel(f'Original {feature_dim}D MFCC Accuracy', fontsize=12)
     plt.ylabel('2D t-SNE Accuracy', fontsize=12)
     plt.title('Information Loss in t-SNE Compression', fontsize=14)
     plt.legend()
