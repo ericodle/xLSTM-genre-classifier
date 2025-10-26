@@ -38,8 +38,8 @@ class RecurrentAutoencoder(nn.Module):
     """RNN-based autoencoder for music using LSTM encoder-decoder architecture."""
     
     def __init__(self, song_length: int = 661500,  # 30s at 22050Hz
-                 latent_dim: int = 256, hidden_size: int = 512, 
-                 num_layers: int = 2, dropout: float = 0.1):
+                 latent_dim: int = 256, hidden_size: int = 1024, 
+                 num_layers: int = 3, dropout: float = 0.2):
         """
         Initialize recurrent autoencoder.
         
@@ -71,9 +71,12 @@ class RecurrentAutoencoder(nn.Module):
             bidirectional=True
         )
         
-        # Project to latent space
+        # Project to latent space (increased capacity)
         self.latent_projection = nn.Sequential(
-            nn.Linear(hidden_size * 2, hidden_size),  # *2 for bidirectional
+            nn.Linear(hidden_size * 2, hidden_size * 2),  # *2 for bidirectional
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size * 2, hidden_size),  # Intermediate layer
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size, latent_dim),
@@ -90,9 +93,12 @@ class RecurrentAutoencoder(nn.Module):
             bidirectional=True
         )
         
-        # Project from latent space to RNN input
+        # Project from latent space to RNN input (increased capacity)
         self.latent_expansion = nn.Sequential(
             nn.Linear(latent_dim, hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_size, hidden_size),  # Intermediate layer
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_size, hidden_size * 2)  # *2 for bidirectional
@@ -190,7 +196,7 @@ class RecurrentAutoencoderExtractor:
     """Recurrent autoencoder feature extractor."""
     
     def __init__(self, config: AudioConfig, latent_dim: int = 256, 
-                 song_length: float = 30.0, hidden_size: int = 512,
+                 song_length: float = 30.0, hidden_size: int = 1024,
                  device: str = "auto", logger: Optional[logging.Logger] = None):
         """
         Initialize recurrent autoencoder extractor.

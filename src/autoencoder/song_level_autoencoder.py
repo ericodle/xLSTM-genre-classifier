@@ -103,42 +103,54 @@ class SongLevelAutoencoder(nn.Module):
         self.song_length = song_length
         self.latent_dim = latent_dim
         
-        # Encoder: Compress full song to latent vector
+        # Encoder: Compress full song to latent vector (balanced capacity)
         self.encoder = nn.Sequential(
             # Input: (batch, 1, 661500)
-            nn.Conv1d(1, 64, kernel_size=31, stride=4, padding=15),  # -> (batch, 64, 165376)
-            nn.ReLU(),
-            nn.BatchNorm1d(64),
-            nn.Conv1d(64, 128, kernel_size=31, stride=4, padding=15), # -> (batch, 128, 41344)
+            nn.Conv1d(1, 128, kernel_size=31, stride=4, padding=15),  # -> (batch, 128, 165376)
             nn.ReLU(),
             nn.BatchNorm1d(128),
-            nn.Conv1d(128, 256, kernel_size=31, stride=4, padding=15), # -> (batch, 256, 10336)
+            nn.Conv1d(128, 256, kernel_size=31, stride=4, padding=15), # -> (batch, 256, 41344)
             nn.ReLU(),
             nn.BatchNorm1d(256),
-            nn.Conv1d(256, 512, kernel_size=31, stride=4, padding=15), # -> (batch, 512, 2584)
+            nn.Conv1d(256, 512, kernel_size=31, stride=4, padding=15), # -> (batch, 512, 10336)
             nn.ReLU(),
             nn.BatchNorm1d(512),
-            nn.AdaptiveAvgPool1d(1),  # -> (batch, 512, 1)
-            nn.Flatten(),  # -> (batch, 512)
+            nn.Conv1d(512, 1024, kernel_size=31, stride=4, padding=15), # -> (batch, 1024, 2584)
+            nn.ReLU(),
+            nn.BatchNorm1d(1024),
+            nn.Conv1d(1024, 1024, kernel_size=31, stride=4, padding=15), # -> (batch, 1024, 646)
+            nn.ReLU(),
+            nn.BatchNorm1d(1024),
+            nn.AdaptiveAvgPool1d(1),  # -> (batch, 1024, 1)
+            nn.Flatten(),  # -> (batch, 1024)
+            nn.Linear(1024, 512),  # -> (batch, 512)
+            nn.ReLU(),
+            nn.Dropout(0.2),
             nn.Linear(512, latent_dim),  # -> (batch, latent_dim)
             nn.ReLU()
         )
         
-        # Decoder: Reconstruct song from latent vector
+        # Decoder: Reconstruct song from latent vector (balanced capacity)
         self.decoder = nn.Sequential(
             nn.Linear(latent_dim, 512),  # -> (batch, 512)
             nn.ReLU(),
-            nn.Unflatten(1, (512, 1)),  # -> (batch, 512, 1)
-            nn.ConvTranspose1d(512, 256, kernel_size=31, stride=4, padding=15, output_padding=3),  # -> (batch, 256, 7)
+            nn.Dropout(0.2),
+            nn.Linear(512, 1024),  # -> (batch, 1024)
+            nn.ReLU(),
+            nn.Unflatten(1, (1024, 1)),  # -> (batch, 1024, 1)
+            nn.ConvTranspose1d(1024, 1024, kernel_size=31, stride=4, padding=15, output_padding=3),  # -> (batch, 1024, 7)
+            nn.ReLU(),
+            nn.BatchNorm1d(1024),
+            nn.ConvTranspose1d(1024, 512, kernel_size=31, stride=4, padding=15, output_padding=3),  # -> (batch, 512, 31)
+            nn.ReLU(),
+            nn.BatchNorm1d(512),
+            nn.ConvTranspose1d(512, 256, kernel_size=31, stride=4, padding=15, output_padding=3),   # -> (batch, 256, 127)
             nn.ReLU(),
             nn.BatchNorm1d(256),
-            nn.ConvTranspose1d(256, 128, kernel_size=31, stride=4, padding=15, output_padding=3),  # -> (batch, 128, 31)
+            nn.ConvTranspose1d(256, 128, kernel_size=31, stride=4, padding=15, output_padding=3),   # -> (batch, 128, 511)
             nn.ReLU(),
             nn.BatchNorm1d(128),
-            nn.ConvTranspose1d(128, 64, kernel_size=31, stride=4, padding=15, output_padding=3),   # -> (batch, 64, 127)
-            nn.ReLU(),
-            nn.BatchNorm1d(64),
-            nn.ConvTranspose1d(64, 1, kernel_size=31, stride=4, padding=15, output_padding=3),     # -> (batch, 1, 511)
+            nn.ConvTranspose1d(128, 1, kernel_size=31, stride=4, padding=15, output_padding=3),     # -> (batch, 1, 2047)
             nn.AdaptiveAvgPool1d(song_length),  # -> (batch, 1, song_length)
             nn.Tanh()  # Output in [-1, 1]
         )

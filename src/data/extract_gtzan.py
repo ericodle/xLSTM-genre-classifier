@@ -259,14 +259,14 @@ def extract_autoencoded_features(gtzan_path: str, output_file: str,
             
             # Train this fresh autoencoder with better settings for CNN
             criterion = nn.MSELoss()
-            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=5e-4, weight_decay=1e-4)  # Lower LR, more regularization
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5)
+            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=5e-4, weight_decay=1e-7)  # Much higher LR, minimal regularization
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.9, patience=15)
             
             song_losses = []
             best_loss = float('inf')
-            patience = 15  # More patience for CNN
+            patience = 50  # Maximum patience for CNN
             patience_counter = 0
-            improvement_threshold = 0.001  # 0.1% improvement threshold (less strict)
+            improvement_threshold = 0.0001  # Very sensitive improvement threshold
             
             for epoch in range(epochs):
                 fresh_autoencoder.train()
@@ -283,6 +283,12 @@ def extract_autoencoded_features(gtzan_path: str, output_file: str,
                 
                 # Update learning rate
                 scheduler.step(current_loss)
+                
+                # Plateau breaking: if stuck for too long, increase learning rate temporarily
+                if patience_counter == patience // 2:  # Halfway through patience
+                    for param_group in optimizer.param_groups:
+                        param_group['lr'] *= 1.5  # Boost learning rate
+                    logger.info(f"Song {song_idx + 1}: Boosting learning rate to {optimizer.param_groups[0]['lr']:.2e}")
                 
                 # Early stopping with improvement threshold (same as main training)
                 if current_loss < best_loss - improvement_threshold:
@@ -475,14 +481,14 @@ def extract_recurrent_features(gtzan_path: str, output_file: str,
             
             # Train this fresh autoencoder with better settings for RNN
             criterion = nn.MSELoss()
-            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=5e-4, weight_decay=1e-4)  # Lower LR like CNN
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.8, patience=5)
+            optimizer = optim.Adam(fresh_autoencoder.parameters(), lr=1e-3, weight_decay=1e-5)  # Much lower LR, less regularization
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.7, patience=8)
             
             song_losses = []
             best_loss = float('inf')
-            patience = 15  # More patience for RNN
+            patience = 30  # Much more patience for RNN
             patience_counter = 0
-            improvement_threshold = 0.001  # 0.1% improvement threshold (less strict)
+            improvement_threshold = 0.0005  # More sensitive improvement threshold
             
             for epoch in range(epochs):
                 fresh_autoencoder.train()
@@ -499,6 +505,12 @@ def extract_recurrent_features(gtzan_path: str, output_file: str,
                 
                 # Update learning rate
                 scheduler.step(current_loss)
+                
+                # Plateau breaking: if stuck for too long, increase learning rate temporarily
+                if patience_counter == patience // 2:  # Halfway through patience
+                    for param_group in optimizer.param_groups:
+                        param_group['lr'] *= 1.5  # Boost learning rate
+                    logger.info(f"Song {song_idx + 1}: Boosting learning rate to {optimizer.param_groups[0]['lr']:.2e}")
                 
                 # Early stopping with improvement threshold (same as main training)
                 if current_loss < best_loss - improvement_threshold:
