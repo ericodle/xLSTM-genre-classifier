@@ -8,7 +8,11 @@ from .neural_networks import FC_model, CNN_model, LSTM_model, GRU_model
 from .transformers import Transformer
 from .xlstm import xLSTM
 from .vgg import VGG16Classifier
-from src.core.constants import (
+# Add src directory to path for imports
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from core.constants import (
     DEFAULT_HIDDEN_SIZE,
     DEFAULT_NUM_LAYERS,
     DEFAULT_DROPOUT,
