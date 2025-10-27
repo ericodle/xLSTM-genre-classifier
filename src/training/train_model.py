@@ -1,17 +1,10 @@
 #!/usr/bin/env python3
 """
-Unified Model Training Script for GenreDiscern
-
-This is the single, unified training script that:
-- Uses the same training framework as OFAT/Grid Search
-- Eliminates code duplication
-- Provides consistent behavior across all training scenarios
-- Supports modern CLI interface only
+Model Training Script for GenreDiscern
 
 Usage:
-    python src/train_model.py --data mfccs/gtzan_13.json --model CNN --output output_dir --lr 0.001
-    python src/train_model.py --data mfccs/gtzan_13.json --model xLSTM --output output_dir --lr 0.0001 --epochs 10 --batch-size 8
-    python src/train_model.py --data mfccs/gtzan_13.json --model CNN --output output_dir --config config.json
+    python src/training/train_model.py --data gtzan-data/mfccs_splits --model GRU --output output_dir --lr 0.001
+    python src/training/train_model.py --data gtzan-data/mfccs_splits --model xLSTM --output output_dir --lr 0.0001 --epochs 10 --batch-size 8
 """
 
 import sys
@@ -24,9 +17,84 @@ from pathlib import Path
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from training.trainer_unified import UnifiedTrainer
+from training.trainer import ModelTrainer
 from core.config import Config
 from core.utils import setup_logging
+
+
+def _run_automatic_evaluation(trainer, data_path: str, output_dir: str, model_type: str, logger: logging.Logger):
+    """Run automatic evaluation and generate plots."""
+    try:
+        from training.evaluator import ModelEvaluator
+        
+        logger.info("Starting automatic evaluation...")
+        
+        # Load class names from the data
+        # Handle pre-split directory format
+        if os.path.isdir(data_path):
+            # Pre-split format: load from train.json
+            train_json = os.path.join(data_path, "train.json")
+            if os.path.exists(train_json):
+                with open(train_json, 'r') as f:
+                    data = json.load(f)
+                    class_names = data.get('mapping', [])
+                logger.info(f"Loaded class names from pre-split directory: {len(class_names)} classes")
+            else:
+                raise ValueError(f"train.json not found in directory: {data_path}")
+        else:
+            # Single-file format
+            with open(data_path, 'r') as f:
+                data = json.load(f)
+                class_names = data.get('mapping', [])
+            logger.info(f"Loaded class names from single file: {len(class_names)} classes")
+        
+        logger.info(f"Class names: {class_names}")
+        
+        # Get the trained model
+        model = trainer.model
+        if model is None:
+            raise ValueError("No trained model found")
+        
+        logger.info("Model loaded successfully")
+        
+        # Create evaluator
+        evaluator = ModelEvaluator(model, logger=logger)
+        
+        # Get test data loader
+        test_loader = trainer.test_loader
+        if test_loader is None:
+            raise ValueError("No test data loader found")
+        
+        logger.info("Test data loader found")
+        
+        # Run evaluation
+        logger.info("Running model evaluation...")
+        evaluation_results = evaluator.evaluate_model(test_loader, class_names)
+        
+        # Create evaluation output directory
+        eval_output_dir = os.path.join(output_dir, "evaluation")
+        os.makedirs(eval_output_dir, exist_ok=True)
+        logger.info(f"Created evaluation directory: {eval_output_dir}")
+        
+        # Generate plots
+        logger.info("Generating evaluation plots...")
+        evaluator.generate_evaluation_plots(
+            evaluation_results, 
+            eval_output_dir, 
+            class_names
+        )
+        
+        # Save results
+        logger.info("Saving evaluation results...")
+        evaluator.save_evaluation_results(
+            evaluation_results, 
+            os.path.join(eval_output_dir, "evaluation_results.json")
+        )
+        
+        logger.info("Automatic evaluation completed successfully")
+        
+    except Exception as e:
+        logger.warning(f"Failed to generate evaluation plots: {e}")
 
 
 def detect_dataset_type(data_path: str) -> str:
@@ -65,13 +133,12 @@ def detect_dataset_type(data_path: str) -> str:
 def setup_cli_parser():
     """Setup command line argument parser."""
     parser = argparse.ArgumentParser(
-        description="Unified GenreDiscern Model Training",
+        description="GenreDiscern Model Training",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python src/train_model.py --data mfccs/gtzan_13.json --model CNN --output output_dir --lr 0.001
-    python src/train_model.py --data mfccs/gtzan_13.json --model xLSTM --output output_dir --lr 0.0001 --epochs 10 --batch-size 8
-    python src/train_model.py --data mfccs/gtzan_13.json --model CNN --output output_dir --config config.json
+    python src/training/train_model.py --data gtzan-data/mfccs_splits --model GRU --output output_dir --lr 0.001
+    python src/training/train_model.py --data gtzan-data/mfccs_splits --model xLSTM --output output_dir --lr 0.0001 --epochs 10 --batch-size 8
         """
     )
     
@@ -110,7 +177,7 @@ def main():
     log_level = "DEBUG" if args.verbose else "INFO"
     logger = setup_logging(log_level)
     
-    logger.info("Starting unified model training...")
+    logger.info("Starting model training...")
     logger.info(f"Data: {args.data}")
     logger.info(f"Model: {args.model}")
     logger.info(f"Output: {args.output}")
@@ -194,25 +261,54 @@ def main():
     else:
         logger.info("Using optimized defaults for all parameters")
     
-    # Use unified training function
+    # Train model
     try:
-        # Create unified trainer with optimized config
-        trainer = UnifiedTrainer(config, logger)
+        # Create trainer with config
+        trainer = ModelTrainer(config, logger)
         
-        # Train model
-        results = trainer.train_single_model(
+        # Update config with user-provided parameters
+        for key, value in kwargs.items():
+            if hasattr(config.model, key):
+                setattr(config.model, key, value)
+                logger.debug(f"Updated model.{key} = {value}")
+            elif hasattr(config.training, key):
+                setattr(config.training, key, value)
+                logger.debug(f"Updated training.{key} = {value}")
+        
+        # Setup training
+        setup_kwargs = {}
+        if 'max_samples' in kwargs:
+            setup_kwargs['max_samples'] = kwargs['max_samples']
+        if 'memory_efficient' in kwargs:
+            setup_kwargs['memory_efficient'] = kwargs['memory_efficient']
+        
+        trainer.setup_training(
             data_path=args.data,
             model_type=args.model,
             output_dir=args.output,
-            **kwargs
+            **setup_kwargs
         )
         
+        # Train model
+        training_history = trainer.train()
+        
+        # Evaluate model
+        test_loss, test_acc = trainer._evaluate_model()
+        
+        # Run automatic evaluation to generate plots
+        try:
+            _run_automatic_evaluation(trainer, args.data, args.output, args.model, logger)
+        except Exception as e:
+            logger.warning(f"Failed to generate evaluation plots: {e}")
+        
         logger.info("Training completed successfully")
-        logger.info(f"Final test accuracy: {results['final_test_accuracy']:.4f}")
+        logger.info(f"Final test accuracy: {test_acc:.4f}")
         return 0
         
     except Exception as e:
         logger.error(f"Training failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return 1
 
 

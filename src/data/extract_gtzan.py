@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Unified GTZAN Feature Extraction
+GTZAN Feature Extraction
 
 This script extracts features from the GTZAN dataset using various approaches:
 - MFCC features (traditional)

@@ -18,7 +18,7 @@ MAX_AUDIO_DURATION = 30.0  # seconds
 # Audio file extensions
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac"}
 
-# Legacy audio constants (for backward compatibility)
+# Audio constants (aliases for backward compatibility)
 MFCC_COEFFICIENTS = N_MFCC
 DEFAULT_SAMPLE_RATE = SAMPLE_RATE
 DEFAULT_SONG_LENGTH = MAX_AUDIO_DURATION
@@ -42,7 +42,7 @@ LR_SCHEDULER = True
 CLASS_WEIGHT = "auto"
 NUM_CLASSES = 10
 
-# RNN/LSTM/GRU parameters (unified)
+# RNN/LSTM/GRU parameters
 HIDDEN_SIZE = 32  # Restored from working value
 NUM_LAYERS = 1  # Restored from working value
 DROPOUT = 0.1  # Restored from working value
@@ -159,9 +159,9 @@ GTZAN_GENRES = [
 ]
 
 # =============================================================================
-# LEGACY CONSTANTS (for backward compatibility)
+# DEFAULT CONSTANTS (for configuration)
 # =============================================================================
-# These reference the unified constants above to maintain DRY principle
+# These reference the constants above to maintain DRY principle
 
 # Training parameters
 DEFAULT_BATCH_SIZE = BATCH_SIZE
@@ -186,13 +186,13 @@ DEFAULT_KERNEL_SIZE = KERNEL_SIZE
 DEFAULT_POOL_SIZE = POOL_SIZE
 DEFAULT_FC_HIDDEN = FC_HIDDEN
 
-# CNN legacy constants
+# CNN default constants
 DEFAULT_CNN_CONV_LAYERS = CONV_LAYERS
 DEFAULT_CNN_BASE_FILTERS = BASE_FILTERS
 DEFAULT_CNN_KERNEL_SIZE = KERNEL_SIZE
 DEFAULT_CNN_POOL_SIZE = POOL_SIZE
 DEFAULT_CNN_FC_HIDDEN = FC_HIDDEN
-DEFAULT_CNN_DROPOUT = 0.2  # Different from unified dropout
+DEFAULT_CNN_DROPOUT = 0.2  # Different from standard dropout
 
 # Transformer parameters
 DEFAULT_NUM_HEADS = NUM_HEADS
@@ -237,7 +237,7 @@ DEFAULT_TRAIN_SIZE = TRAIN_SIZE
 DEFAULT_VAL_SIZE = VAL_SIZE
 DEFAULT_TEST_SIZE = TEST_SIZE
 
-# RNN/LSTM/GRU legacy constants
+# RNN/LSTM/GRU default constants
 DEFAULT_RNN_HIDDEN_SIZE = HIDDEN_SIZE
 DEFAULT_RNN_NUM_LAYERS = NUM_LAYERS
 DEFAULT_RNN_DROPOUT = DROPOUT
