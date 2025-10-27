@@ -68,7 +68,7 @@ XLSTM_CONV_KERNEL_SIZE = 3
 
 # VGG parameters
 VGG_NUM_CLASSES = NUM_CLASSES
-VGG_PRETRAINED = True
+VGG_PRETRAINED = False  # Default to training from scratch for better audio generalization
 VGG_DROPOUT = DROPOUT
 
 # GAN parameters
