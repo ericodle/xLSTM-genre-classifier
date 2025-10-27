@@ -67,3 +67,5 @@ tensorboard --logdir outputs --port 6006
 netron outputs/your_run/model.onnx
 
 ```
+
+TODO: set up human genre test app
