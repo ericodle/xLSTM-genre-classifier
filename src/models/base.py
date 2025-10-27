@@ -229,7 +229,7 @@ Trained: {self.is_trained}
                     dummy_input,
                     filepath,
                     export_params=True,
-                    opset_version=13,
+                    opset_version=14,  # Updated for ViT attention support
                     do_constant_folding=True,
                     input_names=["input"],
                     output_names=["output"],
@@ -244,7 +244,7 @@ Trained: {self.is_trained}
                     dummy_input,
                     filepath,
                     export_params=True,
-                    opset_version=13,
+                    opset_version=14,  # Updated for ViT attention support
                     do_constant_folding=True,
                     input_names=["input"],
                     output_names=["output"],

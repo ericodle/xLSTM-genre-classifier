@@ -126,6 +126,10 @@ class ViTClassifier(BaseModel):
             # If given (batch, H, W) format, add channel
             x = x.unsqueeze(1)
         
+        # Now x should be (batch, channels, time, features)
+        if x.dim() != 4:
+            raise ValueError(f"Expected 4D tensor after preprocessing, got {x.dim()}D")
+        
         batch_size = x.shape[0]
         time_steps = x.shape[2]
         features = x.shape[3]

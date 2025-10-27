@@ -612,14 +612,14 @@ class ModelTrainer:
                 "dropout": self.config.model.dropout,
             }
             
-            # For VGG16, pass the number of MFCC features and pretrained flag
-            if model_type == "VGG16" and len(input_shape) == 2:
+            # For VGG16 and ViT, pass the number of MFCC features and pretrained flag
+            if model_type in ["VGG16", "ViT"] and len(input_shape) == 2:
                 # input_shape is (time_steps, features)
                 kwargs["num_mfcc_features"] = input_shape[1]  # number of MFCC coefficients
                 # Get pretrained flag from config
                 pretrained = getattr(self.config.model, 'pretrained', True)
                 kwargs["pretrained"] = pretrained
-                self.logger.info(f"VGG16: Using {input_shape[1]} MFCC features, pretrained={pretrained}")
+                self.logger.info(f"{model_type}: Using {input_shape[1]} MFCC features, pretrained={pretrained}")
             
             self.model = get_model(**kwargs)
 
@@ -1069,8 +1069,8 @@ class ModelTrainer:
                 return (sample_data.shape[1], sample_data.shape[2])
             else:
                 return sample_data.shape[1:]
-        # VGG-style CNNs (no conv_layers attribute)
-        elif hasattr(self.model, "vgg") or getattr(self.model, "model_name", "").upper() == "VGG16":
+        # VGG or ViT style models (no conv_layers attribute)
+        elif hasattr(self.model, "vgg") or hasattr(self.model, "vit") or getattr(self.model, "model_name", "").upper() in ["VGG16", "VIT"]:
             if len(sample_data.shape) == 3:
                 # Provide (time, features); model will add channel internally
                 return (sample_data.shape[1], sample_data.shape[2])
