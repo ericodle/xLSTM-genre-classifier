@@ -184,12 +184,93 @@ class ModelTrainer:
         """Load and preprocess training data."""
         self.logger.info(f"Loading data from {data_path}")
 
+        # Check if data_path is a directory with pre-split data (train.json, val.json, test.json)
+        if os.path.isdir(data_path):
+            train_json = os.path.join(data_path, "train.json")
+            val_json = os.path.join(data_path, "val.json")
+            test_json = os.path.join(data_path, "test.json")
+            
+            if all(os.path.exists(f) for f in [train_json, val_json, test_json]):
+                self.logger.info("Detected pre-split data directory (train.json, val.json, test.json)")
+                self._load_presplit_json_data(train_json, val_json, test_json, max_samples)
+                self.data_is_presplit = True
+                return
+        
+        # Mark that data is not pre-split (will be split during preprocessing)
+        self.data_is_presplit = False
+        
         # Check if this is a CSV file
         if data_path.lower().endswith(".csv"):
             self._load_csv_data(data_path)
         else:
             self._load_json_data(data_path, max_samples, memory_efficient)
 
+    def _load_presplit_json_data(self, train_json: str, val_json: str, test_json: str, max_samples: int = None):
+        """Load pre-split data from three separate JSON files (train, val, test)."""
+        self.logger.info("Loading pre-split data from train.json, val.json, test.json")
+        
+        def load_split_file(json_path: str, split_name: str):
+            """Helper to load a single split file."""
+            with open(json_path, "r") as f:
+                data = json.load(f)
+            
+            features = data.get("features", [])
+            labels = data.get("labels", [])
+            
+            # Extract mapping if available
+            if "mapping" in data and not hasattr(self, 'genre_names'):
+                self.genre_names = data["mapping"]
+                self.logger.info(f"Found genre mapping: {self.genre_names}")
+            
+            # Limit samples if specified
+            if max_samples and len(features) > max_samples:
+                self.logger.info(f"Limiting {split_name} to {max_samples} samples (from {len(features)})")
+                features = features[:max_samples]
+                labels = labels[:max_samples]
+            
+            # Pad features to consistent shape
+            max_frames = max(len(feature) for feature in features)
+            min_frames = min(len(feature) for feature in features)
+            
+            self.logger.info(
+                f"{split_name}: {len(features)} samples, frame range: {min_frames}-{max_frames}"
+            )
+            
+            # Pad all features to the same length
+            padded_features = []
+            for feature in features:
+                if len(feature) < max_frames:
+                    padding = [[0.0] * len(feature[0]) for _ in range(max_frames - len(feature))]
+                    padded_feature = feature + padding
+                else:
+                    padded_feature = feature
+                padded_features.append(padded_feature)
+            
+            return np.array(padded_features, dtype=np.float32), np.array(labels)
+        
+        # Load all three splits
+        X_train, y_train = load_split_file(train_json, "Training")
+        X_val, y_val = load_split_file(val_json, "Validation")
+        X_test, y_test = load_split_file(test_json, "Test")
+        
+        self.logger.info(f"Loaded pre-split data:")
+        self.logger.info(f"  Train: {len(X_train)} samples")
+        self.logger.info(f"  Val:   {len(X_val)} samples")
+        self.logger.info(f"  Test:  {len(X_test)} samples")
+        
+        # Set attributes for training
+        self.X_train = X_train
+        self.y_train = y_train
+        self.X_val = X_val
+        self.y_val = y_val
+        self.X_test = X_test
+        self.y_test = y_test
+        
+        # Note: features and labels are not set for pre-split data
+        
+        # Preprocess data after loading
+        self._preprocess_data()
+    
     def _load_csv_data(self, data_path: str):
         """Load data from CSV file with pre-extracted MFCC features."""
         self.logger.info("Detected CSV format with pre-extracted MFCC features")
@@ -432,6 +513,26 @@ class ModelTrainer:
     def _preprocess_data(self):
         """Preprocess the loaded data."""
         self.logger.info("Preprocessing data...")
+
+        # If data is already split, skip the splitting step
+        if hasattr(self, 'data_is_presplit') and self.data_is_presplit:
+            self.logger.info("Data is pre-split, skipping split and validation")
+            
+            # Still need to encode labels in case they're strings
+            self.logger.info("Encoding labels...")
+            self.y_train = self.preprocessor.encode_labels(self.y_train)
+            self.y_val = self.preprocessor.encode_labels(self.y_val)
+            self.y_test = self.preprocessor.encode_labels(self.y_test)
+            
+            # Normalize features properly (fit on training data only)
+            self.logger.info("Normalizing features...")
+            self.X_train = self.preprocessor.normalize_features(self.X_train, fit_normalizer=True)
+            self.X_val = self.preprocessor.normalize_features(self.X_val, fit_normalizer=False)
+            self.X_test = self.preprocessor.normalize_features(self.X_test, fit_normalizer=False)
+            
+            # Create data loaders
+            self._create_data_loaders()
+            return
 
         # Validate data
         if not self.preprocessor.validate_data(self.features, self.labels):

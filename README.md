@@ -52,6 +52,27 @@ python src/data/process_gtzan_audio.py /home/eo/Documents/gtzan gtzan-data/proce
 python src/data/process_gtzan_audio.py --skip-copy --mfcc-dir gtzan-data/processed --output-dir gtzan-data/mfccs --output-name gtzan_features
 ```
 
+### Split GTZAN Data into Train/Val/Test Sets
+Split GTZAN data before training to track which songs are in which split:
+```bash
+# Full pipeline: split files and extract MFCCs for each split
+python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits
+
+# This creates:
+# - gtzan-data/splits/train/ (with genre subdirectories and WAV files)
+# - gtzan-data/splits/val/   (with genre subdirectories and WAV files)
+# - gtzan-data/splits/test/  (with genre subdirectories and WAV files)
+# - gtzan-data/mfccs_splits/train.json
+# - gtzan-data/mfccs_splits/val.json
+# - gtzan-data/mfccs_splits/test.json
+
+# Custom split ratios
+python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits --train-size 0.8 --val-size 0.1
+
+# Test with limited samples (for quick verification)
+python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits --max-samples 10
+```
+
 
 
 
