@@ -1,5 +1,6 @@
 env/
 output/
+fma-data/
 mfccs/
 
 # Training and model outputs
@@ -38,3 +39,4 @@ auto_train_fma13.log
 
 
 autoencoded_data/
+gtzan-data/

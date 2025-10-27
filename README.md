@@ -39,6 +39,19 @@ python -c "from src.core.config import AudioConfig; from src.data.mfcc_extractor
 cfg=AudioConfig(); ex=MFCCExtractor(cfg); print(ex.extract_mfcc_from_directory('/path/to/music','./mfccs','dataset_13'))"
 ```
 
+### Process GTZAN Audio Files
+Process GTZAN audio files by cutting 30-second clips and extracting MFCC features:
+```bash
+# Full pipeline: copy, cut clips, and extract MFCCs
+python src/data/process_gtzan_audio.py /home/eo/Documents/gtzan gtzan-data/processed gtzan-data/mfccs gtzan_features
+
+# Only cut clips (skip MFCC extraction)
+python src/data/process_gtzan_audio.py /home/eo/Documents/gtzan gtzan-data/processed --skip-mfcc
+
+# Only extract MFCCs from already processed files
+python src/data/process_gtzan_audio.py --skip-copy --mfcc-dir gtzan-data/processed --output-dir gtzan-data/mfccs --output-name gtzan_features
+```
+
 
 
 
