@@ -46,6 +46,13 @@ from .constants import (
     DEFAULT_IMPROVEMENT_THRESHOLD,
     DEFAULT_GRADIENT_CLIP_NORM,
     DEFAULT_NUM_CLASSES,
+    GAN_NOISE_DIM,
+    GAN_HIDDEN_DIM,
+    GAN_NUM_LAYERS,
+    GAN_DROPOUT,
+    GAN_N_CRITIC,
+    GAN_LAMBDA_GP,
+    GAN_LEARNING_RATE,
 )
 from .model_defaults import DEFAULTS, get_defaults
 
@@ -93,6 +100,15 @@ class ModelConfig:
     # Transformer-specific parameters
     num_heads: int = DEFAULT_NUM_HEADS
     ff_dim: int = DEFAULT_FF_DIM
+    
+    # GAN-specific parameters
+    gan_noise_dim: int = GAN_NOISE_DIM
+    gan_hidden_dim: int = GAN_HIDDEN_DIM
+    gan_num_layers: int = GAN_NUM_LAYERS
+    gan_dropout: float = GAN_DROPOUT
+    gan_n_critic: int = GAN_N_CRITIC
+    gan_lambda_gp: float = GAN_LAMBDA_GP
+    gan_learning_rate: float = GAN_LEARNING_RATE
 
 
 @dataclass
