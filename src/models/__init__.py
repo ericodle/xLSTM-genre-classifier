@@ -8,6 +8,7 @@ from .neural_networks import FC_model, CNN_model, LSTM_model, GRU_model
 from .transformers import Transformer
 from .xlstm import xLSTM
 from .vgg import VGG16Classifier
+from .vit import ViTClassifier
 # Add src directory to path for imports
 import sys
 import os
@@ -84,6 +85,7 @@ def get_model(
         "xLSTM",
         "Transformer",
         "VGG16",
+        "ViT",
     ]
     if model_type not in valid_types:
         raise ValueError(
@@ -159,6 +161,15 @@ def get_model(
             return VGG16Classifier(
                 num_classes=output_dim, 
                 pretrained=use_pretrained, 
+                dropout=dropout,
+                num_mfcc_features=num_mfcc_features
+            )
+        elif model_type == "ViT":
+            # For ViT, use similar approach as VGG16
+            use_pretrained = pretrained if pretrained is not None else True
+            return ViTClassifier(
+                num_classes=output_dim,
+                pretrained=use_pretrained,
                 dropout=dropout,
                 num_mfcc_features=num_mfcc_features
             )
