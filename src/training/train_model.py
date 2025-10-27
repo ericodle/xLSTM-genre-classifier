@@ -94,6 +94,7 @@ Examples:
     parser.add_argument("--no-early-stopping", action="store_true", help="Disable early stopping")
     parser.add_argument("--gradient-clip", type=float, help="Gradient clipping norm (default: 1.0)")
     parser.add_argument("--no-pretrained", action="store_true", help="Disable pretrained weights (for VGG16: train from scratch)")
+    parser.add_argument("--label-smoothing", type=float, help="Label smoothing factor (0.0-1.0, typical: 0.1) to reduce overfitting")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     
     return parser
@@ -176,6 +177,10 @@ def main():
         kwargs["pretrained"] = False
         config.model.pretrained = False
         user_overrides.append("pretrained: False")
+    if args.label_smoothing is not None:
+        kwargs["label_smoothing"] = args.label_smoothing
+        config.model.label_smoothing = args.label_smoothing
+        user_overrides.append(f"label_smoothing: {args.label_smoothing}")
     
     # Log user overrides
     if user_overrides:

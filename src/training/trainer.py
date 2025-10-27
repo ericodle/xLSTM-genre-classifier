@@ -42,6 +42,7 @@ from core.constants import (
 )
 from models import get_model
 from data.preprocessing import AudioPreprocessor
+from training.losses import LabelSmoothingCrossEntropyLoss
 
 
 class FocalLoss(nn.Module):
@@ -670,7 +671,17 @@ class ModelTrainer:
                         self.logger.warning(f"Failed to parse class weights: {e}")
                         class_weights = None
             
-            self.criterion = nn.CrossEntropyLoss(weight=class_weights)
+            # Check if we should use label smoothing
+            label_smoothing = getattr(self.config.model, 'label_smoothing', 0.0)
+            if label_smoothing > 0:
+                num_classes = len(np.unique(self.y_train))
+                self.criterion = LabelSmoothingCrossEntropyLoss(
+                    smoothing=label_smoothing, 
+                    num_classes=num_classes
+                )
+                self.logger.info(f"Using label smoothing with smoothing={label_smoothing}")
+            else:
+                self.criterion = nn.CrossEntropyLoss(weight=class_weights)
         elif self.config.model.loss_function.lower() == "focal":
             # Use Focal Loss for imbalanced datasets
             self.criterion = FocalLoss(alpha=1.0, gamma=2.0)

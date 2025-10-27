@@ -86,6 +86,7 @@ class ModelConfig:
     weight_decay: float = DEFAULT_WEIGHT_DECAY
     lr_scheduler: bool = DEFAULT_LR_SCHEDULER
     class_weight: str = DEFAULT_CLASS_WEIGHT
+    label_smoothing: float = 0.0  # Label smoothing for overfitting reduction (0.0-1.0, typical: 0.1)
     # Optional initializer (none|xavier|kaiming|orthogonal|rnn). None by default
     init: Optional[str] = None
     
