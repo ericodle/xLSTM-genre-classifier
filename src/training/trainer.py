@@ -536,14 +536,25 @@ class ModelTrainer:
             )
         else:
             # For other models, use standard parameters
-            self.model = get_model(
-                model_type=model_type,
-                input_dim=input_dim,
-                hidden_dim=self.config.model.hidden_size,
-                num_layers=self.config.model.num_layers,
-                output_dim=num_classes,
-                dropout=self.config.model.dropout,
-            )
+            kwargs = {
+                "model_type": model_type,
+                "input_dim": input_dim,
+                "hidden_dim": self.config.model.hidden_size,
+                "num_layers": self.config.model.num_layers,
+                "output_dim": num_classes,
+                "dropout": self.config.model.dropout,
+            }
+            
+            # For VGG16, pass the number of MFCC features and pretrained flag
+            if model_type == "VGG16" and len(input_shape) == 2:
+                # input_shape is (time_steps, features)
+                kwargs["num_mfcc_features"] = input_shape[1]  # number of MFCC coefficients
+                # Get pretrained flag from config
+                pretrained = getattr(self.config.model, 'pretrained', True)
+                kwargs["pretrained"] = pretrained
+                self.logger.info(f"VGG16: Using {input_shape[1]} MFCC features, pretrained={pretrained}")
+            
+            self.model = get_model(**kwargs)
 
         # Move to device
         self.model = self.model.to(self.device)

@@ -17,10 +17,11 @@ from core.constants import DEFAULT_VGG_NUM_CLASSES, DEFAULT_VGG_PRETRAINED, DEFA
 
 
 class VGG16Classifier(BaseModel):
-    def __init__(self, num_classes: int = DEFAULT_VGG_NUM_CLASSES, pretrained: bool = DEFAULT_VGG_PRETRAINED, dropout: float = DEFAULT_VGG_DROPOUT):
+    def __init__(self, num_classes: int = DEFAULT_VGG_NUM_CLASSES, pretrained: bool = DEFAULT_VGG_PRETRAINED, dropout: float = DEFAULT_VGG_DROPOUT, num_mfcc_features: int = 13):
         super().__init__(model_name="VGG16")
         self.num_classes = num_classes
         self.dropout = dropout
+        self.num_mfcc_features = num_mfcc_features
 
         # Load VGG16
         vgg = models.vgg16(weights=models.VGG16_Weights.DEFAULT if pretrained else None)
@@ -55,10 +56,12 @@ class VGG16Classifier(BaseModel):
         vgg.avgpool = nn.Identity()
         self.time_pool = nn.AvgPool2d(kernel_size=(40, 1), stride=(1, 1))
 
-        # Lightweight custom head for 512 x 1 x 13 maps
+        # Lightweight custom head for 512 x 1 x num_mfcc_features maps
+        # After VGG features and time pooling, we get (batch, 512, 1, num_mfcc_features)
+        # After flattening: (batch, 512 * num_mfcc_features)
         self.head = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(512 * 1 * 13, 1024),
+            nn.Linear(512 * num_mfcc_features, 1024),
             nn.ReLU(),
             nn.Dropout(p=self.dropout),
             nn.Linear(1024, num_classes),

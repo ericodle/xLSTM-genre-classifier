@@ -93,6 +93,7 @@ Examples:
     parser.add_argument("--patience", type=int, help="Early stopping patience (epochs)")
     parser.add_argument("--no-early-stopping", action="store_true", help="Disable early stopping")
     parser.add_argument("--gradient-clip", type=float, help="Gradient clipping norm (default: 1.0)")
+    parser.add_argument("--no-pretrained", action="store_true", help="Disable pretrained weights (for VGG16: train from scratch)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     
     return parser
@@ -171,6 +172,10 @@ def main():
         kwargs["gradient_clip_norm"] = args.gradient_clip
         config.training.gradient_clip_norm = args.gradient_clip
         user_overrides.append(f"gradient_clip_norm: {args.gradient_clip}")
+    if args.no_pretrained:
+        kwargs["pretrained"] = False
+        config.model.pretrained = False
+        user_overrides.append("pretrained: False")
     
     # Log user overrides
     if user_overrides:

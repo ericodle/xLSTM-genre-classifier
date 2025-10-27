@@ -24,6 +24,7 @@ from core.constants import (
     DEFAULT_POOL_SIZE,
     DEFAULT_FC_HIDDEN,
     DEFAULT_NUM_CLASSES,
+    DEFAULT_VGG_PRETRAINED,
 )
 
 __all__ = [
@@ -54,6 +55,8 @@ def get_model(
     fc_hidden: int = DEFAULT_FC_HIDDEN,
     block_types: Optional[list] = None,
     conv_kernel_size: int = DEFAULT_KERNEL_SIZE,
+    num_mfcc_features: int = 13,  # For VGG16: number of MFCC coefficients
+    pretrained: Optional[bool] = None,  # For VGG16: whether to use pretrained weights (None = use default)
 ) -> BaseModel:
     """
     Factory function to create model instances.
@@ -148,8 +151,15 @@ def get_model(
                 dropout,
             )
         elif model_type == "VGG16":
-            # For VGG16, ignore input_dim; model expects (batch, 1, H, W)
-            return VGG16Classifier(num_classes=output_dim, pretrained=True, dropout=dropout)
+            # For VGG16, use num_mfcc_features to determine input dimensions
+            # Use provided pretrained flag, or default from constants
+            use_pretrained = pretrained if pretrained is not None else DEFAULT_VGG_PRETRAINED
+            return VGG16Classifier(
+                num_classes=output_dim, 
+                pretrained=use_pretrained, 
+                dropout=dropout,
+                num_mfcc_features=num_mfcc_features
+            )
         else:
             raise ValueError(f"Unknown model type: {model_type}")
     except Exception as e:
