@@ -192,18 +192,16 @@ class ModelTrainer:
             
             if all(os.path.exists(f) for f in [train_json, val_json, test_json]):
                 self.logger.info("Detected pre-split data directory (train.json, val.json, test.json)")
-                self._load_presplit_json_data(train_json, val_json, test_json, max_samples)
                 self.data_is_presplit = True
+                self._load_presplit_json_data(train_json, val_json, test_json, max_samples)
                 return
         
-        # Mark that data is not pre-split (will be split during preprocessing)
-        self.data_is_presplit = False
-        
-        # Check if this is a CSV file
-        if data_path.lower().endswith(".csv"):
-            self._load_csv_data(data_path)
-        else:
-            self._load_json_data(data_path, max_samples, memory_efficient)
+        # If we got here, it's not a valid pre-split directory
+        raise ValueError(
+            f"Expected a directory containing train.json, val.json, and test.json files.\n"
+            f"Got: {data_path}\n"
+            f"Use src/data/split_gtzan_data.py to create pre-split data before training."
+        )
 
     def _load_presplit_json_data(self, train_json: str, val_json: str, test_json: str, max_samples: int = None):
         """Load pre-split data from three separate JSON files (train, val, test)."""
@@ -513,56 +511,23 @@ class ModelTrainer:
     def _preprocess_data(self):
         """Preprocess the loaded data."""
         self.logger.info("Preprocessing data...")
-
-        # If data is already split, skip the splitting step
-        if hasattr(self, 'data_is_presplit') and self.data_is_presplit:
-            self.logger.info("Data is pre-split, skipping split and validation")
-            
-            # Still need to encode labels in case they're strings
-            self.logger.info("Encoding labels...")
-            self.y_train = self.preprocessor.encode_labels(self.y_train)
-            self.y_val = self.preprocessor.encode_labels(self.y_val)
-            self.y_test = self.preprocessor.encode_labels(self.y_test)
-            
-            # Normalize features properly (fit on training data only)
-            self.logger.info("Normalizing features...")
-            self.X_train = self.preprocessor.normalize_features(self.X_train, fit_normalizer=True)
-            self.X_val = self.preprocessor.normalize_features(self.X_val, fit_normalizer=False)
-            self.X_test = self.preprocessor.normalize_features(self.X_test, fit_normalizer=False)
-            
-            # Create data loaders
-            self._create_data_loaders()
-            return
-
-        # Validate data
-        if not self.preprocessor.validate_data(self.features, self.labels):
-            raise ValueError("Data validation failed")
-
-        # Encode labels
-        self.encoded_labels = self.preprocessor.encode_labels(self.labels)
-
-        # Split data
-        (
-            self.X_train,
-            self.X_val,
-            self.X_test,
-            self.y_train,
-            self.y_val,
-            self.y_test,
-        ) = self.preprocessor.split_data(
-            self.features,
-            self.encoded_labels,
-            train_size=DEFAULT_TRAIN_SIZE,
-            val_size=DEFAULT_VAL_SIZE,
-            test_size=DEFAULT_TEST_SIZE,
-        )
-
+        
+        # Fit label encoder on training labels, then encode all splits
+        self.logger.info("Fitting label encoder and encoding labels...")
+        # Fit encoder on training data
+        self.preprocessor.label_encoder.fit(self.y_train)
+        self.preprocessor.is_fitted = True
+        # Transform all splits
+        self.y_train = self.preprocessor.label_encoder.transform(self.y_train)
+        self.y_val = self.preprocessor.label_encoder.transform(self.y_val)
+        self.y_test = self.preprocessor.label_encoder.transform(self.y_test)
+        
         # Normalize features properly (fit on training data only)
         self.logger.info("Normalizing features...")
         self.X_train = self.preprocessor.normalize_features(self.X_train, fit_normalizer=True)
         self.X_val = self.preprocessor.normalize_features(self.X_val, fit_normalizer=False)
         self.X_test = self.preprocessor.normalize_features(self.X_test, fit_normalizer=False)
-
+        
         # Create data loaders
         self._create_data_loaders()
 

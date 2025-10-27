@@ -89,7 +89,7 @@ FC_HIDDEN_DIMS = [512, 256, 128]
 # =============================================================================
 
 VALIDATION_SPLIT = 0.2
-EARLY_STOPPING_PATIENCE = 10  # Restored from working value
+EARLY_STOPPING_PATIENCE = 30  # Number of epochs to wait for improvement
 RANDOM_SEED = 42
 NUM_WORKERS = 4
 PIN_MEMORY = True
@@ -253,7 +253,6 @@ DEFAULT_GRU_DROPOUT = DROPOUT
 # System constants
 DEFAULT_CHECKPOINT_INTERVAL = 10
 DEFAULT_LOG_INTERVAL = 100
-DEFAULT_PATIENCE = 15
 DEFAULT_DEVICE = "auto"
 
 # Plot constants

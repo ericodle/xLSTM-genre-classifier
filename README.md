@@ -78,12 +78,16 @@ python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan
 
 ### Most Common Commands
 ```bash
-python src/training/train_model.py --data mfccs/gtzan_13.json --model GRU --output outputs/gru-gtzan-run
+# Train with pre-split data (GTZAN)
+python src/training/train_model.py --data gtzan-data/mfccs_splits --model GRU --output outputs/gru-gtzan-run
+
+# Other commands
 python src/training/train_svm.py --data mfccs/gtzan_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-gtzan
-python src/train_model.py --data mfccs/gtzan_13.json --model VGG16 --output outputs/vgg-gtzan-run --lr 0.0005 --batch-size 16 --dropout 0.3
+python src/training/train_model.py --data gtzan-data/mfccs_splits --model VGG16 --output outputs/vgg-gtzan-run --lr 0.0005 --batch-size 16 --dropout 0.3
 python src/analysis/analyze_results.py --input-dir ./outputs --output-dir ./outputs/analysis
 python generate_overfitting_table.py
-python src/data/extract_gtzan.py --gtzan-path /home/eo/Documents/gtzan --output-file outputs/gtzan_cnn_16d_improved.json --approach cnn_autoencoder --latent-dim 16
+# Step 1: Split the data
+python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits
 tensorboard --logdir outputs --port 6006
 netron outputs/your_run/model.onnx
 
