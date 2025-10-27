@@ -163,9 +163,9 @@ def main():
         config.training.improvement_threshold = args.improvement_threshold
         user_overrides.append(f"improvement_threshold: {args.improvement_threshold}")
     if args.patience:
-        kwargs["patience"] = args.patience
-        config.model.early_stopping_patience = args.patience
-        user_overrides.append(f"patience: {args.patience}")
+        kwargs["improvement_window"] = args.patience  # Map patience to improvement_window
+        config.training.improvement_window = args.patience
+        user_overrides.append(f"patience (improvement_window): {args.patience}")
     if args.no_early_stopping:
         kwargs["early_stopping"] = False
         config.training.early_stopping = False
