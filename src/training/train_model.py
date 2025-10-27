@@ -95,6 +95,7 @@ Examples:
     parser.add_argument("--gradient-clip", type=float, help="Gradient clipping norm (default: 1.0)")
     parser.add_argument("--use-pretrained", action="store_true", help="Use pretrained ImageNet weights (for VGG16)")
     parser.add_argument("--label-smoothing", type=float, help="Label smoothing factor (0.0-1.0, typical: 0.1) to reduce overfitting")
+    parser.add_argument("--regression", action="store_true", help="Use regression mode (output membership scores directly, for CNN)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
     
     return parser
@@ -181,6 +182,10 @@ def main():
         kwargs["label_smoothing"] = args.label_smoothing
         config.model.label_smoothing = args.label_smoothing
         user_overrides.append(f"label_smoothing: {args.label_smoothing}")
+    if args.regression:
+        kwargs["regression_mode"] = True
+        config.model.regression_mode = True
+        user_overrides.append("regression_mode: True")
     
     # Log user overrides
     if user_overrides:

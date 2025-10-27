@@ -155,6 +155,7 @@ class CNN_model(BaseModel):
         kernel_size: int = DEFAULT_CNN_KERNEL_SIZE,
         pool_size: int = DEFAULT_CNN_POOL_SIZE,
         fc_hidden: int = DEFAULT_CNN_FC_HIDDEN,
+        regression_mode: bool = False,  # NEW: If True, outputs membership scores (not logits)
     ):
         super().__init__(model_name="CNN_model")
 
@@ -166,6 +167,7 @@ class CNN_model(BaseModel):
         self.kernel_size = kernel_size
         self.pool_size = pool_size
         self.fc_hidden = fc_hidden
+        self.regression_mode = regression_mode
 
         # Store configuration
         self.model_config = {
@@ -177,6 +179,7 @@ class CNN_model(BaseModel):
             "kernel_size": kernel_size,
             "pool_size": pool_size,
             "fc_hidden": fc_hidden,
+            "regression_mode": regression_mode,
         }
 
         # Check for potentially problematic configurations
@@ -289,13 +292,25 @@ class CNN_model(BaseModel):
         """Build fully connected layers once we know the flattened size."""
         if self.fc_layers is None or self.flatten_size != flatten_size:
             self.flatten_size = flatten_size
-            self.fc_layers = nn.Sequential(
-                nn.ReLU(),
-                nn.Linear(flatten_size, self.fc_hidden),
-                nn.ReLU(),
-                nn.Dropout(p=self.dropout),
-                nn.Linear(self.fc_hidden, self.num_classes),  # Raw logits for CrossEntropyLoss
-            )
+            if self.regression_mode:
+                # For regression: output membership scores directly with sigmoid
+                self.fc_layers = nn.Sequential(
+                    nn.ReLU(),
+                    nn.Linear(flatten_size, self.fc_hidden),
+                    nn.ReLU(),
+                    nn.Dropout(p=self.dropout),
+                    nn.Linear(self.fc_hidden, self.num_classes),
+                    nn.Sigmoid()  # Membership scores in [0, 1]
+                )
+            else:
+                # For classification: output logits for softmax
+                self.fc_layers = nn.Sequential(
+                    nn.ReLU(),
+                    nn.Linear(flatten_size, self.fc_hidden),
+                    nn.ReLU(),
+                    nn.Dropout(p=self.dropout),
+                    nn.Linear(self.fc_hidden, self.num_classes),  # Raw logits for CrossEntropyLoss
+                )
             # Move FC layers to the same device as the model
             if hasattr(self, "conv_layers_seq"):
                 device = next(self.conv_layers_seq.parameters()).device

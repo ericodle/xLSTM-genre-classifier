@@ -57,6 +57,7 @@ def get_model(
     conv_kernel_size: int = DEFAULT_KERNEL_SIZE,
     num_mfcc_features: int = 13,  # For VGG16: number of MFCC coefficients
     pretrained: Optional[bool] = None,  # For VGG16: whether to use pretrained weights (None = use default)
+    regression_mode: bool = False,  # For CNN: if True, outputs membership scores (regression)
 ) -> BaseModel:
     """
     Factory function to create model instances.
@@ -123,6 +124,7 @@ def get_model(
                 kernel_size=kernel_size,
                 pool_size=pool_size,
                 fc_hidden=fc_hidden,
+                regression_mode=regression_mode,
             )
         elif model_type == "LSTM":
             return LSTM_model(
