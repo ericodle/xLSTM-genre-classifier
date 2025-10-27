@@ -89,7 +89,7 @@ FC_HIDDEN_DIMS = [512, 256, 128]
 # =============================================================================
 
 VALIDATION_SPLIT = 0.2
-EARLY_STOPPING_PATIENCE = 30  # Number of epochs to wait for improvement
+EARLY_STOPPING_PATIENCE = 50
 RANDOM_SEED = 42
 NUM_WORKERS = 4
 PIN_MEMORY = True
