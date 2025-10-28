@@ -44,7 +44,6 @@ from .constants import (
     GAN_NOISE_DIM,
     GAN_NUM_LAYERS,
 )
-from .model_defaults import DEFAULTS, get_defaults
 
 
 @dataclass
@@ -116,10 +115,165 @@ class Config:
 
     def optimize_for_dataset(self, dataset_type: str, model_type: str = "GRU") -> None:
         """Optimize configuration for specific dataset type."""
-        optimized_defaults = get_defaults(model_type, dataset_type)
 
-        # Update model config with optimized defaults
-        for key, value in optimized_defaults.items():
+        # Get model-specific base parameters
+        base_params = {
+            "batch_size": self.model.batch_size,
+            "learning_rate": self.model.learning_rate,
+            "max_epochs": self.model.max_epochs,
+            "weight_decay": self.model.weight_decay,
+            "optimizer": self.model.optimizer,
+            "loss_function": self.model.loss_function,
+            "lr_scheduler": self.model.lr_scheduler,
+            "class_weight": self.model.class_weight,
+            "validation_split": self.model.validation_split,
+            "early_stopping_patience": self.model.early_stopping_patience,
+            "random_seed": self.training.random_seed,
+            "gradient_clip_norm": self.training.gradient_clip_norm,
+            "hidden_size": self.model.hidden_size,
+            "num_layers": self.model.num_layers,
+            "dropout": self.model.dropout,
+        }
+
+        # Add model-specific architecture parameters
+        model_upper = model_type.upper()
+        if model_upper in ["LSTM", "GRU", "RNN"]:
+            # RNN models - already have base params
+            pass
+        elif model_upper == "CNN":
+            base_params.update(
+                {
+                    "conv_layers": self.model.conv_layers,
+                    "base_filters": self.model.base_filters,
+                    "kernel_size": self.model.kernel_size,
+                    "pool_size": self.model.pool_size,
+                    "fc_hidden": self.model.fc_hidden,
+                }
+            )
+        elif model_upper in ["TRANSFORMER", "TR_FC", "TR_CNN", "TR_LSTM", "TR_GRU"]:
+            base_params.update(
+                {
+                    "num_heads": self.model.num_heads,
+                    "ff_dim": self.model.ff_dim,
+                }
+            )
+
+        # Apply dataset-specific optimizations
+        if dataset_type.upper() == "FMA":
+            # FMA is imbalanced, use conservative settings
+            optimized = {
+                **base_params,
+                "learning_rate": 0.0001,
+                "batch_size": 16,
+                "class_weight": "auto",
+                "early_stopping_patience": 30,
+                "improvement_threshold": 0.0005,
+                "weight_decay": 1e-4,
+                "lr_scheduler": True,
+                "gradient_clip_norm": 0.5,
+            }
+
+            # Model-specific FMA optimizations
+            if model_upper == "TRANSFORMER":
+                optimized.update(
+                    {
+                        "dropout": 0.1,
+                        "num_heads": 4,
+                        "ff_dim": 64,
+                        "early_stopping_patience": 25,
+                    }
+                )
+            elif model_upper == "CNN":
+                optimized.update(
+                    {
+                        "learning_rate": 0.0005,
+                        "dropout": 0.4,
+                        "conv_layers": 6,
+                        "base_filters": 64,
+                        "kernel_size": 5,
+                        "fc_hidden": 256,
+                        "early_stopping_patience": 40,
+                    }
+                )
+            elif model_upper in ["LSTM", "GRU"]:
+                optimized.update(
+                    {
+                        "learning_rate": 0.0003,
+                        "batch_size": 24,
+                        "dropout": 0.25,
+                        "num_layers": 2,
+                        "hidden_size": 64,
+                        "early_stopping_patience": 30,
+                    }
+                )
+            elif model_upper == "XLSTM":
+                optimized.update(
+                    {
+                        "learning_rate": 0.0001,
+                        "batch_size": 8,
+                        "dropout": 0.3,
+                        "early_stopping_patience": 40,
+                    }
+                )
+        elif dataset_type.upper() == "GTZAN":
+            # GTZAN is balanced, use standard settings with model-specific tweaks
+            optimized = {**base_params}
+
+            if model_upper == "TRANSFORMER":
+                optimized.update(
+                    {
+                        "learning_rate": 0.0001,
+                        "batch_size": 16,
+                        "dropout": 0.1,
+                        "num_heads": 4,
+                        "ff_dim": 64,
+                        "early_stopping_patience": 25,
+                    }
+                )
+            elif model_upper == "CNN":
+                optimized.update(
+                    {
+                        "learning_rate": 0.0005,
+                        "batch_size": 16,
+                        "dropout": 0.4,
+                        "conv_layers": 6,
+                        "base_filters": 64,
+                        "kernel_size": 5,
+                        "fc_hidden": 256,
+                        "early_stopping_patience": 40,
+                        "weight_decay": 1e-4,
+                    }
+                )
+            elif model_upper in ["LSTM", "GRU"]:
+                optimized.update(
+                    {
+                        "learning_rate": 0.0003,
+                        "batch_size": 24,
+                        "dropout": 0.25,
+                        "num_layers": 2,
+                        "hidden_size": 64,
+                        "early_stopping_patience": 30,
+                        "weight_decay": 1e-4,
+                        "gradient_clip_norm": 0.5,
+                    }
+                )
+            elif model_upper == "XLSTM":
+                optimized.update(
+                    {
+                        "learning_rate": 0.0001,
+                        "batch_size": 8,
+                        "dropout": 0.3,
+                        "early_stopping_patience": 40,
+                        "weight_decay": 1e-4,
+                        "gradient_clip_norm": 0.5,
+                    }
+                )
+        else:
+            # Unknown dataset, use base params
+            optimized = base_params
+
+        # Update configuration with optimized values
+        for key, value in optimized.items():
             if hasattr(self.model, key):
                 setattr(self.model, key, value)
             elif hasattr(self.training, key):
