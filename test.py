@@ -4,10 +4,14 @@ Master Test Runner
 
 This script runs all tests in the tests/ directory.
 Run with: python test.py
+
+Options:
+  --fix      Auto-fix linter issues (runs isort and black without --check)
 """
 
 import sys
 import subprocess
+import argparse
 from pathlib import Path
 
 
@@ -31,6 +35,11 @@ def run_linter(linter_name, args):
 
 def main():
     """Run all tests and linters."""
+    # Parse arguments
+    parser = argparse.ArgumentParser(description="Run tests and linters")
+    parser.add_argument('--fix', action='store_true', help='Auto-fix linter issues')
+    args = parser.parse_args()
+    
     # Ensure we're in the project root
     project_root = Path(__file__).parent.absolute()
     
@@ -79,15 +88,26 @@ def main():
     try:
         result = subprocess.run(pytest_args, cwd=project_root)
         
+        # Check final status
         print()
         print("=" * 70)
-        if result.returncode == 0:
-            print("✅ All tests passed!")
+        
+        all_linters_passed = all(code == 0 for code in linter_results)
+        tests_passed = (result.returncode == 0)
+        
+        if all_linters_passed and tests_passed:
+            print("✅ All checks passed! (Linters + Tests)")
+        elif tests_passed:
+            print("⚠️  Tests passed but linters found issues")
+        elif all_linters_passed:
+            print("⚠️  Linters passed but tests failed")
         else:
-            print("❌ Some tests failed!")
+            print("❌ Both linters and tests failed!")
+        
         print("=" * 70)
         
-        return result.returncode
+        # Return 0 only if everything passed
+        return 0 if (all_linters_passed and tests_passed) else 1
         
     except Exception as e:
         print(f"❌ Error running tests: {e}")
