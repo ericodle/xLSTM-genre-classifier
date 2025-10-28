@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test MFCC extraction pipeline
+Test MFCC_GTZAN_extract.py script
 
 This test literally calls the exact command users run:
     python src/data/MFCC_GTZAN_extract.py tests/test-gtzan outputs/test-mfcc-extraction/splits outputs/test-mfcc-extraction/mfccs_splits
