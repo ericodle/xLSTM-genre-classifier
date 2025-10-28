@@ -54,15 +54,25 @@ def main():
     linter_results = []
     
     # 1. isort (import sorting)
+    isort_args = [sys.executable, "-m", "isort"]
+    if not args.fix:
+        isort_args.append("--check-only")
+    isort_args.extend(["src/", "tests/"])
+    
     linter_results.append(run_linter(
-        "isort (import sorting)",
-        [sys.executable, "-m", "isort", "--check-only", "src/", "tests/"]
+        "isort (import sorting)" + (" - FIXING" if args.fix else ""),
+        isort_args
     ))
     
     # 2. black (code formatting)
+    black_args = [sys.executable, "-m", "black"]
+    if not args.fix:
+        black_args.append("--check")
+    black_args.extend(["src/", "tests/"])
+    
     linter_results.append(run_linter(
-        "black (code formatter)",
-        [sys.executable, "-m", "black", "--check", "src/", "tests/"]
+        "black (code formatter)" + (" - FIXING" if args.fix else ""),
+        black_args
     ))
     
     # 3. mypy (type checking) - skip for now as it requires more setup
