@@ -8,10 +8,10 @@ This module handles all audio data processing and feature extraction for the gen
 
 ### GTZAN Dataset
 
-Use `split_gtzan_data.py` as the **primary tool** for GTZAN data processing:
+Use `MFCC_GTZAN_extract.py` as the **primary tool** for GTZAN data processing:
 
 ```bash
-python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits
+python src/data/MFCC_GTZAN_extract.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits
 ```
 
 This single command:
@@ -51,8 +51,8 @@ gtzan-data/
 
 ### Production Scripts
 
-- **`split_gtzan_data.py`** ⭐ - **Primary script** for GTZAN data processing with pre-split workflow
-  - What users run: `python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits`
+- **`MFCC_GTZAN_extract.py`** ⭐ - **Primary script** for GTZAN data processing with pre-split workflow
+  - What users run: `python src/data/MFCC_GTZAN_extract.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits`
 
 - **`MFCC_FMA_extract.py`** - FMA dataset MFCC extraction (when using FMA dataset)
 
@@ -81,7 +81,7 @@ trainer.train(data_path="gtzan-data/mfccs_splits")
 
 ## Best Practices
 
-1. **Always use `split_gtzan_data.py`** for GTZAN data
+1. **Always use `MFCC_GTZAN_extract.py`** for GTZAN data
 2. **Never split data during training** - splits should be fixed before training starts
 3. **Keep WAV files organized** - Maintain genre subdirectories in splits
 4. **Validate data** - Use `AudioPreprocessor.validate_data()` to check data quality

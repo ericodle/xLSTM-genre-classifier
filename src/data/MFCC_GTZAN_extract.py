@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-GTZAN Data Split Script
+GTZAN MFCC Extraction Script
 
-This script splits GTZAN data into train/val/test sets before processing, ensuring that:
-1. The split is deterministic and reproducible
-2. Files are organized into train/val/test directories
-3. Separate MFCC extraction can be performed for each split
-4. The mapping between WAV files and splits is preserved
+This script:
+1. Collects audio files from GTZAN dataset (organized by genre)
+2. Splits files into train/val/test sets (deterministic and reproducible)
+3. Generates class distribution analysis (histogram + statistics)
+4. Copies WAV files to train/val/test directories
+5. Extracts MFCC features for each split
+6. Saves training-ready JSON files
+
+This is the primary script for GTZAN data processing.
 """
 
 import sys
@@ -397,7 +401,7 @@ def main():
         epilog="""
 Examples:
   # Full pipeline: split files and extract MFCCs
-  python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs
+  python src/data/MFCC_GTZAN_extract.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs
 
   Steps performed:
   1. Split files into train/val/test directories (70%/15%/15% default)

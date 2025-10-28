@@ -204,7 +204,7 @@ class ModelTrainer:
         raise ValueError(
             f"Expected a directory containing train.json, val.json, and test.json files.\n"
             f"Got: {data_path}\n"
-            f"Use src/data/split_gtzan_data.py to create pre-split data before training."
+            f"Use src/data/MFCC_GTZAN_extract.py to create pre-split data before training."
         )
 
     def _load_presplit_json_data(self, train_json: str, val_json: str, test_json: str, max_samples: int = None):

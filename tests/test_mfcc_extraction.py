@@ -3,7 +3,7 @@
 Test MFCC extraction pipeline
 
 This test literally calls the exact command users run:
-python src/data/split_gtzan_data.py tests/test-gtzan outputs/test-mfcc-extraction/splits outputs/test-mfcc-extraction/mfccs_splits
+    python src/data/MFCC_GTZAN_extract.py tests/test-gtzan outputs/test-mfcc-extraction/splits outputs/test-mfcc-extraction/mfccs_splits
 """
 
 import sys
@@ -55,7 +55,7 @@ class TestMFCCExtraction:
         
         cmd = [
             sys.executable,
-            "src/data/split_gtzan_data.py",
+            "src/data/MFCC_GTZAN_extract.py",
             test_data_dir,
             splits_dir,
             mfcc_dir,
