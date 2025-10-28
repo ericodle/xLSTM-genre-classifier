@@ -49,33 +49,23 @@ gtzan-data/
 ### Production Scripts
 
 - **`split_gtzan_data.py`** ⭐ - **Primary script** for GTZAN data processing with pre-split workflow
+  - What users run: `python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits`
 
-### Core Functions
+- **`MFCC_FMA_extract.py`** - FMA dataset MFCC extraction (when using FMA dataset)
+
+### Core Functions (Used by Production Scripts)
 
 - **`MFCC_GTZAN_extract.py`** - Core MFCC extraction functions (used by split_gtzan_data.py)
   - `extract_mfcc_from_audio()` - Extract MFCC features from a single audio file
   - `process_gtzan_dataset()` - Process entire GTZAN dataset
   - `save_gtzan_data()` - Save extracted features to JSON
+  - ⚠️ Not meant to be called directly - use split_gtzan_data.py instead
 
-### Legacy Scripts (Deprecated)
+### Helper Modules (Used by Training Pipeline)
 
-- **`MFCC_FMA_extract.py`** - FMA dataset MFCC extraction (legacy)
-- **`process_gtzan_audio.py`** - Audio processing script (legacy, use split_gtzan_data.py instead)
-- **`extract_gtzan.py`** - Alternative extraction methods (legacy)
-
-### Helper Modules
-
-- **`preprocessing.py`** - Data preprocessing utilities (normalization, augmentation)
-- **`mfcc_extractor.py`** - Generic MFCC extractor class
-- **`dataset_agnostic_mfcc_extractor.py`** - Dataset-agnostic extractor
-
-### Dataset Modules
-
-- **`datasets/`** - Dataset interface implementations
-  - `base.py` - Base dataset interface
-  - `factory.py` - Dataset factory
-  - `gtzan.py` - GTZAN dataset implementation
-  - `fma.py` - FMA dataset implementation
+- **`preprocessing.py`** - Data preprocessing utilities used during training
+  - Normalization, augmentation, label encoding
+  - Used by `src/training/trainer.py`
 
 ## Standard Development Pattern
 
