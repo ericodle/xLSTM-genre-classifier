@@ -1,289 +1,333 @@
-#!/usr/bin/env python3
-"""
-Cross-dataset evaluation for ONNX models trained on FMA:
-- Evaluate on the FMA test set (primary)
-- Evaluate on the GTZAN test set (secondary), aligning labels to the training mapping
-
-Usage:
-  python src/training/evaluate_cross_dataset.py \
-    --model outputs/fma-run/best_model.onnx \
-    --train_data mfccs/fma_13.json \
-    --eval_primary mfccs/fma_13.json \
-    --eval_secondary mfccs/gtzan_13.json \
-    --out outputs/cross_eval/fma_model
-"""
-
-import argparse
 import json
 import os
-import re
-from pathlib import Path
-from typing import Any, Dict, List, Tuple
+import sys
+import warnings
 
-import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 import torch
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader
+
+# Suppress sklearn warnings about undefined metrics
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn.metrics")
+
+# Add src directory to path
+sys.path.insert(0, "src")
+
+from eval.data_utils import DataLoaderUtils
+from eval.plotting_utils import PlottingUtilities
 
 
-def load_onnx(model_path: str):
-    import onnxruntime as ort
+def load_model(model_path):
+    """Load a trained model from ONNX file."""
+    # Ensure we're working with ONNX files
+    if not model_path.endswith(".onnx"):
+        raise ValueError("Model file must be in ONNX format (.onnx)")
 
-    return ort.InferenceSession(model_path)
-
-
-def detect_onnx_model_type(session) -> str:
     try:
+        import onnxruntime as ort
+
+        # Create inference session
+        session = ort.InferenceSession(model_path)
+
+        # Get input and output names
+        input_name = session.get_inputs()[0].name
+        output_name = session.get_outputs()[0].name
+
+        # Determine model type from input shape
         input_shape = session.get_inputs()[0].shape
-        if len(input_shape) == 4:
-            return "CNN"
-        elif len(input_shape) == 3:
-            return "RNN"
-        elif len(input_shape) == 2:
-            return "FC"
+        if len(input_shape) == 2:  # (batch_size, features)
+            model_type = "FC"
+        elif len(input_shape) == 3:  # (batch_size, time_steps, features)
+            model_type = "RNN"
+        elif len(input_shape) == 4:  # (batch_size, channels, height, width)
+            model_type = "CNN"
         else:
-            return "FC"
-    except Exception:
-        return "FC"
+            model_type = "Unknown"
+
+        print(f"Loaded ONNX model: {model_path}")
+        print(f"Model type: {model_type}")
+        print(f"Input shape: {input_shape}")
+        print(f"Input name: {input_name}")
+        print(f"Output name: {output_name}")
+
+        return ONNXModelWrapper(session, model_type)
+
+    except ImportError:
+        raise ImportError(
+            "onnxruntime is required for ONNX model evaluation. Install it with: pip install onnxruntime"
+        )
 
 
-def load_mfcc_data(json_path: str) -> Tuple[np.ndarray, np.ndarray, List[str]]:
-    with open(json_path, "r") as f:
-        mfcc_data = json.load(f)
+class ONNXModelWrapper:
+    """Wrapper for ONNX model to make it compatible with PyTorch-style evaluation."""
 
-    if "features" in mfcc_data and "labels" in mfcc_data:
-        features_list = mfcc_data["features"]
-        labels = np.array(mfcc_data["labels"])
+    def __init__(self, session, model_type):
+        self.session = session
+        self.model_type = model_type
+        self.input_name = session.get_inputs()[0].name
+        self.output_name = session.get_outputs()[0].name
 
-        max_length = max(len(f) for f in features_list)
-        padded_features = []
-        for feature in features_list:
-            if len(feature) < max_length:
-                padding_needed = max_length - len(feature)
-                padded_feature = feature + [[0.0] * len(feature[0]) for _ in range(padding_needed)]
-                padded_features.append(padded_feature)
-            else:
-                padded_features.append(feature)
+    def __call__(self, x):
+        """Forward pass through the ONNX model."""
+        # Convert to numpy if needed
+        if isinstance(x, torch.Tensor):
+            x = x.cpu().numpy()
 
-        features = np.array(padded_features)
-        unique_labels = sorted(list(set(labels)))
-        mapping = unique_labels
-        if labels.dtype == object:
-            label_to_idx = {label: idx for idx, label in enumerate(unique_labels)}
-            labels = np.array([label_to_idx[label] for label in labels])
-        return features, labels, mapping
-
-    # Old format
-    features = []
-    labels = []
-    mapping: List[str] = []
-    for file_path, data_dict in mfcc_data.items():
-        genre = file_path.split("/")[0]
-        if genre not in mapping:
-            mapping.append(genre)
-        genre_idx = mapping.index(genre)
-        features.append(data_dict["mfcc"])
-        labels.append(genre_idx)
-    features = np.array(features)
-    labels = np.array(labels)
-    return features, labels, mapping
+        # Run inference
+        return torch.from_numpy(self.session.run(["output"], {"input": x})[0])
 
 
-def preprocess_features_for_model(features: np.ndarray, model_type: str) -> np.ndarray:
-    if len(features.shape) == 3:
-        if model_type == "CNN":
-            return features.reshape(features.shape[0], 1, features.shape[1], features.shape[2])
-        elif model_type == "RNN":
-            return features
-        else:  # FC
-            return features.reshape(features.shape[0], -1)
-    return features
+def load_mfcc_data(json_path):
+    """Load MFCC data from the JSON file."""
+    data_utils = DataLoaderUtils()
+    return data_utils.load_mfcc_data(json_path)
 
 
-def build_dataloader(features: np.ndarray, labels: np.ndarray, batch_size: int = 32) -> DataLoader:
-    ds = TensorDataset(torch.FloatTensor(features), torch.LongTensor(labels))
-    return DataLoader(ds, batch_size=batch_size, shuffle=False)
+def preprocess_features(features, flatten_for_rnn=False, is_cnn=False):
+    """Preprocess features (normalization, reshaping, etc.)."""
+    # Determine model type from parameters
+    if is_cnn:
+        model_type = "CNN"
+    elif flatten_for_rnn:
+        model_type = "FC"
+    else:
+        model_type = "RNN"
+
+    data_utils = DataLoaderUtils()
+    return data_utils.preprocess_features(features, model_type)
 
 
-def run_onnx_inference(session, x: np.ndarray) -> np.ndarray:
-    return session.run(["output"], {"input": x})[0]
+class SimpleDataset(torch.utils.data.Dataset):
+    """Simple dataset for evaluation."""
+
+    def __init__(self, features, labels):
+        self.features = torch.FloatTensor(features)
+        self.labels = torch.LongTensor(labels)
+
+    def __len__(self):
+        return len(self.features)
+
+    def __getitem__(self, idx):
+        return self.features[idx], self.labels[idx]
 
 
-def evaluate(
-    session, model_type: str, features: np.ndarray, labels: np.ndarray, class_names: List[str]
-) -> Dict[str, Any]:
-    X = preprocess_features_for_model(features, model_type)
-    loader = build_dataloader(X, labels)
-
+def evaluate_model(model, dataloader, class_names):
+    """Evaluate the model on the given dataloader."""
     y_true = []
     y_pred = []
+    y_probs = []
 
-    for xb, yb in loader:
-        xb_np = xb.detach().cpu().numpy()
-        out = run_onnx_inference(session, xb_np)
-        pred = np.argmax(out, axis=1)
-        y_true.append(yb.numpy())
-        y_pred.append(pred)
+    model.eval()
+    with torch.no_grad():
+        for data, target in dataloader:
+            # Forward pass
+            output = model(data)
 
+            # Get probabilities and predictions
+            if hasattr(output, "log_softmax"):
+                # Handle log_softmax output
+                probs = torch.exp(output)
+            else:
+                probs = torch.softmax(output, dim=1)
+
+            pred = torch.argmax(probs, dim=1)
+
+            # Store results
+            y_true.append(target.numpy())
+            y_pred.append(pred.numpy())
+            y_probs.append(probs.numpy())
+
+    # Concatenate all batches
     y_true = np.concatenate(y_true)
     y_pred = np.concatenate(y_pred)
+    y_probs = np.concatenate(y_probs)
 
-    acc = accuracy_score(y_true, y_pred)
-    # Restrict report to observed label indices and map names accordingly
-    observed = np.unique(y_true)
-    observed = observed.astype(int).tolist()
-    target_names = [str(class_names[i]) for i in observed]
-    report = classification_report(
-        y_true,
-        y_pred,
-        labels=observed,
-        target_names=target_names,
-        output_dict=False,
-        zero_division=0,
-    )
-    cm = confusion_matrix(y_true, y_pred, labels=observed).tolist()
+    # Calculate metrics
+    from scipy.stats import ks_2samp
+    from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score
 
-    return {"accuracy": float(acc), "classification_report": report, "confusion_matrix": cm}
+    accuracy = (y_true == y_pred).mean()
 
+    # Classification report
+    if class_names:
+        report = classification_report(
+            y_true, y_pred, target_names=class_names, output_dict=True, zero_division=0
+        )
+    else:
+        report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
 
-def _normalize_label(name: str) -> str:
-    s = name.lower().strip()
-    # Common delimiters to spaces
-    s = s.replace("&", "and").replace("/", " ").replace("-", " ").replace("_", " ")
-    # Collapse whitespace
-    s = re.sub(r"\s+", " ", s).strip()
-    # Known aliases
-    aliases = {
-        "hip hop": "hiphop",
-        "hiphop": "hiphop",
-        "hip-hop": "hiphop",
-        "rnb": "soulrnb",
-        "soul rnb": "soulrnb",
-        "soul-and-rnb": "soulrnb",
-        "old time historic": "oldtimehistoric",
+    # Confusion matrix
+    cm = confusion_matrix(y_true, y_pred)
+
+    # ROC AUC scores
+    if y_probs.shape[1] == 2:  # Binary classification
+        roc_auc = roc_auc_score(y_true, y_probs[:, 1])
+    else:  # Multi-class classification
+        # Ensure probabilities sum to 1.0 for each sample
+        y_probs_normalized = y_probs / y_probs.sum(axis=1, keepdims=True)
+        try:
+            roc_auc = roc_auc_score(y_true, y_probs_normalized, multi_class="ovr", average="macro")
+        except ValueError as e:
+            print(f"Warning: ROC AUC calculation failed: {e}")
+            roc_auc = 0.0
+
+    # KS test statistics
+    ks_test_stats = []
+    for class_idx in range(y_probs.shape[1]):
+        # Get probabilities for samples that actually belong to this class
+        class_true = y_probs[y_true == class_idx, class_idx]
+        # Get probabilities for all samples for this class
+        class_all = y_probs[:, class_idx]
+
+        if len(class_true) > 0:
+            ks_stat, _ = ks_2samp(class_true, class_all)
+            ks_test_stats.append(ks_stat)
+        else:
+            ks_test_stats.append(0.0)
+
+    return {
+        "accuracy": accuracy,
+        "classification_report": report,
+        "confusion_matrix": cm,
+        "roc_auc": roc_auc,
+        "ks_stats": ks_test_stats,
+        "y_true": y_true,
+        "y_pred": y_pred,
+        "y_probs": y_probs,
     }
-    if s in aliases:
-        return aliases[s]
-    # Remove remaining non-alphanumerics
-    s = re.sub(r"[^a-z0-9]", "", s)
-    return s
 
 
-def align_secondary_dataset(
-    features: np.ndarray,
-    labels: np.ndarray,
-    mapping_secondary: List[str],
-    mapping_primary: List[str],
-) -> Tuple[np.ndarray, np.ndarray, List[str]]:
-    # Build normalized index for primary mapping
-    primary_norm = [_normalize_label(lbl) for lbl in mapping_primary]
-    primary_index: Dict[str, int] = {label: i for i, label in enumerate(primary_norm)}
-    keep_indices = []
-    new_labels = []
-    for i, lab_idx in enumerate(labels):
-        label_name = mapping_secondary[lab_idx]
-        norm = _normalize_label(label_name)
-        if norm in primary_index:
-            keep_indices.append(i)
-            new_labels.append(primary_index[norm])
-
-    if not keep_indices:
-        return np.empty((0, *features.shape[1:])), np.array([], dtype=int), mapping_primary
-
-    kept_features = features[keep_indices]
-    new_labels_arr = np.array(new_labels, dtype=int)
-    return kept_features, new_labels_arr, mapping_primary
+def plot_confusion_matrix(cm, class_names, output_path):
+    """Plot confusion matrix."""
+    plotting = PlottingUtilities()
+    plotting.plot_confusion_matrix(cm, class_names, output_path)
 
 
-def plot_confusion_matrix(
-    cm: List[List[int]], class_names: List[str], output_path: str, title: str
-) -> None:
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(
-        np.array(cm),
-        annot=True,
-        fmt="d",
-        cmap="Blues",
-        xticklabels=class_names,
-        yticklabels=class_names,
-    )
-    plt.title(title)
-    plt.ylabel("True Label")
-    plt.xlabel("Predicted Label")
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=300, bbox_inches="tight")
-    plt.close()
+def plot_ks_curves(results, class_names, output_path):
+    """Plot KS test visualizations."""
+    plotting = PlottingUtilities()
+    plotting.plot_ks_curves(results, class_names, output_path)
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Cross-dataset evaluation for ONNX models")
-    parser.add_argument("--model", required=True, help="Path to ONNX model trained on FMA")
+def plot_roc_curves(results, class_names, output_path):
+    """Plot ROC curves."""
+    plotting = PlottingUtilities()
+    plotting.plot_roc_curves(results, class_names, output_path)
+
+
+def create_metrics_table(results, class_names, output_path):
+    """Create a comprehensive metrics table."""
+    plotting = PlottingUtilities()
+    plotting.create_metrics_table(results, class_names, output_path)
+
+
+def main():
+    """Main function."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Cross-dataset evaluation")
+    parser.add_argument("--model", required=True, help="Path to the ONNX model file")
+    parser.add_argument("--train-data", required=True, help="Path to the training data JSON file")
     parser.add_argument(
-        "--train_data",
-        required=True,
-        help="Path to training dataset JSON used for model (to get mapping)",
+        "--eval-primary", required=True, help="Path to the primary evaluation data JSON file"
     )
-    parser.add_argument("--eval_primary", required=True, help="Primary eval JSON (e.g., FMA)")
-    parser.add_argument("--eval_secondary", required=True, help="Secondary eval JSON (e.g., GTZAN)")
+    parser.add_argument(
+        "--eval-secondary", required=True, help="Path to the secondary evaluation data JSON file"
+    )
     parser.add_argument("--out", required=True, help="Output directory for results")
+    parser.add_argument("--model-type", required=True, help="Model type (FC, CNN, RNN)")
+    parser.add_argument("--batch-size", type=int, default=32, help="Batch size for evaluation")
+
     args = parser.parse_args()
 
+    # Create output directory
     os.makedirs(args.out, exist_ok=True)
 
     # Load model
-    session = load_onnx(args.model)
-    model_type = detect_onnx_model_type(session)
+    print(f"Loading model from {args.model}...")
+    model = load_model(args.model)
 
-    # Load mappings
-    _, _, mapping_primary = load_mfcc_data(args.train_data)
+    # Load training data to get the mapping
+    print(f"Loading training data from {args.train_data}...")
+    _, _, train_mapping = load_mfcc_data(args.train_data)
 
-    # Evaluate on primary dataset (align names if needed)
-    f_feat, f_lab, f_map = load_mfcc_data(args.eval_primary)
-    # Always normalize/align to training mapping to avoid name drift
-    f_feat, f_lab, _ = align_secondary_dataset(f_feat, f_lab, f_map, mapping_primary)
-    f_class_names = mapping_primary
+    # Load primary evaluation data
+    print(f"Loading primary evaluation data from {args.eval_primary}...")
+    features_primary, labels_primary, primary_mapping = load_mfcc_data(args.eval_primary)
 
-    primary_results = evaluate(session, model_type, f_feat, f_lab, f_class_names)
-    with open(Path(args.out) / "evaluation_primary.json", "w") as f:
-        json.dump(primary_results, f, indent=2)
+    # Load secondary evaluation data
+    print(f"Loading secondary evaluation data from {args.eval_secondary}...")
+    features_secondary, labels_secondary, secondary_mapping = load_mfcc_data(args.eval_secondary)
+
+    # Determine preprocessing parameters based on model type
+    flatten_for_rnn = args.model_type == "FC"
+    is_cnn = args.model_type == "CNN"
+
+    # Preprocess features
+    print("Preprocessing features...")
+    features_primary = preprocess_features(
+        features_primary, flatten_for_rnn=flatten_for_rnn, is_cnn=is_cnn
+    )
+    features_secondary = preprocess_features(
+        features_secondary, flatten_for_rnn=flatten_for_rnn, is_cnn=is_cnn
+    )
+
+    # Create datasets and dataloaders
+    dataset_primary = SimpleDataset(features_primary, labels_primary)
+    dataloader_primary = DataLoader(dataset_primary, batch_size=args.batch_size, shuffle=False)
+
+    dataset_secondary = SimpleDataset(features_secondary, labels_secondary)
+    dataloader_secondary = DataLoader(dataset_secondary, batch_size=args.batch_size, shuffle=False)
+
+    # Evaluate on primary dataset
+    print("Evaluating on primary dataset...")
+    results_primary = evaluate_model(model, dataloader_primary, train_mapping)
+
+    # Evaluate on secondary dataset
+    print("Evaluating on secondary dataset...")
+    results_secondary = evaluate_model(model, dataloader_secondary, train_mapping)
+
+    # Generate plots for primary dataset
+    print("Generating plots for primary dataset...")
     plot_confusion_matrix(
-        primary_results["confusion_matrix"],
-        f_class_names,
-        str(Path(args.out) / "confusion_matrix_primary.png"),
-        "Primary Confusion Matrix",
+        results_primary["confusion_matrix"],
+        train_mapping,
+        os.path.join(args.out, "primary_confusion_matrix.png"),
+    )
+    plot_ks_curves(results_primary, train_mapping, os.path.join(args.out, "primary_ks_curves.png"))
+    plot_roc_curves(
+        results_primary, train_mapping, os.path.join(args.out, "primary_roc_curves.png")
+    )
+    create_metrics_table(
+        results_primary, train_mapping, os.path.join(args.out, "primary_metrics_table.png")
     )
 
-    # Evaluate on secondary dataset (align labels to training mapping)
-    s_feat, s_lab, s_map = load_mfcc_data(args.eval_secondary)
-    s_feat_aligned, s_lab_aligned, s_class_names = align_secondary_dataset(
-        s_feat, s_lab, s_map, mapping_primary
-    )
-    if s_feat_aligned.shape[0] == 0:
-        secondary_results = {
-            "accuracy": 0.0,
-            "classification_report": "No overlapping classes; nothing to evaluate.",
-            "confusion_matrix": [],
-        }
-    else:
-        secondary_results = evaluate(
-            session, model_type, s_feat_aligned, s_lab_aligned, s_class_names
-        )
-    with open(Path(args.out) / "evaluation_secondary.json", "w") as f:
-        json.dump(secondary_results, f, indent=2)
+    # Generate plots for secondary dataset
+    print("Generating plots for secondary dataset...")
     plot_confusion_matrix(
-        secondary_results["confusion_matrix"],
-        s_class_names,
-        str(Path(args.out) / "confusion_matrix_secondary.png"),
-        "Secondary Confusion Matrix (Aligned)",
+        results_secondary["confusion_matrix"],
+        train_mapping,
+        os.path.join(args.out, "secondary_confusion_matrix.png"),
+    )
+    plot_ks_curves(
+        results_secondary, train_mapping, os.path.join(args.out, "secondary_ks_curves.png")
+    )
+    plot_roc_curves(
+        results_secondary, train_mapping, os.path.join(args.out, "secondary_roc_curves.png")
+    )
+    create_metrics_table(
+        results_secondary, train_mapping, os.path.join(args.out, "secondary_metrics_table.png")
     )
 
-    print(f"Saved cross-eval results to: {args.out}")
-    print(f"Primary (FMA) accuracy: {primary_results['accuracy']:.4f}")
-    print(f"Secondary (GTZAN aligned) accuracy: {secondary_results['accuracy']:.4f}")
-    return 0
+    # Save results
+    results_path = os.path.join(args.out, "cross_evaluation_results.json")
+    with open(results_path, "w") as f:
+        json.dump({"primary": results_primary, "secondary": results_secondary}, f, indent=2)
+
+    print(f"Cross-dataset evaluation complete! Results saved to {args.out}")
+    print(f"Primary dataset accuracy: {results_primary['accuracy']:.4f}")
+    print(f"Secondary dataset accuracy: {results_secondary['accuracy']:.4f}")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
