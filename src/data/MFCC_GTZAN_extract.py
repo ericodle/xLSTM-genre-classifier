@@ -31,7 +31,7 @@ from collections import Counter
 # Add parent directory to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from src.core.constants import TRAIN_SIZE, VAL_SIZE, TEST_SIZE, RANDOM_SEED, GTZAN_GENRES
+from src.core.constants import TRAIN_SIZE, VAL_SIZE, TEST_SIZE, RANDOM_SEED
 
 # Audio processing constants
 SAMPLE_RATE = 22050
@@ -102,7 +102,30 @@ def extract_mfcc_from_audio(
         return None
 
 
-def collect_audio_files(processed_dir: str) -> List[Tuple[str, str, str]]:
+def get_gtzan_genres(processed_dir: str) -> List[str]:
+    """
+    Get GTZAN genre names dynamically from directory structure.
+    
+    Args:
+        processed_dir: Directory containing processed audio files organized by genre
+        
+    Returns:
+        Sorted list of genre names
+    """
+    genres = []
+    if os.path.exists(processed_dir):
+        # Look for genre directories
+        for item in os.listdir(processed_dir):
+            item_path = os.path.join(processed_dir, item)
+            # Check if it's a directory (genre folder) and contains .wav files
+            if os.path.isdir(item_path):
+                wav_files = [f for f in os.listdir(item_path) if f.endswith('.wav')]
+                if wav_files:
+                    genres.append(item)
+    return sorted(genres)
+
+
+def collect_audio_files(processed_dir: str) -> Tuple[List[Tuple[str, str, str]], List[str]]:
     """
     Collect all audio files with their genres and full paths.
     
@@ -110,11 +133,19 @@ def collect_audio_files(processed_dir: str) -> List[Tuple[str, str, str]]:
         processed_dir: Directory containing processed audio files organized by genre
         
     Returns:
-        List of (file_path, genre, filename) tuples
+        Tuple of (list of (file_path, genre, filename) tuples, list of genre names)
     """
+    # Get genres dynamically from directory structure
+    genres = get_gtzan_genres(processed_dir)
+    if not genres:
+        print(f"⚠️  Warning: No genre directories found in {processed_dir}")
+        return [], []
+    
+    print(f"📂 Found {len(genres)} genres: {', '.join(genres)}")
+    
     audio_files = []
     
-    for genre in GTZAN_GENRES:
+    for genre in genres:
         genre_dir = os.path.join(processed_dir, genre)
         if os.path.exists(genre_dir):
             files = sorted([f for f in os.listdir(genre_dir) if f.endswith('.wav')])
@@ -122,7 +153,7 @@ def collect_audio_files(processed_dir: str) -> List[Tuple[str, str, str]]:
                 file_path = os.path.join(genre_dir, filename)
                 audio_files.append((file_path, genre, filename))
     
-    return audio_files
+    return audio_files, genres
 
 
 def split_files_stratified(
@@ -218,6 +249,7 @@ def generate_class_distribution_plots(
     train_files: List[Tuple[str, str, str]],
     val_files: List[Tuple[str, str, str]],
     test_files: List[Tuple[str, str, str]],
+    genres: List[str],
     output_dir: str
 ) -> None:
     """Generate histogram of class distribution across splits."""
@@ -232,8 +264,8 @@ def generate_class_distribution_plots(
     val_counts = Counter(val_genres)
     test_counts = Counter(test_genres)
     
-    # Get all genres and ensure ordering
-    all_genres = sorted(GTZAN_GENRES)
+    # Use provided genres and ensure ordering
+    all_genres = sorted(genres)
     
     train_values = [train_counts.get(genre, 0) for genre in all_genres]
     val_values = [val_counts.get(genre, 0) for genre in all_genres]
@@ -281,6 +313,7 @@ def save_descriptive_statistics(
     train_files: List[Tuple[str, str, str]],
     val_files: List[Tuple[str, str, str]],
     test_files: List[Tuple[str, str, str]],
+    genres: List[str],
     output_dir: str
 ) -> None:
     """Save descriptive statistics to a text file."""
@@ -309,8 +342,8 @@ def save_descriptive_statistics(
         f.write(f"Train files:     {len(train_files)} ({len(train_files) / (len(train_files) + len(val_files) + len(test_files)) * 100:.1f}%)\n")
         f.write(f"Val files:       {len(val_files)} ({len(val_files) / (len(train_files) + len(val_files) + len(test_files)) * 100:.1f}%)\n")
         f.write(f"Test files:      {len(test_files)} ({len(test_files) / (len(train_files) + len(val_files) + len(test_files)) * 100:.1f}%)\n")
-        f.write(f"Number of genres: {len(GTZAN_GENRES)}\n")
-        f.write(f"Genres:          {', '.join(GTZAN_GENRES)}\n\n")
+        f.write(f"Number of genres: {len(genres)}\n")
+        f.write(f"Genres:          {', '.join(sorted(genres))}\n\n")
         
         # Per-genre breakdown
         f.write("PER-GENRE BREAKDOWN\n")
@@ -318,7 +351,7 @@ def save_descriptive_statistics(
         f.write(f"{'Genre':<15} {'Train':<8} {'Val':<8} {'Test':<8} {'Total':<8}\n")
         f.write("-" * 70 + "\n")
         
-        for genre in sorted(GTZAN_GENRES):
+        for genre in sorted(genres):
             train_count = train_counts.get(genre, 0)
             val_count = val_counts.get(genre, 0)
             test_count = test_counts.get(genre, 0)
@@ -330,7 +363,8 @@ def save_descriptive_statistics(
 
 def extract_mfcc_for_split(
     split_dir: str, 
-    output_json: str, 
+    output_json: str,
+    genres: List[str],
     MAX_SAMPLES: int = None
 ) -> None:
     """
@@ -339,13 +373,14 @@ def extract_mfcc_for_split(
     Args:
         split_dir: Directory containing the split (with genre subdirectories)
         output_json: Path to output JSON file
+        genres: List of genre names
         MAX_SAMPLES: Optional limit on number of samples to process (for testing)
     """
     print(f"\n📊 Extracting MFCC features for {split_dir}...")
     
     # Get all files
     audio_files = []
-    for genre in GTZAN_GENRES:
+    for genre in genres:
         genre_dir = os.path.join(split_dir, genre)
         if os.path.exists(genre_dir):
             files = sorted([f for f in os.listdir(genre_dir) if f.endswith('.wav')])
@@ -360,7 +395,7 @@ def extract_mfcc_for_split(
     features = []
     labels = []
     file_mapping = []  # Track which file each feature came from
-    label_map = {genre: idx for idx, genre in enumerate(GTZAN_GENRES)}
+    label_map = {genre: idx for idx, genre in enumerate(genres)}
     
     for file_path, genre in tqdm(audio_files, desc="  Extracting"):
         mfcc = extract_mfcc_from_audio(
@@ -382,7 +417,7 @@ def extract_mfcc_for_split(
         "split": os.path.basename(split_dir),
         "features": features,
         "labels": labels,
-        "mapping": GTZAN_GENRES,
+        "mapping": genres,
         "file_paths": file_mapping  # Include file paths for traceability
     }
     
@@ -450,8 +485,11 @@ Examples:
     
     # Step 1: Collect audio files
     print("📁 Collecting audio files...")
-    audio_files = collect_audio_files(args.input_dir)
-    print(f"   Found {len(audio_files)} files")
+    audio_files, genres = collect_audio_files(args.input_dir)
+    if not audio_files:
+        print(f"❌ Error: No audio files found in {args.input_dir}")
+        return 1
+    print(f"   Found {len(audio_files)} files across {len(genres)} genres")
     
     # Step 2: Split files
     train_files, val_files, test_files = split_files_stratified(
@@ -467,8 +505,8 @@ Examples:
     print(f"   Test:  {len(test_files)} files")
     
     # Generate statistics and plots
-    save_descriptive_statistics(train_files, val_files, test_files, args.output_dir)
-    generate_class_distribution_plots(train_files, val_files, test_files, args.output_dir)
+    save_descriptive_statistics(train_files, val_files, test_files, genres, args.output_dir)
+    generate_class_distribution_plots(train_files, val_files, test_files, genres, args.output_dir)
     
     # Step 3: Copy files to split directories
     if not args.skip_copy:
@@ -488,7 +526,7 @@ Examples:
             output_json = os.path.join(args.mfcc_dir, f"{split_name}.json")
             
             if os.path.exists(split_dir):
-                extract_mfcc_for_split(split_dir, output_json, args.max_samples)
+                extract_mfcc_for_split(split_dir, output_json, genres, args.max_samples)
             else:
                 print(f"\n⚠️  Split directory not found: {split_dir}")
     else:

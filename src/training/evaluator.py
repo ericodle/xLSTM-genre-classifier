@@ -23,7 +23,6 @@ import os
 
 from core.utils import setup_logging, get_device
 from models import BaseModel
-from core.constants import GTZAN_GENRES
 
 
 class ModelEvaluator:

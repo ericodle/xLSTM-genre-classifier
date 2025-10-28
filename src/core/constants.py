@@ -141,24 +141,6 @@ BUTTON_WIDTH = 100
 BUTTON_HEIGHT = 30
 
 # =============================================================================
-# DATASET-SPECIFIC CONSTANTS
-# =============================================================================
-
-# GTZAN Genre Names
-GTZAN_GENRES = [
-    "blues",
-    "classical",
-    "country",
-    "disco",
-    "hiphop",
-    "jazz",
-    "metal",
-    "pop",
-    "reggae",
-    "rock",
-]
-
-# =============================================================================
 # DEFAULT CONSTANTS (for configuration)
 # =============================================================================
 # These reference the constants above to maintain DRY principle

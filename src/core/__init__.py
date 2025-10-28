@@ -13,7 +13,6 @@ except ImportError:
 from .constants import (
     MFCC_COEFFICIENTS,
     DEFAULT_NUM_CLASSES,
-    GTZAN_GENRES,
     DEFAULT_BATCH_SIZE,
     DEFAULT_HIDDEN_SIZE,
     DEFAULT_LEARNING_RATE,
@@ -26,7 +25,6 @@ __all__ = [
     "get_device",
     "MFCC_COEFFICIENTS",
     "DEFAULT_NUM_CLASSES",
-    "GTZAN_GENRES",
     "DEFAULT_BATCH_SIZE",
     "DEFAULT_HIDDEN_SIZE",
     "DEFAULT_LEARNING_RATE",
