@@ -16,6 +16,7 @@ from .constants import (
     DEFAULT_GRADIENT_CLIP_NORM,
     DEFAULT_HIDDEN_SIZE,
     DEFAULT_IMPROVEMENT_THRESHOLD,
+    DEFAULT_INITIALIZER,
     DEFAULT_KERNEL_SIZE,
     DEFAULT_LABEL_SMOOTHING,
     DEFAULT_LEARNING_RATE,
@@ -64,9 +65,7 @@ class ModelConfig:
     lr_scheduler: bool = DEFAULT_LR_SCHEDULER
     class_weight: str = DEFAULT_CLASS_WEIGHT
     label_smoothing: float = DEFAULT_LABEL_SMOOTHING
-
-    # Optional initializer (none|xavier|kaiming|orthogonal|rnn). None by default
-    init: Optional[str] = None
+    init: Optional[str] = DEFAULT_INITIALIZER
 
     # CNN-specific parameters
     num_classes: int = DEFAULT_NUM_CLASSES
