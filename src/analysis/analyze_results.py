@@ -19,28 +19,30 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Set a clean theme with larger fonts for conference presentation
 sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
-plt.rcParams.update({
-    'font.family': 'sans-serif',
-    'font.sans-serif': ['Arial', 'DejaVu Sans', 'Helvetica'],
-    'font.size': 12,
-    'axes.titlesize': 16,
-    'axes.labelsize': 14,
-    'xtick.labelsize': 12,
-    'ytick.labelsize': 12,
-    'legend.fontsize': 12,
-    'figure.titlesize': 18,
-    'axes.linewidth': 1.2,
-    'grid.linewidth': 0.8,
-    'lines.linewidth': 2,
-    'patch.linewidth': 1.2
-})
+plt.rcParams.update(
+    {
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Arial", "DejaVu Sans", "Helvetica"],
+        "font.size": 12,
+        "axes.titlesize": 16,
+        "axes.labelsize": 14,
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12,
+        "legend.fontsize": 12,
+        "figure.titlesize": 18,
+        "axes.linewidth": 1.2,
+        "grid.linewidth": 0.8,
+        "lines.linewidth": 2,
+        "patch.linewidth": 1.2,
+    }
+)
 
 # Display label mapping for models in plots
 MODEL_LABEL_MAP = {
@@ -93,6 +95,7 @@ def collect_results(outputs_dir: str) -> pd.DataFrame:
 
             # SVM format
             if all(k in data for k in ["train", "val", "test"]):
+
                 def acc_of(split: str) -> float:
                     try:
                         return float(data[split]["accuracy"])  # already float
@@ -120,6 +123,7 @@ def collect_results(outputs_dir: str) -> pd.DataFrame:
                     text = f.read()
                 # Expect lines like: Accuracy: 0.8123, ROC AUC: 0.91...
                 import re
+
                 acc_match = re.search(r"Accuracy:\s*([0-9]*\.?[0-9]+)", text)
                 roc_match = re.search(r"ROC AUC:\s*([0-9]*\.?[0-9]+)", text)
                 test_acc: Optional[float] = float(acc_match.group(1)) if acc_match else np.nan
@@ -213,7 +217,7 @@ def _annotate_bars(ax: plt.Axes, fmt: str = "{:.2f}") -> None:
 def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     if df.empty:
         return
-    
+
     # Create figure with better proportions for conference presentation
     fig, ax = plt.subplots(figsize=(16, 8))
     df_plot = df.copy()
@@ -223,84 +227,91 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     if df_plot.empty:
         plt.close()
         return
-    
+
     # Filter to only include models in our desired order
     df_plot = df_plot[df_plot["model"].isin(MODEL_ORDER)]
-    
+
     # Define colors for datasets
-    dataset_colors = {'GTZAN': '#2E86AB', 'FMA': '#A23B72'}
-    
+    dataset_colors = {"GTZAN": "#2E86AB", "FMA": "#A23B72"}
+
     # Get unique datasets and models
-    datasets = df_plot['dataset'].unique()
+    datasets = df_plot["dataset"].unique()
     models = MODEL_ORDER
-    
+
     # Set up bar positions
     x = np.arange(len(models))
     width = 0.35  # Width of bars
-    
+
     # Create bars for each dataset
     bars = []
     for i, dataset in enumerate(datasets):
-        dataset_data = df_plot[df_plot['dataset'] == dataset]
+        dataset_data = df_plot[df_plot["dataset"] == dataset]
         values = []
         for model in models:
-            model_data = dataset_data[dataset_data['model'] == model]
+            model_data = dataset_data[dataset_data["model"] == model]
             if len(model_data) > 0:
                 values.append(model_data[metric].iloc[0])
             else:
                 values.append(0)
-        
+
         # Offset bars for grouped display
         x_pos = x + i * width - width * (len(datasets) - 1) / 2
-        
+
         bar = ax.bar(
             x_pos,
             values,
             width,
             label=dataset,
-            color=dataset_colors.get(dataset, '#666666'),
+            color=dataset_colors.get(dataset, "#666666"),
             alpha=0.8,
-            edgecolor='white',
-            linewidth=1.5
+            edgecolor="white",
+            linewidth=1.5,
         )
         bars.extend(bar)
-        
+
         # Add value labels on top of bars
         for j, (bar_item, value) in enumerate(zip(bar, values)):
             if value > 0:
-                ax.text(bar_item.get_x() + bar_item.get_width()/2., value + 0.01,
-                       f'{value:.3f}', ha='center', va='bottom', fontsize=9, fontweight='bold')
-    
+                ax.text(
+                    bar_item.get_x() + bar_item.get_width() / 2.0,
+                    value + 0.01,
+                    f"{value:.3f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
+                    fontweight="bold",
+                )
+
     # Customize the plot
-    ax.set_title(f"Test Accuracy by Model Type", fontsize=18, fontweight='bold', pad=20)
+    ax.set_title(f"Test Accuracy by Model Type", fontsize=18, fontweight="bold", pad=20)
     ax.set_ylim(0, 1)
-    ax.set_xlabel("Model Type", fontsize=14, fontweight='bold')
-    ax.set_ylabel("Test Accuracy", fontsize=14, fontweight='bold')
-    
+    ax.set_xlabel("Model Type", fontsize=14, fontweight="bold")
+    ax.set_ylabel("Test Accuracy", fontsize=14, fontweight="bold")
+
     # Set x-axis labels
     ax.set_xticks(x)
-    ax.set_xticklabels(models, rotation=45, ha='right', fontsize=12)
-    
+    ax.set_xticklabels(models, rotation=45, ha="right", fontsize=12)
+
     # Add legend in top right
-    ax.legend(loc='upper right', fontsize=12, framealpha=0.9)
-    
+    ax.legend(loc="upper right", fontsize=12, framealpha=0.9)
+
     # Add grid for better readability
-    ax.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+    ax.grid(True, alpha=0.3, linestyle="-", linewidth=0.5)
     ax.set_axisbelow(True)
-    
+
     # Customize spines
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_linewidth(1.2)
-    ax.spines['bottom'].set_linewidth(1.2)
-    
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_linewidth(1.2)
+    ax.spines["bottom"].set_linewidth(1.2)
+
     # Add subtle background
-    ax.set_facecolor('#FAFAFA')
-    
+    ax.set_facecolor("#FAFAFA")
+
     # Adjust layout and save
     plt.tight_layout()
     path = out_dir / f"{metric}_by_model_dataset.png"
-    plt.savefig(path, dpi=300, bbox_inches="tight", facecolor='white', edgecolor='none')
+    plt.savefig(path, dpi=300, bbox_inches="tight", facecolor="white", edgecolor="none")
     plt.close()
 
 
@@ -340,8 +351,18 @@ def plot_model_grid(df: pd.DataFrame, out_dir: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Aggregate and plot results from training outputs")
-    parser.add_argument("--input-dir", "--input", default="./outputs", help="Directory containing training results to analyze")
-    parser.add_argument("--output-dir", "--output", default="./outputs/analysis", help="Directory where analysis results will be saved")
+    parser.add_argument(
+        "--input-dir",
+        "--input",
+        default="./outputs",
+        help="Directory containing training results to analyze",
+    )
+    parser.add_argument(
+        "--output-dir",
+        "--output",
+        default="./outputs/analysis",
+        help="Directory where analysis results will be saved",
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.output_dir)

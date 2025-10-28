@@ -2,24 +2,25 @@
 Model training module for GenreDiscern.
 """
 
-import os
-import sys
 import json
 import logging
-import numpy as np
-import torch
-from torch.utils.tensorboard import SummaryWriter
+import os
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.tensorboard import SummaryWriter
 
 # Optional import for memory-efficient JSON parsing
 try:
     import ijson
+
     IJSON_AVAILABLE = True
 except ImportError:
     IJSON_AVAILABLE = False
@@ -27,41 +28,41 @@ except ImportError:
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from models.base import BaseModel
 import matplotlib.pyplot as plt
 
 from core.config import Config
-from core.utils import setup_logging, get_device, ensure_directory, set_random_seed
 from core.constants import (
-    DEFAULT_TRAIN_SIZE,
-    DEFAULT_VAL_SIZE,
-    DEFAULT_TEST_SIZE,
-    DEFAULT_FIGURE_WIDTH,
-    DEFAULT_FIGURE_HEIGHT,
     DEFAULT_DPI,
     DEFAULT_EPSILON,
+    DEFAULT_FIGURE_HEIGHT,
+    DEFAULT_FIGURE_WIDTH,
+    DEFAULT_TEST_SIZE,
+    DEFAULT_TRAIN_SIZE,
+    DEFAULT_VAL_SIZE,
 )
+from core.utils import ensure_directory, get_device, set_random_seed, setup_logging
 from models import get_model
+from models.base import BaseModel
 from training.losses import LabelSmoothingCrossEntropyLoss
 
 
 class FocalLoss(nn.Module):
     """Focal Loss for addressing class imbalance."""
-    
-    def __init__(self, alpha=1.0, gamma=2.0, reduction='mean'):
+
+    def __init__(self, alpha=1.0, gamma=2.0, reduction="mean"):
         super().__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.reduction = reduction
-        
+
     def forward(self, inputs, targets):
-        ce_loss = F.cross_entropy(inputs, targets, reduction='none')
+        ce_loss = F.cross_entropy(inputs, targets, reduction="none")
         pt = torch.exp(-ce_loss)
         focal_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
-        
-        if self.reduction == 'mean':
+
+        if self.reduction == "mean":
             return focal_loss.mean()
-        elif self.reduction == 'sum':
+        elif self.reduction == "sum":
             return focal_loss.sum()
         else:
             return focal_loss
@@ -108,7 +109,14 @@ class ModelTrainer:
             "val_acc": [],
         }
 
-    def setup_training(self, data_path: str, model_type: str, output_dir: str, max_samples: int = None, memory_efficient: bool = False):
+    def setup_training(
+        self,
+        data_path: str,
+        model_type: str,
+        output_dir: str,
+        max_samples: int = None,
+        memory_efficient: bool = False,
+    ):
         """
         Setup training environment.
 
@@ -163,9 +171,11 @@ class ModelTrainer:
                         mfcc = sample.detach().cpu().numpy().T  # (feats, time)
                     else:
                         mfcc = sample.detach().cpu().numpy()[None, :]  # fallback
-                    import matplotlib.pyplot as plt
                     import io
+
+                    import matplotlib.pyplot as plt
                     from PIL import Image
+
                     fig, ax = plt.subplots()
                     cax = ax.imshow(mfcc, aspect="auto", origin="lower")
                     plt.colorbar(cax)
@@ -175,6 +185,7 @@ class ModelTrainer:
                     buf.seek(0)
                     image = Image.open(buf)
                     import torchvision.transforms as transforms
+
                     image_tensor = transforms.ToTensor()(image)
                     self.tb_writer.add_image("Input/MFCC_Sample0", image_tensor, 0)
                     plt.close(fig)
@@ -193,13 +204,15 @@ class ModelTrainer:
             train_json = os.path.join(data_path, "train.json")
             val_json = os.path.join(data_path, "val.json")
             test_json = os.path.join(data_path, "test.json")
-            
+
             if all(os.path.exists(f) for f in [train_json, val_json, test_json]):
-                self.logger.info("Detected pre-split data directory (train.json, val.json, test.json)")
+                self.logger.info(
+                    "Detected pre-split data directory (train.json, val.json, test.json)"
+                )
                 self.data_is_presplit = True
                 self._load_presplit_json_data(train_json, val_json, test_json, max_samples)
                 return
-        
+
         # If we got here, it's not a valid pre-split directory
         raise ValueError(
             f"Expected a directory containing train.json, val.json, and test.json files.\n"
@@ -207,37 +220,41 @@ class ModelTrainer:
             f"Use src/data/MFCC_GTZAN_extract.py to create pre-split data before training."
         )
 
-    def _load_presplit_json_data(self, train_json: str, val_json: str, test_json: str, max_samples: int = None):
+    def _load_presplit_json_data(
+        self, train_json: str, val_json: str, test_json: str, max_samples: int = None
+    ):
         """Load pre-split data from three separate JSON files (train, val, test)."""
         self.logger.info("Loading pre-split data from train.json, val.json, test.json")
-        
+
         def load_split_file(json_path: str, split_name: str):
             """Helper to load a single split file."""
             with open(json_path, "r") as f:
                 data = json.load(f)
-            
+
             features = data.get("features", [])
             labels = data.get("labels", [])
-            
+
             # Extract mapping if available
-            if "mapping" in data and not hasattr(self, 'genre_names'):
+            if "mapping" in data and not hasattr(self, "genre_names"):
                 self.genre_names = data["mapping"]
                 self.logger.info(f"Found genre mapping: {self.genre_names}")
-            
+
             # Limit samples if specified
             if max_samples and len(features) > max_samples:
-                self.logger.info(f"Limiting {split_name} to {max_samples} samples (from {len(features)})")
+                self.logger.info(
+                    f"Limiting {split_name} to {max_samples} samples (from {len(features)})"
+                )
                 features = features[:max_samples]
                 labels = labels[:max_samples]
-            
+
             # Pad features to consistent shape
             max_frames = max(len(feature) for feature in features)
             min_frames = min(len(feature) for feature in features)
-            
+
             self.logger.info(
                 f"{split_name}: {len(features)} samples, frame range: {min_frames}-{max_frames}"
             )
-            
+
             # Pad all features to the same length
             padded_features = []
             for feature in features:
@@ -247,19 +264,19 @@ class ModelTrainer:
                 else:
                     padded_feature = feature
                 padded_features.append(padded_feature)
-            
+
             return np.array(padded_features, dtype=np.float32), np.array(labels)
-        
+
         # Load all three splits
         X_train, y_train = load_split_file(train_json, "Training")
         X_val, y_val = load_split_file(val_json, "Validation")
         X_test, y_test = load_split_file(test_json, "Test")
-        
+
         self.logger.info(f"Loaded pre-split data:")
         self.logger.info(f"  Train: {len(X_train)} samples")
         self.logger.info(f"  Val:   {len(X_val)} samples")
         self.logger.info(f"  Test:  {len(X_test)} samples")
-        
+
         # Set attributes for training
         self.X_train = X_train
         self.y_train = y_train
@@ -267,12 +284,12 @@ class ModelTrainer:
         self.y_val = y_val
         self.X_test = X_test
         self.y_test = y_test
-        
+
         # Note: features and labels are not set for pre-split data
-        
+
         # Preprocess data after loading
         self._preprocess_data()
-    
+
     def _load_csv_data(self, data_path: str):
         """Load data from CSV file with pre-extracted MFCC features."""
         self.logger.info("Detected CSV format with pre-extracted MFCC features")
@@ -304,9 +321,7 @@ class ModelTrainer:
             unique_genres = sorted(df["genre"].unique())
             genre_to_label = {genre: idx for idx, genre in enumerate(unique_genres)}
             self.labels = np.array([genre_to_label[genre] for genre in df["genre"]])
-            self.logger.info(
-                f"Converted {len(unique_genres)} string genres to integer labels"
-            )
+            self.logger.info(f"Converted {len(unique_genres)} string genres to integer labels")
         else:
             raise ValueError("CSV must contain either 'label' or 'genre' column")
 
@@ -318,16 +333,12 @@ class ModelTrainer:
 
         # Find classes with enough samples
         valid_classes = [
-            label
-            for label, count in label_counts.items()
-            if count >= min_samples_per_class
+            label for label, count in label_counts.items() if count >= min_samples_per_class
         ]
 
         if len(valid_classes) < len(label_counts):
             # Filter data to keep only classes with enough samples
-            labels_array = (
-                self.labels.values if hasattr(self.labels, "values") else self.labels
-            )
+            labels_array = self.labels.values if hasattr(self.labels, "values") else self.labels
             labels_array = np.asarray(labels_array)
             valid_mask = np.isin(labels_array, valid_classes)
             self.features = self.features[valid_mask]
@@ -335,8 +346,7 @@ class ModelTrainer:
 
             # Re-encode labels to be consecutive starting from 0
             label_mapping = {
-                old_label: new_label
-                for new_label, old_label in enumerate(valid_classes)
+                old_label: new_label for new_label, old_label in enumerate(valid_classes)
             }
             self.labels = np.array([label_mapping[label] for label in self.labels])
 
@@ -350,25 +360,25 @@ class ModelTrainer:
         # Preprocess data
         self._preprocess_data()
 
-        labels_array = (
-            self.labels.values if hasattr(self.labels, "values") else self.labels
-        )
+        labels_array = self.labels.values if hasattr(self.labels, "values") else self.labels
         labels_array = np.asarray(labels_array)
         self.logger.info(
             f"Loaded {len(self.features)} samples with {len(np.unique(labels_array))} classes"
         )
         self.logger.info(f"Feature shape: {self.features.shape}")
 
-    def _load_json_data(self, data_path: str, max_samples: int = None, memory_efficient: bool = False):
+    def _load_json_data(
+        self, data_path: str, max_samples: int = None, memory_efficient: bool = False
+    ):
         """Load data from JSON file with memory optimization options."""
         self.logger.info(f"Loading JSON data from {data_path}")
-        
+
         if memory_efficient:
             self.logger.info("Using memory-efficient loading")
             self._load_json_data_memory_efficient(data_path, max_samples)
         else:
             self._load_json_data_standard(data_path, max_samples)
-    
+
     def _load_json_data_standard(self, data_path: str, max_samples: int = None):
         """Standard JSON data loading (loads entire file into memory)."""
         # Load JSON data
@@ -388,12 +398,14 @@ class ModelTrainer:
                 # Fallback: create generic genre names
                 unique_labels = sorted(set(data["labels"]))
                 self.genre_names = [f"Genre_{i}" for i in unique_labels]
-                self.logger.warning(f"No genre mapping found, using generic names: {self.genre_names}")
+                self.logger.warning(
+                    f"No genre mapping found, using generic names: {self.genre_names}"
+                )
 
             # Limit samples if specified
             features_list = data["features"]
             labels_list = data["labels"]
-            
+
             if max_samples and len(features_list) > max_samples:
                 self.logger.info(f"Limiting to {max_samples} samples (from {len(features_list)})")
                 features_list = features_list[:max_samples]
@@ -412,10 +424,7 @@ class ModelTrainer:
             for feature in features_list:
                 if len(feature) < max_frames:
                     # Pad with zeros
-                    padding = [
-                        [0.0] * len(feature[0])
-                        for _ in range(max_frames - len(feature))
-                    ]
+                    padding = [[0.0] * len(feature[0]) for _ in range(max_frames - len(feature))]
                     padded_feature = feature + padding
                 else:
                     padded_feature = feature
@@ -425,25 +434,25 @@ class ModelTrainer:
             self.labels = np.array(labels_list)  # Keep as strings, will be encoded in preprocessing
 
             self.logger.info(f"Padded features to shape: {self.features.shape}")
-            
+
             # Preprocess data after loading
             self._preprocess_data()
         else:
             # Old format: {"genre/filename.wav": {"mfcc": [...]}, ...}
             self.logger.info("Detected old data format with file paths")
-    
+
     def _load_json_data_memory_efficient(self, data_path: str, max_samples: int = None):
         """Memory-efficient JSON data loading using streaming."""
         if not IJSON_AVAILABLE:
             self.logger.warning("ijson not available, falling back to standard loading")
             self._load_json_data_standard(data_path, max_samples)
             return
-        
+
         self.logger.info("Using streaming JSON parser for memory efficiency")
-        
+
         features_list = []
         labels_list = []
-        
+
         # Stream parse the JSON file
         with open(data_path, "rb") as f:
             # Parse features array
@@ -454,7 +463,7 @@ class ModelTrainer:
                 features_list.append(feature)
                 if i % 1000 == 0:
                     self.logger.info(f"Loaded {i} features...")
-        
+
         # Reset file pointer and parse labels
         with open(data_path, "rb") as f:
             labels_parser = ijson.items(f, "labels.item")
@@ -462,9 +471,9 @@ class ModelTrainer:
                 if max_samples and i >= max_samples:
                     break
                 labels_list.append(label)
-        
+
         self.logger.info(f"Loaded {len(features_list)} samples using streaming parser")
-        
+
         # Extract genre mapping if available (need to reload the file for this)
         try:
             with open(data_path, "r") as f:
@@ -476,12 +485,14 @@ class ModelTrainer:
                     # Fallback: create generic genre names
                     unique_labels = sorted(set(labels_list))
                     self.genre_names = [f"Genre_{i}" for i in unique_labels]
-                    self.logger.warning(f"No genre mapping found, using generic names: {self.genre_names}")
+                    self.logger.warning(
+                        f"No genre mapping found, using generic names: {self.genre_names}"
+                    )
         except Exception as e:
             self.logger.warning(f"Could not load genre mapping: {e}")
             unique_labels = sorted(set(labels_list))
             self.genre_names = [f"Genre_{i}" for i in unique_labels]
-        
+
         # Handle variable-length MFCC features by padding/truncating to consistent shape
         max_frames = max(len(feature) for feature in features_list)
         min_frames = min(len(feature) for feature in features_list)
@@ -495,10 +506,7 @@ class ModelTrainer:
         for feature in features_list:
             if len(feature) < max_frames:
                 # Pad with zeros
-                padding = [
-                    [0.0] * len(feature[0])
-                    for _ in range(max_frames - len(feature))
-                ]
+                padding = [[0.0] * len(feature[0]) for _ in range(max_frames - len(feature))]
                 padded_feature = feature + padding
             else:
                 padded_feature = feature
@@ -508,25 +516,26 @@ class ModelTrainer:
         self.labels = np.array(labels_list)  # Keep as strings, will be encoded in preprocessing
 
         self.logger.info(f"Padded features to shape: {self.features.shape}")
-        
+
         # Preprocess data after loading
         self._preprocess_data()
 
     def _preprocess_data(self):
         """Preprocess the loaded data."""
         self.logger.info("Preprocessing data...")
-        
+
         # Fit label encoder on training labels, then encode all splits
         self.logger.info("Fitting label encoder and encoding labels...")
         # Fit encoder on training data
         from sklearn.preprocessing import LabelEncoder
+
         self.label_encoder = LabelEncoder()
         self.label_encoder.fit(self.y_train)
         # Transform all splits
         self.y_train = self.label_encoder.transform(self.y_train)
         self.y_val = self.label_encoder.transform(self.y_val)
         self.y_test = self.label_encoder.transform(self.y_test)
-        
+
         # Normalize features properly (fit on training data only)
         self.logger.info("Normalizing features...")
         # Fit normalizer on training data
@@ -534,12 +543,12 @@ class ModelTrainer:
         self.feature_std = np.std(self.X_train, axis=0)
         self.feature_std[self.feature_std == 0] = DEFAULT_EPSILON
         self.normalizer_fitted = True
-        
+
         # Apply normalization using fitted statistics
         self.X_train = (self.X_train - self.feature_mean) / self.feature_std
         self.X_val = (self.X_val - self.feature_mean) / self.feature_std
         self.X_test = (self.X_test - self.feature_mean) / self.feature_std
-        
+
         # Create data loaders
         self._create_data_loaders()
 
@@ -607,11 +616,11 @@ class ModelTrainer:
                 num_layers=self.config.model.num_layers,
                 output_dim=num_classes,
                 dropout=self.config.model.dropout,
-                conv_layers=getattr(self.config.model, 'conv_layers', 3),
-                base_filters=getattr(self.config.model, 'base_filters', 16),
-                kernel_size=getattr(self.config.model, 'kernel_size', 3),
-                pool_size=getattr(self.config.model, 'pool_size', 2),
-                fc_hidden=getattr(self.config.model, 'fc_hidden', 64),
+                conv_layers=getattr(self.config.model, "conv_layers", 3),
+                base_filters=getattr(self.config.model, "base_filters", 16),
+                kernel_size=getattr(self.config.model, "kernel_size", 3),
+                pool_size=getattr(self.config.model, "pool_size", 2),
+                fc_hidden=getattr(self.config.model, "fc_hidden", 64),
             )
         else:
             # For other models, use standard parameters
@@ -623,24 +632,24 @@ class ModelTrainer:
                 "output_dim": num_classes,
                 "dropout": self.config.model.dropout,
             }
-            
+
             # For VGG16 and ViT, pass the number of MFCC features and pretrained flag
             if model_type in ["VGG16", "ViT"] and len(input_shape) == 2:
                 # input_shape is (time_steps, features)
                 kwargs["num_mfcc_features"] = input_shape[1]  # number of MFCC coefficients
                 # Get pretrained flag from config
-                pretrained = getattr(self.config.model, 'pretrained', True)
+                pretrained = getattr(self.config.model, "pretrained", True)
                 kwargs["pretrained"] = pretrained
-                self.logger.info(f"{model_type}: Using {input_shape[1]} MFCC features, pretrained={pretrained}")
-            
+                self.logger.info(
+                    f"{model_type}: Using {input_shape[1]} MFCC features, pretrained={pretrained}"
+                )
+
             self.model = get_model(**kwargs)
 
         # Move to device
         self.model = self.model.to(self.device)
 
-        self.logger.info(
-            f"Model created with {self.model.count_parameters()} parameters"
-        )
+        self.logger.info(f"Model created with {self.model.count_parameters()} parameters")
 
         # Optional initializer (no-op by default)
         init_scheme = getattr(self.config.model, "init", None)
@@ -686,7 +695,7 @@ class ModelTrainer:
                         # LSTM forget gate bias to 1
                         if isinstance(m, torch.nn.LSTM) and param.shape[0] % 4 == 0:
                             hidden = param.shape[0] // 4
-                            param.data[hidden:2*hidden] = 1.0
+                            param.data[hidden : 2 * hidden] = 1.0
 
         # Apply by module type
         self.model.apply(init_linear)
@@ -725,16 +734,21 @@ class ModelTrainer:
             if self.config.model.class_weight != "none":
                 if self.config.model.class_weight == "auto":
                     # Calculate class weights automatically
-                    if hasattr(self, 'labels') and self.labels is not None:
+                    if hasattr(self, "labels") and self.labels is not None:
                         import numpy as np
+
                         labels_array = (
                             self.labels.values if hasattr(self.labels, "values") else self.labels
                         )
                         labels_array = np.asarray(labels_array)
                         class_sample_count = np.bincount(labels_array.astype(int))
                         class_weights = 1.0 / (class_sample_count + 1e-8)
-                        class_weights = class_weights / class_weights.sum() * len(class_sample_count)
-                        class_weights = torch.tensor(class_weights, dtype=torch.float32, device=self.device)
+                        class_weights = (
+                            class_weights / class_weights.sum() * len(class_sample_count)
+                        )
+                        class_weights = torch.tensor(
+                            class_weights, dtype=torch.float32, device=self.device
+                        )
                         self.logger.info(f"Using automatic class weights: {class_weights.tolist()}")
                 else:
                     # Parse comma-separated weights
@@ -748,14 +762,13 @@ class ModelTrainer:
                     except ValueError as e:
                         self.logger.warning(f"Failed to parse class weights: {e}")
                         class_weights = None
-            
+
             # Check if we should use label smoothing
-            label_smoothing = getattr(self.config.model, 'label_smoothing', 0.0)
+            label_smoothing = getattr(self.config.model, "label_smoothing", 0.0)
             if label_smoothing > 0:
                 num_classes = len(np.unique(self.y_train))
                 self.criterion = LabelSmoothingCrossEntropyLoss(
-                    smoothing=label_smoothing, 
-                    num_classes=num_classes
+                    smoothing=label_smoothing, num_classes=num_classes
                 )
                 self.logger.info(f"Using label smoothing with smoothing={label_smoothing}")
             else:
@@ -765,9 +778,7 @@ class ModelTrainer:
             self.criterion = FocalLoss(alpha=1.0, gamma=2.0)
             self.logger.info("Using Focal Loss for imbalanced dataset")
         else:
-            raise ValueError(
-                f"Unknown loss function: {self.config.model.loss_function}"
-            )
+            raise ValueError(f"Unknown loss function: {self.config.model.loss_function}")
 
     def _setup_scheduler(self):
         """Setup learning rate scheduler."""
@@ -820,11 +831,17 @@ class ModelTrainer:
                     self.tb_writer.add_scalar("Accuracy/Train", train_acc, self.current_epoch)
                     self.tb_writer.add_scalar("Accuracy/Validation", val_acc, self.current_epoch)
                     if self.optimizer is not None and len(self.optimizer.param_groups) > 0:
-                        self.tb_writer.add_scalar("LearningRate", self.optimizer.param_groups[0].get("lr", 0.0), self.current_epoch)
+                        self.tb_writer.add_scalar(
+                            "LearningRate",
+                            self.optimizer.param_groups[0].get("lr", 0.0),
+                            self.current_epoch,
+                        )
                     # Weights histograms (per parameter)
                     for name, param in self.model.named_parameters():
                         try:
-                            self.tb_writer.add_histogram(f"Weights/{name}", param, self.current_epoch)
+                            self.tb_writer.add_histogram(
+                                f"Weights/{name}", param, self.current_epoch
+                            )
                         except Exception:
                             pass
                     # Gradient histograms using collected values (best-effort)
@@ -835,7 +852,9 @@ class ModelTrainer:
                                 continue
                             try:
                                 flat = torch.cat(chunks)
-                                self.tb_writer.add_histogram(f"Gradients/{gname}", flat, self.current_epoch)
+                                self.tb_writer.add_histogram(
+                                    f"Gradients/{gname}", flat, self.current_epoch
+                                )
                             except Exception:
                                 pass
                 except Exception:
@@ -846,7 +865,9 @@ class ModelTrainer:
                 self.best_val_acc = val_acc
                 self.best_val_loss = val_loss  # Also track the loss at best accuracy
                 self._save_checkpoint("best_model.onnx")
-                self.logger.info(f"New best model saved! Val Acc: {val_acc:.4f}, Val Loss: {val_loss:.4f}")
+                self.logger.info(
+                    f"New best model saved! Val Acc: {val_acc:.4f}, Val Loss: {val_loss:.4f}"
+                )
 
             # Early stopping check
             if self._should_stop_early():
@@ -877,8 +898,12 @@ class ModelTrainer:
                         "optimizer": self.config.model.optimizer,
                     }
                     metrics = {
-                        "final_test_accuracy": float(self.best_val_acc if hasattr(self, "best_val_acc") else 0.0),
-                        "final_test_loss": float(self.best_val_loss if hasattr(self, "best_val_loss") else 0.0),
+                        "final_test_accuracy": float(
+                            self.best_val_acc if hasattr(self, "best_val_acc") else 0.0
+                        ),
+                        "final_test_loss": float(
+                            self.best_val_loss if hasattr(self, "best_val_loss") else 0.0
+                        ),
                     }
                     # Filter None keys
                     hparams = {k: v for k, v in hparams.items() if v is not None}
@@ -909,11 +934,16 @@ class ModelTrainer:
             output = self.model(data)
             loss = self.criterion(output, target)
             loss.backward()
-            
+
             # Apply gradient clipping if specified
-            if hasattr(self.config.training, 'gradient_clip_norm') and self.config.training.gradient_clip_norm:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.training.gradient_clip_norm)
-            
+            if (
+                hasattr(self.config.training, "gradient_clip_norm")
+                and self.config.training.gradient_clip_norm
+            ):
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), self.config.training.gradient_clip_norm
+                )
+
             self.optimizer.step()
 
             total_loss += loss.item()
@@ -1082,7 +1112,11 @@ class ModelTrainer:
             else:
                 return sample_data.shape[1:]
         # VGG or ViT style models (no conv_layers attribute)
-        elif hasattr(self.model, "vgg") or hasattr(self.model, "vit") or getattr(self.model, "model_name", "").upper() in ["VGG16", "VIT"]:
+        elif (
+            hasattr(self.model, "vgg")
+            or hasattr(self.model, "vit")
+            or getattr(self.model, "model_name", "").upper() in ["VGG16", "VIT"]
+        ):
             if len(sample_data.shape) == 3:
                 # Provide (time, features); model will add channel internally
                 return (sample_data.shape[1], sample_data.shape[2])
@@ -1094,16 +1128,17 @@ class ModelTrainer:
                 else:
                     return (sample_data.shape[1], sample_data.shape[2])
         elif (
-            hasattr(self.model, "rnn")
-            or hasattr(self.model, "lstm")
-            or hasattr(self.model, "gru")
+            hasattr(self.model, "rnn") or hasattr(self.model, "lstm") or hasattr(self.model, "gru")
         ):
             # RNN models (LSTM, GRU) - keep 3D format (batch, time_steps, features)
             return sample_data.shape[1:]
         elif hasattr(self.model, "transformer_layers"):
             # Transformer model - keep 3D format (batch, time_steps, features)
             return sample_data.shape[1:]
-        elif hasattr(self.model, "xlstm_blocks") or getattr(self.model, "model_name", "").upper() == "XLSTM":
+        elif (
+            hasattr(self.model, "xlstm_blocks")
+            or getattr(self.model, "model_name", "").upper() == "XLSTM"
+        ):
             # xLSTM model - keep 3D format (batch, time_steps, features)
             return sample_data.shape[1:]
         else:
@@ -1148,9 +1183,7 @@ class ModelTrainer:
         plt.title("Training and Validation Accuracy")
         plt.legend()
         plt.grid(True)
-        plt.savefig(
-            plots_dir / "accuracy_plot.png", dpi=DEFAULT_DPI, bbox_inches="tight"
-        )
+        plt.savefig(plots_dir / "accuracy_plot.png", dpi=DEFAULT_DPI, bbox_inches="tight")
         plt.close()
 
         self.logger.info(f"Training plots saved to {plots_dir}")

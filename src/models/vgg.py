@@ -3,21 +3,29 @@ VGG16-based classifier for MFCC inputs.
 We adapt torchvision VGG16 to accept 1-channel inputs and configurable output classes.
 """
 
+import os
+
+# Add src directory to path for imports
+import sys
+
 import torch
 import torch.nn as nn
 from torchvision import models
 
 from .base import BaseModel
 
-# Add src directory to path for imports
-import sys
-import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from core.constants import DEFAULT_VGG_NUM_CLASSES, DEFAULT_VGG_PRETRAINED, DEFAULT_VGG_DROPOUT
+from core.constants import DEFAULT_VGG_DROPOUT, DEFAULT_VGG_NUM_CLASSES, DEFAULT_VGG_PRETRAINED
 
 
 class VGG16Classifier(BaseModel):
-    def __init__(self, num_classes: int = DEFAULT_VGG_NUM_CLASSES, pretrained: bool = DEFAULT_VGG_PRETRAINED, dropout: float = DEFAULT_VGG_DROPOUT, num_mfcc_features: int = 13):
+    def __init__(
+        self,
+        num_classes: int = DEFAULT_VGG_NUM_CLASSES,
+        pretrained: bool = DEFAULT_VGG_PRETRAINED,
+        dropout: float = DEFAULT_VGG_DROPOUT,
+        num_mfcc_features: int = 13,
+    ):
         super().__init__(model_name="VGG16")
         self.num_classes = num_classes
         self.dropout = dropout
@@ -28,8 +36,14 @@ class VGG16Classifier(BaseModel):
 
         # Adapt first conv to 1 input channel (MFCC as single-channel image)
         old_conv1 = vgg.features[0]
-        new_conv1 = nn.Conv2d(1, old_conv1.out_channels, kernel_size=old_conv1.kernel_size,
-                               stride=old_conv1.stride, padding=old_conv1.padding, bias=old_conv1.bias is not None)
+        new_conv1 = nn.Conv2d(
+            1,
+            old_conv1.out_channels,
+            kernel_size=old_conv1.kernel_size,
+            stride=old_conv1.stride,
+            padding=old_conv1.padding,
+            bias=old_conv1.bias is not None,
+        )
         if pretrained and old_conv1.weight.shape[1] == 3:
             # Average RGB weights into 1 channel
             with torch.no_grad():
@@ -43,9 +57,7 @@ class VGG16Classifier(BaseModel):
         new_features = []
         for m in vgg.features:
             if isinstance(m, nn.MaxPool2d):
-                new_features.append(
-                    nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1), padding=0)
-                )
+                new_features.append(nn.MaxPool2d(kernel_size=(2, 1), stride=(2, 1), padding=0))
             else:
                 new_features.append(m)
         vgg.features = nn.Sequential(*new_features)
@@ -94,5 +106,3 @@ class VGG16Classifier(BaseModel):
         feats = self.time_pool(feats)
         out = self.head(feats)
         return torch.log_softmax(out, dim=1)
-
-

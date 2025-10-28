@@ -2,15 +2,16 @@
 {Long Short-Term Memory} model for GenreDiscern.
 """
 
-import torch
-import torch.nn as nn
-from typing import List, Optional
-
-from .base import BaseModel
+import os
 
 # Add src directory to path for imports
 import sys
-import os
+from typing import List, Optional
+
+import torch
+import torch.nn as nn
+
+from .base import BaseModel
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -73,5 +74,3 @@ class LSTM_model(BaseModel):
         out = self.fc(out[:, -1, :])  # Raw logits for CrossEntropyLoss
 
         return torch.as_tensor(out)
-
-

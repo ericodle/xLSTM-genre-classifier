@@ -26,7 +26,9 @@ def main() -> int:
         device_name = torch.cuda.get_device_name(device_index)
         device_count = torch.cuda.device_count()
         compiled_cuda = getattr(torch.version, "cuda", "unknown")
-        cudnn_version = torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else None
+        cudnn_version = (
+            torch.backends.cudnn.version() if torch.backends.cudnn.is_available() else None
+        )
 
         print(f"CUDA device count: {device_count}")
         print(f"Current device index: {device_index}")
@@ -47,5 +49,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-

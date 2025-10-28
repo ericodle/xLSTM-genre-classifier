@@ -2,57 +2,57 @@
 Configuration management for GenreDiscern.
 """
 
+import json
 import os
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
-import json
+from typing import Any, Dict, Optional
 
 from .constants import (
-    SAMPLE_RATE,
-    HOP_LENGTH,
-    N_FFT,
-    DEFAULT_N_MFCC,
-    MIN_AUDIO_DURATION,
-    MAX_AUDIO_DURATION,
-    DEFAULT_DEVICE,
-    DEFAULT_NUM_WORKERS,
-    DEFAULT_PIN_MEMORY,
-    DEFAULT_CHECKPOINT_INTERVAL,
-    DEFAULT_LOG_INTERVAL,
+    DEFAULT_BASE_FILTERS,
     DEFAULT_BATCH_SIZE,
+    DEFAULT_CHECKPOINT_INTERVAL,
+    DEFAULT_CLASS_WEIGHT,
+    DEFAULT_CONV_LAYERS,
+    DEFAULT_DEVICE,
+    DEFAULT_DROPOUT,
+    DEFAULT_EARLY_STOPPING,
+    DEFAULT_EARLY_STOPPING_PATIENCE,
+    DEFAULT_FC_HIDDEN,
+    DEFAULT_FF_DIM,
+    DEFAULT_GRADIENT_CLIP_NORM,
+    DEFAULT_HIDDEN_SIZE,
+    DEFAULT_IMPROVEMENT_THRESHOLD,
+    DEFAULT_KERNEL_SIZE,
     DEFAULT_LEARNING_RATE,
-    DEFAULT_MAX_EPOCHS,
-    DEFAULT_WEIGHT_DECAY,
-    DEFAULT_OPTIMIZER,
+    DEFAULT_LOG_INTERVAL,
     DEFAULT_LOSS_FUNCTION,
     DEFAULT_LR_SCHEDULER,
-    DEFAULT_CLASS_WEIGHT,
-    DEFAULT_HIDDEN_SIZE,
-    DEFAULT_NUM_LAYERS,
-    DEFAULT_DROPOUT,
-    DEFAULT_CONV_LAYERS,
-    DEFAULT_BASE_FILTERS,
-    DEFAULT_KERNEL_SIZE,
-    DEFAULT_POOL_SIZE,
-    DEFAULT_FC_HIDDEN,
+    DEFAULT_MAX_EPOCHS,
+    DEFAULT_N_MFCC,
+    DEFAULT_NUM_CLASSES,
     DEFAULT_NUM_HEADS,
-    DEFAULT_FF_DIM,
-    DEFAULT_VALIDATION_SPLIT,
-    DEFAULT_EARLY_STOPPING_PATIENCE,
+    DEFAULT_NUM_LAYERS,
+    DEFAULT_NUM_WORKERS,
+    DEFAULT_OPTIMIZER,
+    DEFAULT_PIN_MEMORY,
+    DEFAULT_POOL_SIZE,
     DEFAULT_RANDOM_SEED,
     DEFAULT_SAVE_BEST_MODEL,
     DEFAULT_SAVE_CHECKPOINTS,
-    DEFAULT_EARLY_STOPPING,
-    DEFAULT_IMPROVEMENT_THRESHOLD,
-    DEFAULT_GRADIENT_CLIP_NORM,
-    DEFAULT_NUM_CLASSES,
-    GAN_NOISE_DIM,
-    GAN_HIDDEN_DIM,
-    GAN_NUM_LAYERS,
+    DEFAULT_VALIDATION_SPLIT,
+    DEFAULT_WEIGHT_DECAY,
     GAN_DROPOUT,
-    GAN_N_CRITIC,
+    GAN_HIDDEN_DIM,
     GAN_LAMBDA_GP,
     GAN_LEARNING_RATE,
+    GAN_N_CRITIC,
+    GAN_NOISE_DIM,
+    GAN_NUM_LAYERS,
+    HOP_LENGTH,
+    MAX_AUDIO_DURATION,
+    MIN_AUDIO_DURATION,
+    N_FFT,
+    SAMPLE_RATE,
 )
 from .model_defaults import DEFAULTS, get_defaults
 
@@ -86,10 +86,12 @@ class ModelConfig:
     weight_decay: float = DEFAULT_WEIGHT_DECAY
     lr_scheduler: bool = DEFAULT_LR_SCHEDULER
     class_weight: str = DEFAULT_CLASS_WEIGHT
-    label_smoothing: float = 0.0  # Label smoothing for overfitting reduction (0.0-1.0, typical: 0.1)
+    label_smoothing: float = (
+        0.0  # Label smoothing for overfitting reduction (0.0-1.0, typical: 0.1)
+    )
     # Optional initializer (none|xavier|kaiming|orthogonal|rnn). None by default
     init: Optional[str] = None
-    
+
     # CNN-specific parameters
     num_classes: int = DEFAULT_NUM_CLASSES
     conv_layers: int = DEFAULT_CONV_LAYERS
@@ -97,11 +99,11 @@ class ModelConfig:
     kernel_size: int = DEFAULT_KERNEL_SIZE
     pool_size: int = DEFAULT_POOL_SIZE
     fc_hidden: int = DEFAULT_FC_HIDDEN
-    
+
     # Transformer-specific parameters
     num_heads: int = DEFAULT_NUM_HEADS
     ff_dim: int = DEFAULT_FF_DIM
-    
+
     # GAN-specific parameters
     gan_noise_dim: int = GAN_NOISE_DIM
     gan_hidden_dim: int = GAN_HIDDEN_DIM
@@ -203,14 +205,14 @@ class Config:
     def optimize_for_dataset(self, dataset_type: str, model_type: str = "GRU") -> None:
         """Optimize configuration for specific dataset type."""
         optimized_defaults = get_defaults(model_type, dataset_type)
-        
+
         # Update model config with optimized defaults
         for key, value in optimized_defaults.items():
             if hasattr(self.model, key):
                 setattr(self.model, key, value)
             elif hasattr(self.training, key):
                 setattr(self.training, key, value)
-        
+
         # Note: Optimized parameters are loaded but may be overridden by user CLI arguments
 
     def get_audio_config(self) -> Dict[str, Any]:

@@ -19,18 +19,18 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Tuple, List
+from typing import List, Tuple
 
-import numpy as np
-from sklearn.svm import SVC, LinearSVC
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-from sklearn.model_selection import train_test_split
+import joblib
 import matplotlib.pyplot as plt
+import numpy as np
 import seaborn as sns
 from sklearn.decomposition import PCA
-import joblib
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC, LinearSVC
 
 
 def load_mfcc_json(json_path: str) -> Tuple[np.ndarray, np.ndarray, List[str]]:
@@ -52,7 +52,7 @@ def load_mfcc_json(json_path: str) -> Tuple[np.ndarray, np.ndarray, List[str]]:
                 f = f + pad
             padded.append(f)
 
-        X = np.asarray(padded, dtype=np.float32)           # (N, T, D)
+        X = np.asarray(padded, dtype=np.float32)  # (N, T, D)
         y = np.asarray(labels_list)
         mapping = data.get("mapping", sorted(list(set(labels_list))))
         # If labels are strings, map to ints
@@ -102,11 +102,20 @@ def main() -> int:
     parser.add_argument("--output", required=True, help="Output directory")
     parser.add_argument("--kernel", default="rbf", choices=["linear", "rbf"], help="SVM kernel")
     parser.add_argument("--C", type=float, default=10.0, help="Regularization parameter C")
-    parser.add_argument("--gamma", default="scale", help="Gamma for RBF ('scale', 'auto', or float)")
+    parser.add_argument(
+        "--gamma", default="scale", help="Gamma for RBF ('scale', 'auto', or float)"
+    )
     parser.add_argument("--test-size", type=float, default=0.2, help="Test split size")
-    parser.add_argument("--val-size", type=float, default=0.15, help="Validation split size (from train)")
+    parser.add_argument(
+        "--val-size", type=float, default=0.15, help="Validation split size (from train)"
+    )
     parser.add_argument("--random-state", type=int, default=42, help="Random seed")
-    parser.add_argument("--class-weight", default="none", choices=["none", "balanced"], help="Handle class imbalance")
+    parser.add_argument(
+        "--class-weight",
+        default="none",
+        choices=["none", "balanced"],
+        help="Handle class imbalance",
+    )
     parser.add_argument("--pca", type=int, default=0, help="PCA components (0 disables)")
     parser.add_argument("--max-iter", type=int, default=1000, help="Max iterations for LinearSVC")
     args = parser.parse_args()
@@ -132,7 +141,9 @@ def main() -> int:
     # Build pipeline: Standardize -> (optional PCA) -> SVM
     steps = [("scaler", StandardScaler(with_mean=True, with_std=True))]
     if args.pca and args.pca > 0:
-        steps.append(("pca", PCA(n_components=args.pca, svd_solver="auto", random_state=args.random_state)))
+        steps.append(
+            ("pca", PCA(n_components=args.pca, svd_solver="auto", random_state=args.random_state))
+        )
 
     if args.kernel == "linear":
         svm = LinearSVC(
@@ -168,7 +179,9 @@ def main() -> int:
     def evaluate(split_name: str, Xs: np.ndarray, ys: np.ndarray) -> dict:
         preds = clf.predict(Xs)
         acc = accuracy_score(ys, preds)
-        rep = classification_report(ys, preds, target_names=[str(m) for m in mapping], zero_division=0)
+        rep = classification_report(
+            ys, preds, target_names=[str(m) for m in mapping], zero_division=0
+        )
         cm = confusion_matrix(ys, preds)
         print(f"{split_name} accuracy: {acc:.4f}")
         return {"accuracy": float(acc), "report": rep, "confusion_matrix": cm.tolist()}
@@ -194,17 +207,17 @@ def main() -> int:
     # Save artifacts
     model_path = Path(args.output) / "svm.joblib"
     results_path = Path(args.output) / "results.json"
-    
+
     # Ensure the output directory exists (defensive programming)
     model_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Convert to absolute path to avoid any path issues
     model_path_abs = str(model_path.absolute())
     results_path_abs = str(results_path.absolute())
-    
+
     print(f"Saving model to: {model_path_abs}")
     print(f"Saving results to: {results_path_abs}")
-    
+
     joblib.dump(clf, model_path_abs)
     with open(results_path_abs, "w") as f:
         json.dump(results, f, indent=2)
@@ -239,5 +252,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

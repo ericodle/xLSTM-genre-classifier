@@ -2,12 +2,13 @@
 Base model class for all neural network models in GenreDiscern.
 """
 
-import torch
-import torch.nn as nn
-from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple
 import json
 import os
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional, Tuple
+
+import torch
+import torch.nn as nn
 
 
 class BaseModel(nn.Module, ABC):
@@ -31,9 +32,7 @@ class BaseModel(nn.Module, ABC):
             "model_name": self.model_name,
             "model_type": self.__class__.__name__,
             "total_parameters": sum(p.numel() for p in self.parameters()),
-            "trainable_parameters": sum(
-                p.numel() for p in self.parameters() if p.requires_grad
-            ),
+            "trainable_parameters": sum(p.numel() for p in self.parameters() if p.requires_grad),
             "is_trained": self.is_trained,
             "model_config": self.model_config,
         }
@@ -84,9 +83,7 @@ class BaseModel(nn.Module, ABC):
             "model_config": serializable_model_config,
             "training_history": serializable_training_history,
             "is_trained": self.is_trained,
-            "input_shape": list(
-                input_shape
-            ),  # Convert tuple to list for JSON serialization
+            "input_shape": list(input_shape),  # Convert tuple to list for JSON serialization
             "model_type": self.__class__.__name__,
         }
 
@@ -96,17 +93,13 @@ class BaseModel(nn.Module, ABC):
                 if isinstance(obj, torch.Tensor):
                     return obj.cpu().tolist()
                 elif isinstance(obj, dict):
-                    return {
-                        k: convert_tensor_to_serializable(v) for k, v in obj.items()
-                    }
+                    return {k: convert_tensor_to_serializable(v) for k, v in obj.items()}
                 elif isinstance(obj, (list, tuple)):
                     return [convert_tensor_to_serializable(item) for item in obj]
                 else:
                     return obj
 
-            serializable_optimizer_state = convert_tensor_to_serializable(
-                optimizer_state
-            )
+            serializable_optimizer_state = convert_tensor_to_serializable(optimizer_state)
             metadata["optimizer_state"] = serializable_optimizer_state
 
         with open(metadata_path, "w") as f:
@@ -266,9 +259,7 @@ Trained: {self.is_trained}
 
             return ort.InferenceSession(filepath)
         except ImportError:
-            raise ImportError(
-                "ONNX Runtime not available. Install with: pip install onnxruntime"
-            )
+            raise ImportError("ONNX Runtime not available. Install with: pip install onnxruntime")
         except Exception as e:
             raise RuntimeError(f"Failed to create ONNX inference session: {e}")
 

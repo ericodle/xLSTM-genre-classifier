@@ -2,26 +2,27 @@
 {Convolutional Neural Network} model for GenreDiscern.
 """
 
-import torch
-import torch.nn as nn
-from typing import List, Optional
-
-from .base import BaseModel
+import os
 
 # Add src directory to path for imports
 import sys
-import os
+from typing import List, Optional
+
+import torch
+import torch.nn as nn
+
+from .base import BaseModel
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from core.constants import (
-    DEFAULT_NUM_CLASSES,
-    DEFAULT_DROPOUT,
-    DEFAULT_CNN_CONV_LAYERS,
     DEFAULT_CNN_BASE_FILTERS,
+    DEFAULT_CNN_CONV_LAYERS,
+    DEFAULT_CNN_FC_HIDDEN,
     DEFAULT_CNN_KERNEL_SIZE,
     DEFAULT_CNN_POOL_SIZE,
-    DEFAULT_CNN_FC_HIDDEN,
+    DEFAULT_DROPOUT,
+    DEFAULT_NUM_CLASSES,
 )
 
 
@@ -79,59 +80,65 @@ class CNN_model(BaseModel):
         """Build configurable convolutional layers."""
         layers = []
         in_channels = self.input_channels
-        
+
         for i in range(self.conv_layers):
             # Calculate number of filters for this layer (exponential growth)
-            out_channels = self.base_filters * (2 ** i)
-            
+            out_channels = self.base_filters * (2**i)
+
             # Convolutional layer
-            layers.append(nn.Conv2d(
-                in_channels, 
-                out_channels, 
-                kernel_size=(self.kernel_size, self.kernel_size), 
-                padding=self.kernel_size//2
-            ))
+            layers.append(
+                nn.Conv2d(
+                    in_channels,
+                    out_channels,
+                    kernel_size=(self.kernel_size, self.kernel_size),
+                    padding=self.kernel_size // 2,
+                )
+            )
             layers.append(nn.ReLU())
-            
+
             # Downsample less aggressively: pool every second block (except last)
             # This preserves spatial resolution longer compared to global pooling
             if i % 2 == 1 and i < self.conv_layers - 1:
                 layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
-            
+
             # Batch normalization
             layers.append(nn.BatchNorm2d(out_channels))
-            
+
             # Dropout
             layers.append(nn.Dropout(p=self.dropout))
-            
+
             in_channels = out_channels
-        
+
         # Flatten for fully connected layers
         layers.append(nn.Flatten())
-        
+
         return nn.Sequential(*layers)
 
     def _check_model_size_warnings(self):
         """Check for potentially problematic model configurations and issue warnings."""
         import warnings
-        
+
         # Calculate estimated parameters for conv layers
         estimated_conv_params = 0
         in_channels = self.input_channels
-        
+
         for i in range(self.conv_layers):
-            out_channels = self.base_filters * (2 ** i)
+            out_channels = self.base_filters * (2**i)
             # Conv2d parameters: (in_channels * out_channels * kernel_size^2) + out_channels (bias)
-            conv_params = (in_channels * out_channels * self.kernel_size * self.kernel_size) + out_channels
+            conv_params = (
+                in_channels * out_channels * self.kernel_size * self.kernel_size
+            ) + out_channels
             estimated_conv_params += conv_params
             in_channels = out_channels
-        
+
         # Estimate FC layer parameters (rough approximation)
         # Assuming input size of 1292x13 (typical for MFCC data)
-        estimated_fc_params = self.fc_hidden * 1000 + self.num_classes * self.fc_hidden  # Rough estimate
-        
+        estimated_fc_params = (
+            self.fc_hidden * 1000 + self.num_classes * self.fc_hidden
+        )  # Rough estimate
+
         total_estimated_params = estimated_conv_params + estimated_fc_params
-        
+
         # Issue warnings based on model size
         if total_estimated_params > 50_000_000:  # 50M parameters
             warnings.warn(
@@ -140,7 +147,7 @@ class CNN_model(BaseModel):
                 f"(conv_layers={self.conv_layers}, base_filters={self.base_filters}). "
                 f"This may cause memory issues and slow training. "
                 f"Consider reducing conv_layers or base_filters.",
-                UserWarning
+                UserWarning,
             )
         elif total_estimated_params > 10_000_000:  # 10M parameters
             warnings.warn(
@@ -148,27 +155,29 @@ class CNN_model(BaseModel):
                 f"Estimated parameters: ~{total_estimated_params:,} "
                 f"(conv_layers={self.conv_layers}, base_filters={self.base_filters}). "
                 f"Training may be slow. Monitor GPU memory usage.",
-                UserWarning
+                UserWarning,
             )
         elif total_estimated_params > 1_000_000:  # 1M parameters
-            print(f"ℹ️  INFO: Model size: ~{total_estimated_params:,} parameters "
-                  f"(conv_layers={self.conv_layers}, base_filters={self.base_filters})")
-        
+            print(
+                f"ℹ️  INFO: Model size: ~{total_estimated_params:,} parameters "
+                f"(conv_layers={self.conv_layers}, base_filters={self.base_filters})"
+            )
+
         # Check for specific problematic combinations
         if self.conv_layers >= 8:
             warnings.warn(
                 f"⚠️  WARNING: {self.conv_layers} conv layers is very deep! "
                 f"This may cause vanishing gradients and slow training. "
                 f"Consider using 3-5 layers instead.",
-                UserWarning
+                UserWarning,
             )
-        
+
         if self.base_filters >= 128 and self.conv_layers >= 6:
             warnings.warn(
                 f"⚠️  WARNING: High base_filters ({self.base_filters}) with many layers "
                 f"({self.conv_layers}) may create an extremely large model! "
                 f"Consider reducing base_filters to 32-64.",
-                UserWarning
+                UserWarning,
             )
 
     def _build_fc_layers(self, flatten_size):
@@ -183,7 +192,7 @@ class CNN_model(BaseModel):
                     nn.ReLU(),
                     nn.Dropout(p=self.dropout),
                     nn.Linear(self.fc_hidden, self.num_classes),
-                    nn.Sigmoid()  # Membership scores in [0, 1]
+                    nn.Sigmoid(),  # Membership scores in [0, 1]
                 )
             else:
                 # For classification: output logits for softmax
@@ -229,10 +238,6 @@ class CNN_model(BaseModel):
 
         # Apply fully connected layers
         if self.fc_layers is None:
-            raise RuntimeError(
-                "FC layers not initialized. Call _build_fc_layers first."
-            )
+            raise RuntimeError("FC layers not initialized. Call _build_fc_layers first.")
         x = self.fc_layers(x)
         return torch.as_tensor(x)
-
-

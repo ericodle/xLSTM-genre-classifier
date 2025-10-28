@@ -2,39 +2,42 @@
 Machine learning models for GenreDiscern (neural networks and conventional models).
 """
 
-from typing import Optional
-from .base import BaseModel
-from .fc import FC_model
-from .cnn import CNN_model
-from .lstm import LSTM_model
-from .gru import GRU_model
-from .transformer import Transformer
-from .xlstm import xLSTM
-from .vgg import VGG16Classifier
-from .vit import ViTClassifier
-from .conventional_ml import (
-    SVMModel,
-    RandomForestModel,
-    GaussianNBModel,
-    KNNModel,
-    get_conventional_model,
-)
+import os
+
 # Add src directory to path for imports
 import sys
-import os
+from typing import Optional
+
+from .base import BaseModel
+from .cnn import CNN_model
+from .conventional_ml import (
+    GaussianNBModel,
+    KNNModel,
+    RandomForestModel,
+    SVMModel,
+    get_conventional_model,
+)
+from .fc import FC_model
+from .gru import GRU_model
+from .lstm import LSTM_model
+from .transformer import Transformer
+from .vgg import VGG16Classifier
+from .vit import ViTClassifier
+from .xlstm import xLSTM
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from core.constants import (
-    DEFAULT_HIDDEN_SIZE,
-    DEFAULT_NUM_LAYERS,
-    DEFAULT_DROPOUT,
-    DEFAULT_NUM_HEADS,
-    DEFAULT_FF_DIM,
-    DEFAULT_CONV_LAYERS,
     DEFAULT_BASE_FILTERS,
-    DEFAULT_KERNEL_SIZE,
-    DEFAULT_POOL_SIZE,
+    DEFAULT_CONV_LAYERS,
+    DEFAULT_DROPOUT,
     DEFAULT_FC_HIDDEN,
+    DEFAULT_FF_DIM,
+    DEFAULT_HIDDEN_SIZE,
+    DEFAULT_KERNEL_SIZE,
     DEFAULT_NUM_CLASSES,
+    DEFAULT_NUM_HEADS,
+    DEFAULT_NUM_LAYERS,
+    DEFAULT_POOL_SIZE,
     DEFAULT_VGG_PRETRAINED,
 )
 
@@ -72,7 +75,9 @@ def get_model(
     block_types: Optional[list] = None,
     conv_kernel_size: int = DEFAULT_KERNEL_SIZE,
     num_mfcc_features: int = 13,  # For VGG16: number of MFCC coefficients
-    pretrained: Optional[bool] = None,  # For VGG16: whether to use pretrained weights (None = use default)
+    pretrained: Optional[
+        bool
+    ] = None,  # For VGG16: whether to use pretrained weights (None = use default)
     regression_mode: bool = False,  # For CNN: if True, outputs membership scores (regression)
 ) -> BaseModel:
     """
@@ -103,9 +108,7 @@ def get_model(
         "ViT",
     ]
     if model_type not in valid_types:
-        raise ValueError(
-            f"Unknown model type: {model_type}. Available types: {valid_types}"
-        )
+        raise ValueError(f"Unknown model type: {model_type}. Available types: {valid_types}")
 
     # Ensure input_dim is not None for models that require it
     if input_dim is None:
@@ -129,12 +132,10 @@ def get_model(
 
     try:
         if model_type == "FC":
-            return FC_model(
-                input_dim=input_dim_int, output_dim=output_dim, dropout=dropout
-            )
+            return FC_model(input_dim=input_dim_int, output_dim=output_dim, dropout=dropout)
         elif model_type == "CNN":
             return CNN_model(
-                num_classes=output_dim, 
+                num_classes=output_dim,
                 dropout=dropout,
                 conv_layers=conv_layers,
                 base_filters=base_filters,
@@ -144,20 +145,25 @@ def get_model(
                 regression_mode=regression_mode,
             )
         elif model_type == "LSTM":
-            return LSTM_model(
-                input_dim_int, hidden_dim, num_layers, output_dim, dropout
-            )
+            return LSTM_model(input_dim_int, hidden_dim, num_layers, output_dim, dropout)
         elif model_type == "GRU":
             return GRU_model(input_dim_int, hidden_dim, num_layers, output_dim, dropout)
         elif model_type == "xLSTM":
             # Use xLSTM-specific parameters
             from core.model_defaults import DEFAULTS
-            xlstm_hidden = getattr(DEFAULTS, 'xlstm_hidden_size', hidden_dim)
-            xlstm_layers = getattr(DEFAULTS, 'xlstm_num_layers', num_layers)
-            xlstm_dropout = getattr(DEFAULTS, 'xlstm_dropout', dropout)
+
+            xlstm_hidden = getattr(DEFAULTS, "xlstm_hidden_size", hidden_dim)
+            xlstm_layers = getattr(DEFAULTS, "xlstm_num_layers", num_layers)
+            xlstm_dropout = getattr(DEFAULTS, "xlstm_dropout", dropout)
             return xLSTM(
-                input_dim_int, xlstm_hidden, xlstm_layers, output_dim, xlstm_dropout,
-                block_types=block_types, num_heads=num_heads, conv_kernel_size=conv_kernel_size
+                input_dim_int,
+                xlstm_hidden,
+                xlstm_layers,
+                output_dim,
+                xlstm_dropout,
+                block_types=block_types,
+                num_heads=num_heads,
+                conv_kernel_size=conv_kernel_size,
             )
         elif model_type == "Transformer":
             return Transformer(
@@ -174,10 +180,10 @@ def get_model(
             # Use provided pretrained flag, or default from constants
             use_pretrained = pretrained if pretrained is not None else DEFAULT_VGG_PRETRAINED
             return VGG16Classifier(
-                num_classes=output_dim, 
-                pretrained=use_pretrained, 
+                num_classes=output_dim,
+                pretrained=use_pretrained,
                 dropout=dropout,
-                num_mfcc_features=num_mfcc_features
+                num_mfcc_features=num_mfcc_features,
             )
         elif model_type == "ViT":
             # For ViT, use similar approach as VGG16
@@ -186,7 +192,7 @@ def get_model(
                 num_classes=output_dim,
                 pretrained=use_pretrained,
                 dropout=dropout,
-                num_mfcc_features=num_mfcc_features
+                num_mfcc_features=num_mfcc_features,
             )
         else:
             raise ValueError(f"Unknown model type: {model_type}")

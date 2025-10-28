@@ -2,22 +2,23 @@
 Utility functions for GenreDiscern.
 """
 
-import os
 import logging
-import torch
-import numpy as np
-from typing import Optional, Tuple, Any
+import os
 import random
+from typing import Any, Optional, Tuple
+
+import numpy as np
+import torch
 
 from .constants import (
-    MFCC_COEFFICIENTS,
     AUDIO_EXTENSIONS,
+    BYTES_PER_GB,
     BYTES_PER_KB,
     BYTES_PER_MB,
-    BYTES_PER_GB,
-    EXIT_SUCCESS,
     EXIT_FAILURE,
     EXIT_INTERRUPT,
+    EXIT_SUCCESS,
+    MFCC_COEFFICIENTS,
 )
 
 
