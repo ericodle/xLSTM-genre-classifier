@@ -410,10 +410,10 @@ class TestModelConsistency:
         models = [
             FC_model(input_dim=100, output_dim=10),
             CNN_model(num_classes=10),
-            LSTM_model(input_dim=13, hidden_dim=32, layer_dim=1, output_dim=10, dropout_prob=0.1),
-            GRU_model(input_dim=13, hidden_dim=32, layer_dim=1, output_dim=10, dropout_prob=0.1),
+            LSTM_model(input_dim=13, hidden_dim=32, layer_dim=2, output_dim=10, dropout_prob=0.1),
+            GRU_model(input_dim=13, hidden_dim=32, layer_dim=2, output_dim=10, dropout_prob=0.1),
             Transformer(input_dim=13, hidden_dim=64, num_layers=2, num_heads=4, ff_dim=128, output_dim=10, dropout=0.1),
-            xLSTM(input_dim=13, hidden_dim=32, num_layers=1, output_dim=10, dropout=0.1),
+            xLSTM(input_dim=13, hidden_dim=32, num_layers=2, output_dim=10, dropout=0.1),
         ]
         
         for model in models:
