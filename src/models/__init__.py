@@ -4,8 +4,11 @@ Neural network models for GenreDiscern.
 
 from typing import Optional
 from .base import BaseModel
-from .neural_networks import FC_model, CNN_model, LSTM_model, GRU_model
-from .transformers import Transformer
+from .fc import FC_model
+from .cnn import CNN_model
+from .lstm import LSTM_model
+from .gru import GRU_model
+from .transformer import Transformer
 from .xlstm import xLSTM
 from .vgg import VGG16Classifier
 from .vit import ViTClassifier
