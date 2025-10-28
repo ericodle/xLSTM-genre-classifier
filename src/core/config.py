@@ -51,8 +51,6 @@ from .constants import (
 from .model_defaults import DEFAULTS, get_defaults
 
 
-
-
 @dataclass
 class ModelConfig:
     """Model training configuration."""
@@ -117,8 +115,6 @@ class TrainingConfig:
     gradient_clip_norm: Optional[float] = DEFAULT_GRADIENT_CLIP_NORM
 
 
-
-
 class Config:
     """Main configuration class for GenreDiscern."""
 
@@ -175,4 +171,3 @@ class Config:
                 setattr(self.training, key, value)
 
         # Note: Optimized parameters are loaded but may be overridden by user CLI arguments
-
