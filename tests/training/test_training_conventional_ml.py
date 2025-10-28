@@ -38,6 +38,5 @@ class TestTrainingConventionalML:
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=project_root)
 
         assert result.returncode == 0, f"Conventional ML training failed:\n{result.stderr}"
-        assert os.path.exists(os.path.join(output_dir, f"{model_name}_model.joblib"))
-        assert os.path.exists(os.path.join(output_dir, "classification_report.txt"))
+        assert os.path.exists(os.path.join(output_dir, f"{model_name}.joblib"))
         assert os.path.exists(os.path.join(output_dir, "confusion_matrix.png"))

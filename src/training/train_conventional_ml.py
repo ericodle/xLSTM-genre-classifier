@@ -35,7 +35,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from models.conventional_ml import get_conventional_model
 
 
-def load_mfcc_json(json_path: str) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+def load_mfcc_json(data_path: str) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+    """Load MFCC data from either a single JSON file or pre-split directory."""
+    if os.path.isdir(data_path):
+        # Pre-split format: load from train.json
+        train_json = os.path.join(data_path, "train.json")
+        if not os.path.exists(train_json):
+            raise ValueError(f"train.json not found in directory: {data_path}")
+        json_path = train_json
+    else:
+        # Single file format
+        json_path = data_path
+    
     with open(json_path, "r") as f:
         data = json.load(f)
 
@@ -100,7 +111,7 @@ def flatten_features(X: np.ndarray) -> np.ndarray:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Train conventional ML models on MFCC JSON")
-    parser.add_argument("--data", required=True, help="Path to MFCC JSON file")
+    parser.add_argument("--data", required=True, help="Path to MFCC JSON file or pre-split directory")
     parser.add_argument("--output", required=True, help="Output directory")
     parser.add_argument(
         "--model",
@@ -133,20 +144,48 @@ def main() -> int:
     os.makedirs(args.output, exist_ok=True)
 
     print(f"Loading: {args.data}")
-    X, y, mapping = load_mfcc_json(args.data)
-    print(f"Loaded features: {X.shape}, classes: {len(mapping)}")
+    
+    if os.path.isdir(args.data):
+        # Pre-split format: load all three splits
+        train_json = os.path.join(args.data, "train.json")
+        val_json = os.path.join(args.data, "val.json")
+        test_json = os.path.join(args.data, "test.json")
+        
+        if not all(os.path.exists(f) for f in [train_json, val_json, test_json]):
+            raise ValueError(f"Missing split files in directory: {args.data}")
+        
+        # Load all splits
+        X_train, y_train, mapping = load_mfcc_json(train_json)
+        X_val, y_val, _ = load_mfcc_json(val_json)
+        X_test, y_test, _ = load_mfcc_json(test_json)
+        
+        print(f"Loaded pre-split data:")
+        print(f"  Train: {X_train.shape[0]} samples")
+        print(f"  Val:   {X_val.shape[0]} samples")
+        print(f"  Test:  {X_test.shape[0]} samples")
+        print(f"  Classes: {len(mapping)}")
+        
+        # Flatten time×features for conventional ML models
+        X_train = flatten_features(X_train)
+        X_val = flatten_features(X_val)
+        X_test = flatten_features(X_test)
+        
+    else:
+        # Single file format: load and split
+        X, y, mapping = load_mfcc_json(args.data)
+        print(f"Loaded features: {X.shape}, classes: {len(mapping)}")
 
-    # Flatten time×features for conventional ML models
-    X = flatten_features(X)
+        # Flatten time×features for conventional ML models
+        X = flatten_features(X)
 
-    # Split train/val/test
-    X_temp, X_test, y_temp, y_test = train_test_split(
-        X, y, test_size=args.test_size, random_state=args.random_state, stratify=y
-    )
-    val_ratio = args.val_size / (1.0 - args.test_size)
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_temp, y_temp, test_size=val_ratio, random_state=args.random_state, stratify=y_temp
-    )
+        # Split train/val/test
+        X_temp, X_test, y_temp, y_test = train_test_split(
+            X, y, test_size=args.test_size, random_state=args.random_state, stratify=y
+        )
+        val_ratio = args.val_size / (1.0 - args.test_size)
+        X_train, X_val, y_train, y_val = train_test_split(
+            X_temp, y_temp, test_size=val_ratio, random_state=args.random_state, stratify=y_temp
+        )
 
     # Prepare model-specific parameters
     model_params = {}
@@ -165,13 +204,12 @@ def main() -> int:
             "random_state": args.random_state,
         }
     elif args.model == "nb":
-        model_params = {
-            "random_state": args.random_state,
-        }
+        # GaussianNB doesn't accept random_state
+        model_params = {}
     elif args.model == "knn":
+        # KNN doesn't accept random_state
         model_params = {
             "n_neighbors": args.n_neighbors,
-            "random_state": args.random_state,
         }
 
     # Create model using factory
