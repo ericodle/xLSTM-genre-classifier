@@ -27,7 +27,7 @@ def _run_automatic_evaluation(
 ):
     """Run automatic evaluation and generate plots."""
     try:
-        from training.evaluator import ModelEvaluator
+        from eval.evaluator import ModelEvaluator
 
         logger.info("Starting automatic evaluation...")
 
