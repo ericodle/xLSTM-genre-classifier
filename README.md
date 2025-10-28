@@ -1,4 +1,3 @@
-# GenreDiscern V2 - Refactored Music Genre Classification System
 ## Current Version Stack
 - Python 3.13.0
 - PyTorch: 2.8.0+cu128 (compiled with CUDA 12.8)
@@ -15,82 +14,43 @@ source env/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
-## Setup (Windows)
-- Use pyenv to install python 3.13.1 (Tcl dependency issue with 3.13.0)
-```bash
-pyenv shell 3.13.1
-python -m venv env
-.\env\Scripts\Activate
-```
-- Install dependencies
-```bash
-pip install -r requirements.txt
-```
-## Environment Setup
 
-```bash
-source env/bin/activate
-```
+# What can you do with this project?
 
-### Extract MFCC Features
-Use the unified extractor API:
-```bash
-python -c "from src.core.config import AudioConfig; from src.data.mfcc_extractor import MFCCExtractor; import json; \
-cfg=AudioConfig(); ex=MFCCExtractor(cfg); print(ex.extract_mfcc_from_directory('/path/to/music','./mfccs','dataset_13'))"
-```
+## You can process music data
+### GTZAN
+### FMA
+### Crops songs, weeds out corrupted data, sorts music into train/val/test sets, and summarizes the distribution of your data.
 
-### Process GTZAN Audio Files
-Process GTZAN audio files by cutting 30-second clips and extracting MFCC features:
-```bash
-# Full pipeline: copy, cut clips, and extract MFCCs
-python src/data/process_gtzan_audio.py /home/eo/Documents/gtzan gtzan-data/processed gtzan-data/mfccs gtzan_features
+## You can train a variety of original and commonly-used models
+## SVM
+### FC
+### CNN
+### LSTM
+### GRU
+### xLSTM
+### Transformer
+### VGG16
+### ViT
 
-# Only cut clips (skip MFCC extraction)
-python src/data/process_gtzan_audio.py /home/eo/Documents/gtzan gtzan-data/processed --skip-mfcc
+## You can study the results of that training process with our evaluation and analysis tools
+### Tensorboard integation for checking gradients, etc.
+### Accuracy and Loss plots during the training routine
+### Evaluation confuson matrix and statistics
 
-# Only extract MFCCs from already processed files
-python src/data/process_gtzan_audio.py --skip-copy --mfcc-dir gtzan-data/processed --output-dir gtzan-data/mfccs --output-name gtzan_features
-```
+## You can run a hyperparameter search to make sure you get the best model
 
-### Split GTZAN Data into Train/Val/Test Sets
-Split GTZAN data before training to track which songs are in which split:
-```bash
-# Full pipeline: split files and extract MFCCs for each split
-python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits
+## You can explore fuzzy logic, multimodal models, autoencoders, and more.
 
-# This creates:
-# - gtzan-data/splits/train/ (with genre subdirectories and WAV files)
-# - gtzan-data/splits/val/   (with genre subdirectories and WAV files)
-# - gtzan-data/splits/test/  (with genre subdirectories and WAV files)
-# - gtzan-data/mfccs_splits/train.json
-# - gtzan-data/mfccs_splits/val.json
-# - gtzan-data/mfccs_splits/test.json
+## You can customize single training runs using in-line flag arguments
+### lr
+### pretrained
+### and more
 
-# Custom split ratios
-python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits --train-size 0.8 --val-size 0.1
+## You can easily understand how this project is structured
+### All the source code is in the src/ folder
+### Different subfolders in src/ make up the different modules
 
-# Test with limited samples (for quick verification)
-python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits --max-samples 10
-```
-
-
-
-
-### Most Common Commands
-```bash
-# Train with pre-split data (GTZAN)
-python src/training/train_model.py --data gtzan-data/mfccs_splits --model GRU --output outputs/gru-gtzan-run
-
-# Other commands
-python src/training/train_svm.py --data mfccs/gtzan_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-gtzan
-python src/training/train_model.py --data gtzan-data/mfccs_splits --model VGG16 --output outputs/vgg-gtzan-run --lr 0.0005 --batch-size 16 --dropout 0.3
-python src/analysis/analyze_results.py --input-dir ./outputs --output-dir ./outputs/analysis
-python generate_overfitting_table.py
-# Step 1: Split the data
-python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits
-tensorboard --logdir outputs --port 6006
-netron outputs/your_run/model.onnx
-
-```
-
-TODO: set up human genre test app
+## You can contribute to this project!
+### How about making a Pull Request and contributing your own feature?
+### How about helping find and fix our many bugs?
