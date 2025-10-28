@@ -140,6 +140,19 @@ def collect_mp3_files(audio_dir: str, mp3_genre_mapping: Dict[str, str]) -> List
     """
     print(f"🔍 Collecting MP3 files from {audio_dir}...")
     
+    # Create a normalized mapping dictionary
+    # The JSON keys are like "mfccs/fma_medium/042/042279.mp3"
+    # We need to match against files like "fma-data/fma_medium/042/042279.mp3"
+    normalized_mapping = {}
+    for key, genre in mp3_genre_mapping.items():
+        # Extract the key part after "fma_medium/"
+        # e.g., "mfccs/fma_medium/042/042279.mp3" -> "042/042279.mp3"
+        if 'fma_medium/' in key:
+            normalized_key = key.split('fma_medium/', 1)[1]
+            normalized_mapping[normalized_key] = genre
+    
+    print(f"   Created normalized mapping with {len(normalized_mapping)} entries")
+    
     audio_files = []
     
     # Walk through the directory structure
@@ -148,26 +161,17 @@ def collect_mp3_files(audio_dir: str, mp3_genre_mapping: Dict[str, str]) -> List
             if filename.endswith('.mp3'):
                 full_path = os.path.join(root, filename)
                 
-                # Try to match with genre mapping
-                # The genre mapping uses paths like "age/fma_medium/042/042279.mp3"
-                # We need to extract the relative path
-                relative_path = os.path.relpath(full_path, os.path.dirname(audio_dir))
+                # Extract relative path from inside fma_medium/
+                # e.g., "fma-data/fma_medium/042/042279.mp3" -> "042/042279.mp3"
+                relative_from_fma_medium = os.path.relpath(full_path, audio_dir)
                 
-                # Try several path formats
-                possible_keys = [
-                    relative_path,
-                    os.path.join('fma_medium', relative_path),
-                    full_path
-                ]
-                
-                genre = None
-                for key in possible_keys:
-                    if key in mp3_genre_mapping:
-                        genre = mp3_genre_mapping[key]
-                        break
+                # Try to match with normalized genre mapping
+                genre = normalized_mapping.get(relative_from_fma_medium)
                 
                 if genre is not None:
                     audio_files.append((full_path, genre, filename))
+                    if len(audio_files) % 1000 == 0:
+                        print(f"   Matched {len(audio_files)} files...")
     
     print(f"   Collected {len(audio_files)} MP3 files with genre information")
     
@@ -493,6 +497,10 @@ Examples:
     print(f"   Val:   {len(val_files)} files")
     print(f"   Test:  {len(test_files)} files")
     
+    # Create output directories
+    Path(args.splits_dir).mkdir(parents=True, exist_ok=True)
+    Path(args.mfcc_dir).mkdir(parents=True, exist_ok=True)
+    
     # Generate statistics and plots
     save_descriptive_statistics(train_files, val_files, test_files, genres, args.splits_dir)
     generate_class_distribution_plots(train_files, val_files, test_files, genres, args.splits_dir)
@@ -503,8 +511,6 @@ Examples:
     copy_files_to_split(test_files, args.splits_dir, "test")
     
     # Step 5: Extract MFCCs for each split
-    Path(args.mfcc_dir).mkdir(parents=True, exist_ok=True)
-    
     extract_mfcc_for_split(
         os.path.join(args.splits_dir, "train"),
         os.path.join(args.mfcc_dir, "train.json"),

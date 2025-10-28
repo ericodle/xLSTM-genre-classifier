@@ -1,9 +1,11 @@
-## Current Version Stack
-- Python 3.13.0
-- PyTorch: 2.8.0+cu128 (compiled with CUDA 12.8)
-- NVIDIA Driver Version: 535.247.01
-- CUDA Toolkit: 13.0
-## Setup (Debian)
+# Music Genre Research Project (MGRP)
+
+## About this Project
+
+We are researchers in the Lin Lab at FCU.
+We love to study music genre classification.
+
+## Setup
 - Use pyenv to install python 3.13.0
 ```bash
 pyenv shell 3.13.0
@@ -15,7 +17,16 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 
-# Project requires GTZAN be pre-processed to 30-second clips
+## Project requirements
+- Music files shoudl be trimmed to the middle 30-seconds.
+- Versions of Python, PyTorch, NVIDIA drivers, and CUDA Toolkit that play well together
+Our setup uses:
+```
+- Python 3.13.0
+- PyTorch: 2.8.0+cu128 (compiled with CUDA 12.8)
+- NVIDIA Driver Version: 535.247.01
+- CUDA Toolkit: 13.0
+```
 
 # What can you do with this project?
 
@@ -31,45 +42,89 @@ python src/data/MFCC_FMA_extract.py fma-data/fma_medium src/data/fma_mp3_genres.
 ```
 
 
-## You can train a variety of original and commonly-used models
-## SVM
-### FC
-### CNN
-### LSTM
-### GRU
-### xLSTM
-### Transformer
-### VGG16
-### ViT
+# You can train a variety of models with our default settings in `src/core/constants.py`
 
-## You can study the results of that training process with our evaluation and analysis tools
+### SVM
+```
+some code here
+```
+
+### FC
+```
+some code here
+```
+
+### CNN
+```
+some code here
+```
+
+### LSTM
+```
+some code here
+```
+
+### GRU
+```
+some code here
+```
+
+### xLSTM
+```
+some code here
+```
+
+### Transformer
+```
+some code here
+```
+
+### VGG16
+```
+some code here
+```
+
+### ViT
+```
+some code here
+```
+
+# You can customize single training runs using in-line arguments
+### lr
+```
+some code here
+```
+### pretrained
+```
+some code here
+```
+### and more
+```
+some code here
+```
+
+
+# You can study the results of your training process with our evaluation and analysis tools
 ### Tensorboard integation for checking gradients, etc.
 ### Accuracy and Loss plots during the training routine
 ### Evaluation confuson matrix and statistics
 
-
-## You can customize single training runs using in-line flag arguments
-### lr
-### pretrained
-### and more
-
-## You can easily understand how this project is structured
-### All the source code is in the src/ folder
-### Different subfolders in src/ make up the different modules
-
-## You can test the project components
+## You can test the features of this project
 ### Run all tests with: `python test.py`
 ### Individual test files in `tests/` directory
-### Tests include MFCC extraction validation, model functionality, and more
 
 ## You can contribute to this project!
-### How about making a Pull Request and contributing your own feature?
-### How about helping find and fix our many bugs?
+### How about making a Pull Request (PR) and contributing your own feature?
+### How about helping us find and fix some bugs?
 
-## TODO
-### integrate new split preprocessing flow for FMA
-### Expand module tests
-### debug hyperparameter search
-### debug fuzzy logic
-### debug multimodal models
-### debug autoencoders
+# Maintainer:
+@ericodle https://github.com/ericodle
+
+# TODO
+### generate test set for FMA and add FMA preprocessing test
+### Add more tests
+### Make new feature: src/hyperparameter_search
+### Make new feature: src/fuzzy_logic
+### Make new feature: src/multimodal_features
+### Make new feature: src/GAN_augmentation
+### Make new feature: src/NAS
