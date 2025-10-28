@@ -44,7 +44,7 @@ NUM_CLASSES = 10
 
 # RNN/LSTM/GRU parameters
 HIDDEN_SIZE = 32  # Restored from working value
-NUM_LAYERS = 1  # Restored from working value
+NUM_LAYERS = 2  # Use 2 layers to allow dropout to work properly
 DROPOUT = 0.1  # Restored from working value
 
 # CNN parameters

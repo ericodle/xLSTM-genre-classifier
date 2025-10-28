@@ -138,7 +138,7 @@ class TestLSTM:
         model = LSTM_model(
             input_dim=13,
             hidden_dim=32,
-            layer_dim=1,
+            layer_dim=2,  # Use 2 layers to allow dropout
             output_dim=10,
             dropout_prob=0.1
         )
@@ -150,7 +150,7 @@ class TestLSTM:
         model = LSTM_model(
             input_dim=13,
             hidden_dim=32,
-            layer_dim=1,
+            layer_dim=2,  # Use 2 layers to allow dropout
             output_dim=10,
             dropout_prob=0.1
         )
@@ -168,7 +168,7 @@ class TestLSTM:
         model = LSTM_model(
             input_dim=13,
             hidden_dim=32,
-            layer_dim=1,
+            layer_dim=2,  # Use 2 layers to allow dropout
             output_dim=10,
             dropout_prob=0.1
         )
@@ -206,7 +206,7 @@ class TestGRU:
         model = GRU_model(
             input_dim=13,
             hidden_dim=32,
-            layer_dim=1,
+            layer_dim=2,  # Use 2 layers to allow dropout
             output_dim=10,
             dropout_prob=0.1
         )
@@ -218,7 +218,7 @@ class TestGRU:
         model = GRU_model(
             input_dim=13,
             hidden_dim=32,
-            layer_dim=1,
+            layer_dim=2,  # Use 2 layers to allow dropout
             output_dim=10,
             dropout_prob=0.1
         )
@@ -234,7 +234,7 @@ class TestGRU:
         model = GRU_model(
             input_dim=13,
             hidden_dim=32,
-            layer_dim=1,
+            layer_dim=2,  # Use 2 layers to allow dropout
             output_dim=10,
             dropout_prob=0.1
         )
