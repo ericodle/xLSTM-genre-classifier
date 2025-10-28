@@ -117,8 +117,9 @@ some code here
 ### How about making a Pull Request (PR) and contributing your own feature?
 ### How about helping us find and fix some bugs?
 
-# Maintainer:
-@ericodle https://github.com/ericodle
+# Contributors:
+Lab Leader: @peichunpclin
+Developer/Maintainer: @ericodle
 
 # TODO
 ### generate test set for FMA and add FMA preprocessing test
