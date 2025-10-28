@@ -534,13 +534,15 @@ Examples:
     print(f"   Val:   {len(val_files)} files")
     print(f"   Test:  {len(test_files)} files")
 
+    # Create output directory before generating statistics and plots
+    Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+
     # Generate statistics and plots
     save_descriptive_statistics(train_files, val_files, test_files, genres, args.output_dir)
     generate_class_distribution_plots(train_files, val_files, test_files, genres, args.output_dir)
 
     # Step 3: Copy files to split directories
     if not args.skip_copy:
-        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
         copy_files_to_split(train_files, args.output_dir, "train")
         copy_files_to_split(val_files, args.output_dir, "val")
         copy_files_to_split(test_files, args.output_dir, "test")

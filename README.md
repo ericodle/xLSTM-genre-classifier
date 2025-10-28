@@ -33,7 +33,7 @@ Our setup uses:
 ## You can process music data
 ### GTZAN
 ```
-python src/data/MFCC_GTZAN_extract.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits
+python src/data/MFCC_GTZAN_extract.py gtzan-data/processed-songs gtzan-data/splits gtzan-data/mfccs_splits
 ```
 
 ### FMA
@@ -111,7 +111,8 @@ some code here
 
 ## You can test the features of this project
 ### Run all tests with: `python test.py`
-### Individual test files in `tests/` directory
+- Use the `--fix` tag to auto-correct linting errors.
+- Use the `--training` tag to run with with the (slower) training routine tests.
 
 ## You can contribute to this project!
 ### How about making a Pull Request (PR) and contributing your own feature?
@@ -128,4 +129,4 @@ Developer/Maintainer: @ericodle
 ### Make new feature: src/fuzzy_logic
 ### Make new feature: src/multimodal_features
 ### Make new feature: src/GAN_augmentation
-### Make new feature: src/NAS
+### Make new feature: src/NAS (neural architecture search)
