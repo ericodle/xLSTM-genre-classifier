@@ -39,9 +39,9 @@ from core.constants import (
     DEFAULT_FIGURE_WIDTH,
     DEFAULT_FIGURE_HEIGHT,
     DEFAULT_DPI,
+    DEFAULT_EPSILON,
 )
 from models import get_model
-from data.preprocessing import AudioPreprocessor
 from training.losses import LabelSmoothingCrossEntropyLoss
 
 
@@ -90,7 +90,11 @@ class ModelTrainer:
         self.optimizer: Optional[torch.optim.Optimizer] = None
         self.criterion: Optional[torch.nn.Module] = None
         self.scheduler = None
-        self.preprocessor = AudioPreprocessor(logger)
+        # Initialize preprocessor for normalization and label encoding
+        self.preprocessor = None  # Will be initialized with LabelEncoder
+        self.feature_mean = None
+        self.feature_std = None
+        self.normalizer_fitted = False
         self.tb_writer: Optional[SummaryWriter] = None
 
         # Training state
@@ -515,18 +519,26 @@ class ModelTrainer:
         # Fit label encoder on training labels, then encode all splits
         self.logger.info("Fitting label encoder and encoding labels...")
         # Fit encoder on training data
-        self.preprocessor.label_encoder.fit(self.y_train)
-        self.preprocessor.is_fitted = True
+        from sklearn.preprocessing import LabelEncoder
+        self.label_encoder = LabelEncoder()
+        self.label_encoder.fit(self.y_train)
         # Transform all splits
-        self.y_train = self.preprocessor.label_encoder.transform(self.y_train)
-        self.y_val = self.preprocessor.label_encoder.transform(self.y_val)
-        self.y_test = self.preprocessor.label_encoder.transform(self.y_test)
+        self.y_train = self.label_encoder.transform(self.y_train)
+        self.y_val = self.label_encoder.transform(self.y_val)
+        self.y_test = self.label_encoder.transform(self.y_test)
         
         # Normalize features properly (fit on training data only)
         self.logger.info("Normalizing features...")
-        self.X_train = self.preprocessor.normalize_features(self.X_train, fit_normalizer=True)
-        self.X_val = self.preprocessor.normalize_features(self.X_val, fit_normalizer=False)
-        self.X_test = self.preprocessor.normalize_features(self.X_test, fit_normalizer=False)
+        # Fit normalizer on training data
+        self.feature_mean = np.mean(self.X_train, axis=0)
+        self.feature_std = np.std(self.X_train, axis=0)
+        self.feature_std[self.feature_std == 0] = DEFAULT_EPSILON
+        self.normalizer_fitted = True
+        
+        # Apply normalization using fitted statistics
+        self.X_train = (self.X_train - self.feature_mean) / self.feature_std
+        self.X_val = (self.X_val - self.feature_mean) / self.feature_std
+        self.X_test = (self.X_test - self.feature_mean) / self.feature_std
         
         # Create data loaders
         self._create_data_loaders()

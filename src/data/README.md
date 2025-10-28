@@ -61,11 +61,9 @@ gtzan-data/
   - `save_gtzan_data()` - Save extracted features to JSON
   - ⚠️ Not meant to be called directly - use split_gtzan_data.py instead
 
-### Helper Modules (Used by Training Pipeline)
+### Helper Modules
 
-- **`preprocessing.py`** - Data preprocessing utilities used during training
-  - Normalization, augmentation, label encoding
-  - Used by `src/training/trainer.py`
+None - preprocessing functionality is now integrated directly into `src/training/trainer.py`
 
 ## Standard Development Pattern
 
