@@ -1,9 +1,3 @@
-"""
-Configuration management for GenreDiscern.
-"""
-
-import json
-import os
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
@@ -23,6 +17,7 @@ from .constants import (
     DEFAULT_HIDDEN_SIZE,
     DEFAULT_IMPROVEMENT_THRESHOLD,
     DEFAULT_KERNEL_SIZE,
+    DEFAULT_LABEL_SMOOTHING,
     DEFAULT_LEARNING_RATE,
     DEFAULT_LOG_INTERVAL,
     DEFAULT_LOSS_FUNCTION,
@@ -68,9 +63,8 @@ class ModelConfig:
     weight_decay: float = DEFAULT_WEIGHT_DECAY
     lr_scheduler: bool = DEFAULT_LR_SCHEDULER
     class_weight: str = DEFAULT_CLASS_WEIGHT
-    label_smoothing: float = (
-        0.0  # Label smoothing for overfitting reduction (0.0-1.0, typical: 0.1)
-    )
+    label_smoothing: float = DEFAULT_LABEL_SMOOTHING
+
     # Optional initializer (none|xavier|kaiming|orthogonal|rnn). None by default
     init: Optional[str] = None
 
@@ -116,48 +110,10 @@ class TrainingConfig:
 
 
 class Config:
-    """Main configuration class for GenreDiscern."""
 
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self):
         self.model = ModelConfig()
         self.training = TrainingConfig()
-
-        if config_path and os.path.exists(config_path):
-            self.load_from_file(config_path)
-
-    def load_from_file(self, config_path: str) -> None:
-        """Load configuration from JSON file."""
-        try:
-            with open(config_path, "r") as f:
-                config_data = json.load(f)
-
-            # Update nested configurations
-            if "model" in config_data:
-                for key, value in config_data["model"].items():
-                    if hasattr(self.model, key):
-                        setattr(self.model, key, value)
-
-            if "training" in config_data:
-                for key, value in config_data["training"].items():
-                    if hasattr(self.training, key):
-                        setattr(self.training, key, value)
-
-        except Exception as e:
-            print(f"Warning: Could not load config from {config_path}: {e}")
-
-    def save_to_file(self, config_path: str) -> None:
-        """Save configuration to JSON file."""
-        try:
-            config_data = {
-                "model": self.model.__dict__,
-                "training": self.training.__dict__,
-            }
-
-            with open(config_path, "w") as f:
-                json.dump(config_data, f, indent=2)
-
-        except Exception as e:
-            print(f"Warning: Could not save config to {config_path}: {e}")
 
     def optimize_for_dataset(self, dataset_type: str, model_type: str = "GRU") -> None:
         """Optimize configuration for specific dataset type."""
@@ -169,5 +125,3 @@ class Config:
                 setattr(self.model, key, value)
             elif hasattr(self.training, key):
                 setattr(self.training, key, value)
-
-        # Note: Optimized parameters are loaded but may be overridden by user CLI arguments

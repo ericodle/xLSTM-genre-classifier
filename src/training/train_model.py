@@ -163,7 +163,6 @@ Examples:
 
     # Optional arguments
     parser.add_argument("--lr", "--learning-rate", type=float, help="Initial learning rate")
-    parser.add_argument("--config", help="Path to configuration file")
     parser.add_argument("--epochs", type=int, help="Maximum number of epochs")
     parser.add_argument("--batch-size", type=int, help="Batch size")
     parser.add_argument("--hidden-size", type=int, help="Hidden size (RNN/GRU/LSTM)")
@@ -216,14 +215,11 @@ def main():
 
     # Auto-detect dataset type and optimize config
     dataset_type = detect_dataset_type(args.data)
+    config = Config()
     if dataset_type:
         logger.info(f"Detected dataset type: {dataset_type}")
-        # Create config and optimize it
-        config = Config(args.config) if args.config else Config()
         config.optimize_for_dataset(dataset_type, args.model)
         logger.info(f"Loaded optimized defaults for {dataset_type} dataset")
-    else:
-        config = Config(args.config) if args.config else Config()
 
     # Prepare additional parameters - these will override optimized defaults
     kwargs = {}
