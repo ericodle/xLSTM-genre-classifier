@@ -1,249 +1,58 @@
 #!/usr/bin/env python3
+"""
+FMA MFCC Extraction Script
+
+This script:
+1. Loads FMA MP3-to-genre mapping from fma_mp3_genres.json
+2. Collects MP3 files from fma-data/fma_medium
+3. Splits files into train/val/test sets (deterministic and reproducible)
+4. Generates class distribution analysis (histogram + statistics)
+5. Copies MP3 files to train/val/test directories
+6. Extracts MFCC features for each split
+7. Saves training-ready JSON files
+
+This is the primary script for FMA data processing.
+"""
+
 import sys
 import os
-import argparse
-
-# Set thread limits BEFORE importing any libraries that might use threading
-def set_early_thread_limits(max_threads: int = 8):
-    """Set thread limits before importing heavy libraries."""
-    print(f"🔧 Setting early thread limits to {max_threads} threads")
-    
-    # Set environment variables for different libraries
-    os.environ['OMP_NUM_THREADS'] = str(max_threads)
-    os.environ['OPENBLAS_NUM_THREADS'] = str(max_threads)
-    os.environ['MKL_NUM_THREADS'] = str(max_threads)
-    os.environ['NUMEXPR_NUM_THREADS'] = str(max_threads)
-    os.environ['VECLIB_MAXIMUM_THREADS'] = str(max_threads)
-    os.environ['NUMBA_NUM_THREADS'] = str(max_threads)
-    os.environ['NUMBA_NUMBA_THREADING_LAYER'] = 'omp'
-    
-    # Try to set CPU affinity to limit cores (Linux only)
-    try:
-        total_cores = os.cpu_count()
-        if total_cores and max_threads < total_cores:
-            # Use only the first max_threads cores
-            cpu_list = list(range(max_threads))
-            os.sched_setaffinity(0, cpu_list)
-            print(f"✅ CPU affinity set to cores: {cpu_list}")
-    except (AttributeError, OSError) as e:
-        print(f"⚠️  Warning: Could not set CPU affinity: {e}")
-    
-    print(f"✅ Early thread limits set successfully")
-
-# Parse command line arguments early to get thread settings
-def parse_thread_args():
-    """Parse only thread-related arguments early."""
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("--max-threads", type=int, default=8, help="Maximum number of threads to use")
-    parser.add_argument("--no-thread-limit", action="store_true", help="Disable thread limiting")
-    
-    # Parse only known args to avoid errors with other arguments
-    args, _ = parser.parse_known_args()
-    return args
-
-# Get thread settings and apply them immediately
-thread_args = parse_thread_args()
-if not thread_args.no_thread_limit:
-    set_early_thread_limits(thread_args.max_threads)
-else:
-    print("🔧 Thread limiting disabled - using all available cores")
-
-# Now import the heavy libraries after thread limits are set
 import json
-import librosa
+import shutil
+import argparse
 import numpy as np
-import pandas as pd
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Union
+from typing import List, Tuple, Dict, Optional
+from sklearn.model_selection import train_test_split
+from tqdm import tqdm
+import librosa
+import matplotlib.pyplot as plt
 from collections import Counter
-import threading
 
-########################################################################
-# CONSTANT VARIABLES
-########################################################################
+# Add parent directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-# Constants for audio processing
-SAMPLE_RATE = 22050  # Standard sample rate for audio data
-SONG_LENGTH = 30  # Duration of each song clip in seconds
-SAMPLE_COUNT = SAMPLE_RATE * SONG_LENGTH  # Total number of samples per clip
+from src.core.constants import TRAIN_SIZE, VAL_SIZE, TEST_SIZE, RANDOM_SEED
 
-########################################################################
-# FMA DATA PROCESSING FUNCTIONS
-########################################################################
+# Audio processing constants
+SAMPLE_RATE = 22050
+MFCC_COUNT = 13
+N_FFT = 2048
+HOP_LENGTH = 512
+SEG_LENGTH = 30
 
-def extract_track_genre_mapping(tracks_file: str, subset: str = "medium") -> Dict[str, str]:
-    """
-    Extract track-to-genre mapping from FMA tracks.csv file.
-    
-    Args:
-        tracks_file: Path to tracks.csv file
-        subset: Dataset subset to filter (small, medium, large)
-        
-    Returns:
-        Dictionary mapping track IDs to genre names
-    """
-    print(f"📖 Extracting FMA track-to-genre mapping from {tracks_file}...")
-    print(f"   Subset: {subset}")
-    
-    # Read the tracks.csv file with multi-level headers
-    tracks_df = pd.read_csv(tracks_file, index_col=0, header=[0, 1])
-    print(f"   Loaded {len(tracks_df)} tracks")
-    
-    # Filter by subset
-    if subset == "small":
-        subset_tracks = tracks_df[tracks_df[('set', 'subset')] <= 'small']
-    elif subset == "medium":
-        subset_tracks = tracks_df[tracks_df[('set', 'subset')] <= 'medium']
-    else:
-        subset_tracks = tracks_df[tracks_df[('set', 'subset')] == subset]
-    
-    print(f"   Found {len(subset_tracks)} tracks in {subset} subset")
-    
-    # Extract track-to-genre mapping
-    track_genre_mapping = {}
-    genre_counts = {}
-    
-    for track_id in subset_tracks.index:
-        try:
-            # Get the genre_top value
-            genre = subset_tracks.loc[track_id, ('track', 'genre_top')]
-            
-            # Only include tracks with valid genres
-            if pd.notna(genre) and genre != 'Unknown' and genre != '':
-                track_genre_mapping[str(track_id)] = str(genre)
-                genre_counts[genre] = genre_counts.get(genre, 0) + 1
-                
-        except (KeyError, IndexError) as e:
-            # Skip tracks without genre information
-            continue
-    
-    print(f"   Extracted {len(track_genre_mapping)} tracks with valid genres")
-    print(f"   Found {len(genre_counts)} unique genres")
-    
-    # Print genre distribution
-    print("\n📊 Genre Distribution:")
-    print("-" * 40)
-    for genre, count in sorted(genre_counts.items(), key=lambda x: x[1], reverse=True):
-        print(f"  {genre}: {count} tracks")
-    
-    return track_genre_mapping
-
-def get_mp3_files(audio_dir: str) -> List[str]:
-    """Get all MP3 files from the FMA directory structure."""
-    mp3_files = []
-    
-    for root, dirs, files in os.walk(audio_dir):
-        for file in files:
-            if file.endswith('.mp3'):
-                file_path = os.path.join(root, file)
-                mp3_files.append(file_path)
-    
-    return mp3_files
-
-def extract_track_id_from_filename(filename: str) -> Optional[int]:
-    """Extract track ID from MP3 filename."""
-    try:
-        # Remove .mp3 extension and convert to int
-        track_id = int(filename.replace('.mp3', ''))
-        return track_id
-    except ValueError:
-        return None
-
-def create_mp3_genre_mapping(audio_dir: str, track_genre_mapping: Dict[str, str]) -> Dict[str, str]:
-    """
-    Create mapping of MP3 files to their real FMA genres.
-    
-    Args:
-        audio_dir: Path to FMA audio directory
-        track_genre_mapping: Dictionary mapping track IDs to genres
-        
-    Returns:
-        Dictionary mapping MP3 file paths to genre names
-    """
-    print("🔗 Creating MP3-to-genre mapping...")
-    print(f"   Audio directory: {audio_dir}")
-    
-    # Get all MP3 files
-    print("🔍 Scanning for MP3 files...")
-    mp3_files = get_mp3_files(audio_dir)
-    print(f"   Found {len(mp3_files)} MP3 files")
-    
-    # Create MP3-to-genre mapping
-    mp3_genre_mapping = {}
-    genre_counts = {}
-    matched_files = 0
-    
-    for mp3_file in mp3_files:
-        filename = os.path.basename(mp3_file)
-        
-        # Extract track ID from filename
-        track_id = extract_track_id_from_filename(filename)
-        
-        if track_id is not None:
-            track_id_str = str(track_id)
-            
-            # Get genre from track-genre mapping
-            if track_id_str in track_genre_mapping:
-                genre = track_genre_mapping[track_id_str]
-                mp3_genre_mapping[mp3_file] = genre
-                genre_counts[genre] = genre_counts.get(genre, 0) + 1
-                matched_files += 1
-                
-                if matched_files % 1000 == 0:
-                    print(f"   Processed {matched_files} files...")
-    
-    print(f"   Matched {matched_files} MP3 files to genres")
-    print(f"   Found {len(genre_counts)} unique genres")
-    
-    # Print genre distribution
-    print("\n📊 MP3 Genre Distribution:")
-    print("-" * 40)
-    for genre, count in sorted(genre_counts.items(), key=lambda x: x[1], reverse=True):
-        print(f"  {genre}: {count} files")
-    
-    return mp3_genre_mapping
-
-def get_unique_genres(genre_mapping: Dict[str, str]) -> List[str]:
-    """
-    Get unique genres from genre mapping.
-    
-    Args:
-        genre_mapping: Dictionary mapping files to genres
-        
-    Returns:
-        Sorted list of unique genre names
-    """
-    unique_genres = list(set(genre_mapping.values()))
-    return sorted(unique_genres)
-
-def create_genre_to_index_mapping(genres: List[str]) -> Dict[str, int]:
-    """
-    Create mapping from genre names to numeric indices.
-    
-    Args:
-        genres: List of unique genre names
-        
-    Returns:
-        Dictionary mapping genre names to indices
-    """
-    return {genre: idx for idx, genre in enumerate(genres)}
-
-########################################################################
-# CORE MFCC EXTRACTION FUNCTIONS
-########################################################################
 
 def extract_mfcc_from_audio(
     audio_path: str,
-    mfcc_count: int = 13,
-    n_fft: int = 2048,
-    hop_length: int = 512,
-    seg_length: int = 30
+    mfcc_count: int = MFCC_COUNT,
+    n_fft: int = N_FFT,
+    hop_length: int = HOP_LENGTH,
+    seg_length: int = SEG_LENGTH
 ) -> Optional[np.ndarray]:
     """
     Extract MFCC features from an audio file.
     
     Args:
-        audio_path: Path to the audio file
+        audio_path: Path to the audio file (MP3)
         mfcc_count: Number of MFCC coefficients
         n_fft: FFT window size
         hop_length: Number of samples between successive frames
@@ -292,266 +101,444 @@ def extract_mfcc_from_audio(
         print(f"Error computing MFCCs for {audio_path}: {e}")
         return None
 
-def save_fma_data_incremental(
-    extracted_data: Dict,
-    output_file: str,
-    processed_count: int,
-    total_files: int
-) -> None:
-    """
-    Save FMA data incrementally to the output file in GTZAN format (features and labels).
-    
-    Args:
-        extracted_data: Current extracted data dictionary
-        output_file: Path to output file
-        processed_count: Number of files processed
-        total_files: Total number of files to process
-    """
-    try:
-        # Convert to GTZAN format (features and labels)
-        gtzan_format_data = {
-            "features": extracted_data["mfcc"],
-            "labels": extracted_data["labels"],
-            "mapping": extracted_data["mapping"]  # Include genre names
-        }
-        
-        with open(output_file, 'w') as f:
-            json.dump(gtzan_format_data, f, indent=2)
-        print(f"💾 Saved {processed_count}/{total_files} samples to {output_file}")
-    except Exception as e:
-        print(f"⚠️  Warning: Could not save data: {e}")
 
-def load_existing_fma_data(output_file: str) -> Tuple[Dict, int, int, int]:
+def load_fma_genre_mapping(genre_json_path: str) -> Tuple[Dict[str, str], List[str]]:
     """
-    Load existing FMA data from the output file.
+    Load FMA MP3-to-genre mapping from JSON file.
     
     Args:
-        output_file: Path to the output JSON file
+        genre_json_path: Path to fma_mp3_genres.json
         
     Returns:
-        Tuple of (extracted_data, processed_count, skipped_count, total_files)
+        Tuple of (mp3_genre_mapping dictionary, genre names list)
     """
-    if not os.path.exists(output_file):
-        return None, 0, 0, 0
+    print(f"📖 Loading FMA genre mapping from {genre_json_path}...")
     
-    try:
-        with open(output_file, 'r') as f:
-            file_data = json.load(f)
-        
-        # Check if it's the new GTZAN format (features only) or old format
-        if "features" in file_data:
-            # New GTZAN format - convert back to internal format
-            processed_count = len(file_data["features"])
-            print(f"📂 Found existing FMA data (GTZAN format): {processed_count} samples already processed")
-            
-            # We can't resume from GTZAN format as we don't have the internal structure
-            # Return None to start fresh
-            return None, 0, 0, 0
-        else:
-            # Old format - load normally
-            extracted_data = file_data
-            processed_count = len(extracted_data.get("mfcc", []))
-            skipped_count = 0  # We don't track skipped files in the final output
-            
-            print(f"📂 Found existing FMA data (old format): {processed_count} samples already processed")
-            print(f"   Genres: {extracted_data.get('mapping', [])}")
-            
-            return extracted_data, processed_count, skipped_count, 0  # total_files unknown from existing data
-    except Exception as e:
-        print(f"⚠️  Warning: Could not load existing data: {e}")
-        return None, 0, 0, 0
-
-def process_fma_dataset(
-    music_path: str,
-    tracks_file: str,
-    output_file: str,
-    mfcc_count: int = 13,
-    n_fft: int = 2048,
-    hop_length: int = 512,
-    seg_length: int = 30,
-    checkpoint_interval: int = 1000,
-    subset: str = "medium"
-) -> Dict:
-    """
-    Process FMA dataset (MP3 files, JSON-based genre mapping) with incremental saving.
+    with open(genre_json_path, 'r') as f:
+        data = json.load(f)
     
-    Args:
-        music_path: Path to FMA dataset directory
-        tracks_file: Path to FMA tracks.csv file
-        output_file: Path to output JSON file
-        mfcc_count: Number of MFCC coefficients
-        n_fft: FFT window size
-        hop_length: Number of samples between successive frames
-        seg_length: Length of audio segment in seconds
-        checkpoint_interval: Save checkpoint every N files
-        subset: FMA dataset subset (small, medium, large)
-        
-    Returns:
-        Dictionary containing extracted data
-    """
-    print("🎵 Processing FMA dataset (MP3 files, JSON-based genres)...")
-    
-    # Step 1: Extract track-to-genre mapping from CSV
-    track_genre_mapping = extract_track_genre_mapping(tracks_file, subset)
-    
-    # Step 2: Create MP3-to-genre mapping
-    mp3_genre_mapping = create_mp3_genre_mapping(music_path, track_genre_mapping)
-    
-    # Step 3: Get unique genres and create index mapping
-    unique_genres = get_unique_genres(mp3_genre_mapping)
-    genre_to_index = create_genre_to_index_mapping(unique_genres)
+    # Extract the mp3_genre_mapping
+    mp3_genre_mapping = data.get('mp3_genre_mapping', {})
+    genres = data.get('metadata', {}).get('genres', [])
     
     print(f"   Loaded {len(mp3_genre_mapping)} MP3-genre mappings")
-    print(f"   Found {len(unique_genres)} unique genres: {unique_genres}")
+    print(f"   Found {len(genres)} unique genres: {genres}")
     
-    # Try to load existing data
-    extracted_data, processed_count, skipped_count, _ = load_existing_fma_data(output_file)
+    return mp3_genre_mapping, genres
+
+
+def collect_mp3_files(audio_dir: str, mp3_genre_mapping: Dict[str, str]) -> List[Tuple[str, str, str]]:
+    """
+    Collect all MP3 files with their genres from the FMA directory structure.
     
-    if extracted_data is None:
-        # Initialize the data dictionary
-        extracted_data = {
-            "dataset_type": "fma",
-            "mapping": unique_genres,  # List to map numeric labels to genre names
-            "labels": [],              # List to store numeric labels for each audio clip
-            "mfcc": [],                # List to store extracted MFCCs
-        }
-        processed_count = 0
-        skipped_count = 0
-        total_files = len(mp3_genre_mapping)
-        print(f"🆕 Starting fresh extraction of {total_files} files")
-    else:
-        # Determine total files from mapping
-        total_files = len(mp3_genre_mapping)
-        print(f"🔄 Resuming from existing data: {processed_count}/{total_files} files already processed")
-    
-    # Convert mp3_genre_mapping to list for indexing
-    mp3_files_list = list(mp3_genre_mapping.items())
-    
-    # Process remaining files
-    for i, (mp3_file, genre) in enumerate(mp3_files_list[processed_count + skipped_count:], 
-                                         start=processed_count + skipped_count):
-        # Check if the file exists
-        if not os.path.exists(mp3_file):
-            print(f"Warning: File not found: {mp3_file}")
-            skipped_count += 1
-            continue
+    Args:
+        audio_dir: Directory containing FMA audio files (fma-data/fma_medium)
+        mp3_genre_mapping: Dictionary mapping MP3 paths to genres
         
-        # Extract MFCC features
-        mfcc = extract_mfcc_from_audio(
-            mp3_file, mfcc_count, n_fft, hop_length, seg_length
+    Returns:
+        List of (file_path, genre, filename) tuples
+    """
+    print(f"🔍 Collecting MP3 files from {audio_dir}...")
+    
+    audio_files = []
+    
+    # Walk through the directory structure
+    for root, dirs, files in os.walk(audio_dir):
+        for filename in files:
+            if filename.endswith('.mp3'):
+                full_path = os.path.join(root, filename)
+                
+                # Try to match with genre mapping
+                # The genre mapping uses paths like "age/fma_medium/042/042279.mp3"
+                # We need to extract the relative path
+                relative_path = os.path.relpath(full_path, os.path.dirname(audio_dir))
+                
+                # Try several path formats
+                possible_keys = [
+                    relative_path,
+                    os.path.join('fma_medium', relative_path),
+                    full_path
+                ]
+                
+                genre = None
+                for key in possible_keys:
+                    if key in mp3_genre_mapping:
+                        genre = mp3_genre_mapping[key]
+                        break
+                
+                if genre is not None:
+                    audio_files.append((full_path, genre, filename))
+    
+    print(f"   Collected {len(audio_files)} MP3 files with genre information")
+    
+    return audio_files
+
+
+def split_files_stratified(
+    audio_files: List[Tuple[str, str, str]], 
+    train_size: float = TRAIN_SIZE,
+    val_size: float = VAL_SIZE,
+    random_state: int = RANDOM_SEED
+) -> Tuple[List[Tuple[str, str, str]], List[Tuple[str, str, str]], List[Tuple[str, str, str]]]:
+    """
+    Split audio files into train/val/test sets with stratification by genre.
+    
+    Args:
+        audio_files: List of (file_path, genre, filename) tuples
+        train_size: Proportion of data for training
+        val_size: Proportion of data for validation
+        random_state: Random seed for reproducibility
+        
+    Returns:
+        Three lists: (train_files, val_files, test_files)
+    """
+    # Separate files by genre
+    genre_groups = {}
+    for file_path, genre, filename in audio_files:
+        if genre not in genre_groups:
+            genre_groups[genre] = []
+        genre_groups[genre].append((file_path, genre, filename))
+    
+    train_files = []
+    val_files = []
+    test_files = []
+    
+    print("\n📊 Splitting files by genre:")
+    
+    for genre, files in sorted(genre_groups.items()):
+        num_files = len(files)
+        
+        # First split: train vs (val + test)
+        test_size_split = 1.0 - train_size
+        train, temp = train_test_split(
+            files,
+            test_size=test_size_split,
+            random_state=random_state,
+            shuffle=True
         )
         
-        if mfcc is not None:
-            # Get genre index
-            genre_index = genre_to_index[genre]
-            
-            # Append MFCCs and label to the data dictionary
-            extracted_data["mfcc"].append(mfcc.tolist())
-            extracted_data["labels"].append(genre_index)
-            processed_count += 1
-            
-            if processed_count % 100 == 0:
-                print(f"  Processed {processed_count} files...")
-        else:
-            skipped_count += 1
+        # Second split: val vs test
+        test_size = 1.0 - train_size - val_size
+        val_ratio = val_size / (val_size + test_size)
+        val, test = train_test_split(
+            temp,
+            test_size=1.0 - val_ratio,
+            random_state=random_state,
+            shuffle=True
+        )
         
-        # Save incrementally every checkpoint_interval files
-        if (processed_count + skipped_count) % checkpoint_interval == 0:
-            save_fma_data_incremental(extracted_data, output_file, processed_count, total_files)
+        train_files.extend(train)
+        val_files.extend(val)
+        test_files.extend(test)
+        
+        print(f"  {genre:20s}: {len(train):4d} train, {len(val):4d} val, {len(test):4d} test (total: {num_files:4d})")
     
-    # Save final data
-    save_fma_data_incremental(extracted_data, output_file, processed_count, total_files)
+    return train_files, val_files, test_files
 
-    print(f"\n✅ FMA processing complete!")
-    print(f"   Genres: {unique_genres}")
-    print(f"   Processed samples: {processed_count}")
-    print(f"   Skipped files: {skipped_count}")
-    print(f"   Output file: {output_file}")
+
+def copy_files_to_split(
+    files: List[Tuple[str, str, str]], 
+    output_dir: str, 
+    split_name: str
+) -> None:
+    """
+    Copy files to a split directory, maintaining genre structure.
     
-    return extracted_data
+    Args:
+        files: List of (file_path, genre, filename) tuples
+        output_dir: Base output directory
+        split_name: Name of the split (train/val/test)
+    """
+    split_dir = os.path.join(output_dir, split_name)
+    Path(split_dir).mkdir(parents=True, exist_ok=True)
+    
+    print(f"\n📁 Copying files to {split_name}/...")
+    
+    for source_path, genre, filename in tqdm(files, desc=f"  {split_name}"):
+        genre_dir = os.path.join(split_dir, genre)
+        Path(genre_dir).mkdir(parents=True, exist_ok=True)
+        
+        dest_path = os.path.join(genre_dir, filename)
+        shutil.copy2(source_path, dest_path)
 
-########################################################################
-# MAIN FUNCTION
-########################################################################
+
+def generate_class_distribution_plots(
+    train_files: List[Tuple[str, str, str]],
+    val_files: List[Tuple[str, str, str]],
+    test_files: List[Tuple[str, str, str]],
+    genres: List[str],
+    output_dir: str
+) -> None:
+    """Generate histogram of class distribution across splits."""
+    print(f"\n📊 Generating class distribution plots...")
+    
+    # Count files by genre for each split
+    train_genres = [genre for _, genre, _ in train_files]
+    val_genres = [genre for _, genre, _ in val_files]
+    test_genres = [genre for _, genre, _ in test_files]
+    
+    train_counts = Counter(train_genres)
+    val_counts = Counter(val_genres)
+    test_counts = Counter(test_genres)
+    
+    # Get all genres and ensure ordering
+    all_genres = sorted(genres)
+    
+    train_values = [train_counts.get(genre, 0) for genre in all_genres]
+    val_values = [val_counts.get(genre, 0) for genre in all_genres]
+    test_values = [test_counts.get(genre, 0) for genre in all_genres]
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(14, 6))
+    
+    x = np.arange(len(all_genres))
+    width = 0.25
+    
+    # Create bars
+    bars1 = ax.bar(x - width, train_values, width, label='Train', color='#2ecc71', alpha=0.8)
+    bars2 = ax.bar(x, val_values, width, label='Val', color='#f39c12', alpha=0.8)
+    bars3 = ax.bar(x + width, test_values, width, label='Test', color='#e74c3c', alpha=0.8)
+    
+    # Add value labels on bars
+    for bars in [bars1, bars2, bars3]:
+        for bar in bars:
+            height = bar.get_height()
+            if height > 0:
+                ax.text(bar.get_x() + bar.get_width()/2., height,
+                       f'{int(height)}', ha='center', va='bottom', fontsize=8)
+    
+    # Customize plot
+    ax.set_xlabel('Genre', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Number of Files', fontsize=12, fontweight='bold')
+    ax.set_title('FMA Dataset: Class Distribution Across Train/Val/Test Splits', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(all_genres, rotation=45, ha='right')
+    ax.legend(loc='upper right')
+    ax.grid(axis='y', alpha=0.3, linestyle='--')
+    
+    plt.tight_layout()
+    
+    # Save plot
+    plot_path = os.path.join(output_dir, "class_distribution.png")
+    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    print(f"✅ Saved histogram to {plot_path}")
+
+
+def save_descriptive_statistics(
+    train_files: List[Tuple[str, str, str]],
+    val_files: List[Tuple[str, str, str]],
+    test_files: List[Tuple[str, str, str]],
+    genres: List[str],
+    output_dir: str
+) -> None:
+    """Save descriptive statistics to a text file."""
+    print(f"📝 Saving descriptive statistics...")
+    
+    # Count genres
+    train_genres = [genre for _, genre, _ in train_files]
+    val_genres = [genre for _, genre, _ in val_files]
+    test_genres = [genre for _, genre, _ in test_files]
+    
+    train_counts = Counter(train_genres)
+    val_counts = Counter(val_genres)
+    test_counts = Counter(test_genres)
+    
+    # Write statistics to file
+    stats_path = os.path.join(output_dir, "split_statistics.txt")
+    with open(stats_path, 'w') as f:
+        f.write("=" * 70 + "\n")
+        f.write("FMA Dataset Split Statistics\n")
+        f.write("=" * 70 + "\n\n")
+        
+        # Overall statistics
+        f.write("OVERALL STATISTICS\n")
+        f.write("-" * 70 + "\n")
+        f.write(f"Total files:     {len(train_files) + len(val_files) + len(test_files)}\n")
+        f.write(f"Train files:     {len(train_files)} ({len(train_files) / (len(train_files) + len(val_files) + len(test_files)) * 100:.1f}%)\n")
+        f.write(f"Val files:       {len(val_files)} ({len(val_files) / (len(train_files) + len(val_files) + len(test_files)) * 100:.1f}%)\n")
+        f.write(f"Test files:      {len(test_files)} ({len(test_files) / (len(train_files) + len(val_files) + len(test_files)) * 100:.1f}%)\n")
+        f.write(f"Number of genres: {len(genres)}\n")
+        f.write(f"Genres:          {', '.join(genres)}\n\n")
+        
+        # Per-genre breakdown
+        f.write("PER-GENRE BREAKDOWN\n")
+        f.write("-" * 70 + "\n")
+        f.write(f"{'Genre':<20} {'Train':<8} {'Val':<8} {'Test':<8} {'Total':<8}\n")
+        f.write("-" * 70 + "\n")
+        
+        for genre in sorted(genres):
+            train_count = train_counts.get(genre, 0)
+            val_count = val_counts.get(genre, 0)
+            test_count = test_counts.get(genre, 0)
+            total = train_count + val_count + test_count
+            f.write(f"{genre:<20} {train_count:<8} {val_count:<8} {test_count:<8} {total:<8}\n")
+    
+    print(f"✅ Saved statistics to {stats_path}")
+
+
+def extract_mfcc_for_split(
+    split_dir: str, 
+    output_json: str, 
+    genres: List[str],
+    MAX_SAMPLES: int = None
+) -> None:
+    """
+    Extract MFCC features for all files in a split and save to JSON.
+    
+    Args:
+        split_dir: Directory containing split files (e.g., splits/train/)
+        output_json: Path to save the JSON file
+        genres: List of all genre names
+        MAX_SAMPLES: Maximum number of samples to process (None = all)
+    """
+    print(f"\n🎵 Extracting MFCC features from {split_dir}...")
+    
+    features = []
+    labels = []
+    file_paths = []
+    genre_mapping = {genre: idx for idx, genre in enumerate(genres)}
+    
+    # Walk through genre subdirectories
+    for genre in genres:
+        genre_dir = os.path.join(split_dir, genre)
+        if not os.path.exists(genre_dir):
+            continue
+            
+        genre_files = sorted([f for f in os.listdir(genre_dir) if f.endswith('.mp3')])
+        
+        for filename in tqdm(genre_files, desc=f"  {genre}"):
+            file_path = os.path.join(genre_dir, filename)
+            
+            # Extract MFCC features
+            mfcc = extract_mfcc_from_audio(file_path)
+            
+            if mfcc is not None:
+                features.append(mfcc.tolist())
+                labels.append(genre_mapping[genre])
+                file_paths.append(file_path)
+                
+                if MAX_SAMPLES and len(features) >= MAX_SAMPLES:
+                    break
+        
+        if MAX_SAMPLES and len(features) >= MAX_SAMPLES:
+            break
+    
+    # Save to JSON
+    output_data = {
+        "dataset_type": "fma",
+        "split": os.path.basename(split_dir),
+        "features": features,
+        "labels": labels,
+        "mapping": genres,
+        "file_paths": file_paths
+    }
+    
+    with open(output_json, 'w') as f:
+        json.dump(output_data, f, indent=2)
+    
+    print(f"✅ Saved {len(features)} samples to {output_json}")
+
 
 def main():
-    """Main function with command-line interface."""
+    """Main function."""
     parser = argparse.ArgumentParser(
-        description="FMA MFCC extraction for music genre classification",
+        description="Split FMA data into train/val/test sets and extract MFCCs",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Process FMA medium subset with default parameters (8 threads)
-  python MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv /path/to/output fma_features
+  # Full pipeline: split files and extract MFCCs
+  python src/data/MFCC_FMA_extract.py fma-data/fma_medium src/data/fma_mp3_genres.json fma-data/splits fma-data/mfccs_splits
 
-  # Process FMA large subset with custom parameters
-  python MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv /path/to/output fma_features --subset large --mfcc-count 20
-
-  # Process with custom segment length and checkpoint interval
-  python MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv /path/to/output fma_features --seg-length 45 --checkpoint-interval 500
-
-  # Process with custom thread count (4 threads for lower CPU usage)
-  python MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv /path/to/output fma_features --max-threads 4
-
-  # Process with no thread limiting (use all available cores)
-  python MFCC_FMA_extract.py /path/to/fma /path/to/tracks.csv /path/to/output fma_features --no-thread-limit
+  Steps performed:
+  1. Load MP3-to-genre mapping from JSON
+  2. Split files into train/val/test directories (70%/15%/15% default)
+  3. Copy MP3 files to respective split directories
+  4. Extract MFCC features for each split
+  5. Generate class distribution plots and statistics
         """
     )
     
-    parser.add_argument("music_path", help="Path to the FMA dataset directory")
-    parser.add_argument("tracks_file", help="Path to FMA tracks.csv file")
-    parser.add_argument("output_path", help="Path to save the output JSON file")
-    parser.add_argument("output_filename", help="Name of the output file (without .json extension)")
-    
-    parser.add_argument("--subset", default="medium", choices=["small", "medium", "large"], 
-                       help="FMA dataset subset (default: medium)")
-    parser.add_argument("--mfcc-count", type=int, default=13, help="Number of MFCC coefficients (default: 13)")
-    parser.add_argument("--n-fft", type=int, default=2048, help="FFT window size (default: 2048)")
-    parser.add_argument("--hop-length", type=int, default=512, help="Hop length (default: 512)")
-    parser.add_argument("--seg-length", type=int, default=30, help="Segment length in seconds (default: 30)")
-    parser.add_argument("--checkpoint-interval", type=int, default=1000, help="Save checkpoint every N files (default: 1000)")
-    parser.add_argument("--max-threads", type=int, default=8, help="Maximum number of threads to use (default: 8)")
-    parser.add_argument("--no-thread-limit", action="store_true", help="Disable thread limiting (use all available cores)")
+    parser.add_argument("audio_dir", help="Path to FMA audio directory (fma-data/fma_medium)")
+    parser.add_argument("genre_json", help="Path to fma_mp3_genres.json")
+    parser.add_argument("splits_dir", help="Directory to save train/val/test splits")
+    parser.add_argument("mfcc_dir", help="Directory to save MFCC JSON files")
+    parser.add_argument("--train-size", type=float, default=TRAIN_SIZE, help=f"Proportion for training (default: {TRAIN_SIZE})")
+    parser.add_argument("--val-size", type=float, default=VAL_SIZE, help=f"Proportion for validation (default: {VAL_SIZE})")
+    parser.add_argument("--random-state", type=int, default=RANDOM_SEED, help=f"Random seed (default: {RANDOM_SEED})")
     
     args = parser.parse_args()
     
-    # Validate arguments
-    if not os.path.exists(args.music_path):
-        print(f"❌ Error: Music path does not exist: {args.music_path}")
+    # Step 1: Load genre mapping
+    mp3_genre_mapping, genres = load_fma_genre_mapping(args.genre_json)
+    
+    # Step 2: Collect MP3 files
+    audio_files = collect_mp3_files(args.audio_dir, mp3_genre_mapping)
+    
+    if not audio_files:
+        print("❌ Error: No MP3 files found with genre information")
         return 1
     
-    if not os.path.exists(args.tracks_file):
-        print(f"❌ Error: Tracks file does not exist: {args.tracks_file}")
-        return 1
+    # Step 3: Split files
+    train_files, val_files, test_files = split_files_stratified(
+        audio_files,
+        train_size=args.train_size,
+        val_size=args.val_size,
+        random_state=args.random_state
+    )
     
-    if not os.path.exists(args.output_path):
-        print(f"❌ Error: Output path does not exist: {args.output_path}")
-        return 1
+    print(f"\n📊 Split summary:")
+    print(f"   Train: {len(train_files)} files")
+    print(f"   Val:   {len(val_files)} files")
+    print(f"   Test:  {len(test_files)} files")
     
-    try:
-        # Process FMA dataset
-        output_file = os.path.join(args.output_path, args.output_filename + ".json")
-        extracted_data = process_fma_dataset(
-            music_path=args.music_path,
-            tracks_file=args.tracks_file,
-            output_file=output_file,
-            mfcc_count=args.mfcc_count,
-            n_fft=args.n_fft,
-            hop_length=args.hop_length,
-            seg_length=args.seg_length,
-            checkpoint_interval=args.checkpoint_interval,
-            subset=args.subset
-        )
-        
-        print("\n🎉 FMA MFCC extraction completed successfully!")
-        return 0
-        
-    except Exception as e:
-        print(f"❌ Error during MFCC extraction: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
+    # Generate statistics and plots
+    save_descriptive_statistics(train_files, val_files, test_files, genres, args.splits_dir)
+    generate_class_distribution_plots(train_files, val_files, test_files, genres, args.splits_dir)
+    
+    # Step 4: Copy files to split directories
+    copy_files_to_split(train_files, args.splits_dir, "train")
+    copy_files_to_split(val_files, args.splits_dir, "val")
+    copy_files_to_split(test_files, args.splits_dir, "test")
+    
+    # Step 5: Extract MFCCs for each split
+    Path(args.mfcc_dir).mkdir(parents=True, exist_ok=True)
+    
+    extract_mfcc_for_split(
+        os.path.join(args.splits_dir, "train"),
+        os.path.join(args.mfcc_dir, "train.json"),
+        genres
+    )
+    
+    extract_mfcc_for_split(
+        os.path.join(args.splits_dir, "val"),
+        os.path.join(args.mfcc_dir, "val.json"),
+        genres
+    )
+    
+    extract_mfcc_for_split(
+        os.path.join(args.splits_dir, "test"),
+        os.path.join(args.mfcc_dir, "test.json"),
+        genres
+    )
+    
+    print(f"\n✅ FMA data processing complete!")
+    print(f"\n📁 Output structure:")
+    print(f"  {args.splits_dir}/")
+    print(f"    ├── train/ (genres: {len(genres)})")
+    print(f"    ├── val/   (genres: {len(genres)})")
+    print(f"    ├── test/  (genres: {len(genres)})")
+    print(f"    ├── class_distribution.png (histogram)")
+    print(f"    └── split_statistics.txt (descriptive stats)")
+    print(f"  {args.mfcc_dir}/")
+    print(f"    ├── train.json")
+    print(f"    ├── val.json")
+    print(f"    └── test.json")
+    
+    return 0
+
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    import sys
+    sys.exit(main())

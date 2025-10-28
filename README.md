@@ -21,8 +21,15 @@ pip install -r requirements.txt
 
 ## You can process music data
 ### GTZAN
+```
+python src/data/MFCC_GTZAN_extract.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits
+```
+
 ### FMA
-### Crops songs, weeds out corrupted data, sorts music into train/val/test sets, and summarizes the distribution of your data.
+```
+python src/data/MFCC_FMA_extract.py fma-data/fma_medium src/data/fma_mp3_genres.json fma-data/splits fma-data/mfccs_splits
+```
+
 
 ## You can train a variety of original and commonly-used models
 ## SVM
@@ -40,9 +47,6 @@ pip install -r requirements.txt
 ### Accuracy and Loss plots during the training routine
 ### Evaluation confuson matrix and statistics
 
-## You can run a hyperparameter search to make sure you get the best model
-
-## You can explore fuzzy logic, multimodal models, autoencoders, and more.
 
 ## You can customize single training runs using in-line flag arguments
 ### lr
