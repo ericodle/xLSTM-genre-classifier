@@ -2,8 +2,12 @@
 """
 GTZAN MFCC Extraction Script for Music Genre Classification
 
+⚠️  DEPRECATED: Use `split_gtzan_data.py` instead for the standard pre-split workflow.
+
 This script extracts MFCC features from the GTZAN dataset (WAV files, folder-based genre labels).
 The GTZAN dataset has a simple structure with genre folders containing WAV files.
+
+For production use, see: `src/data/split_gtzan_data.py`
 """
 
 import sys

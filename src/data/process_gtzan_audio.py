@@ -2,11 +2,15 @@
 """
 GTZAN Audio Processing Script
 
+⚠️  DEPRECATED: Use `split_gtzan_data.py` instead for the standard pre-split workflow.
+
 This script processes GTZAN audio files by:
 1. Reading WAV files from the original dataset location
 2. Cutting 30-second clips (from the middle of each file)
 3. Saving them to gtzan-data/processed with the same subdirectory structure
 4. Running MFCC extraction on the processed files and saving to gtzan-data/mfccs
+
+For production use, see: `src/data/split_gtzan_data.py`
 """
 
 import sys
