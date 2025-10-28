@@ -60,6 +60,7 @@ class ModelTrainer:
         self.config = config
         self.logger = logger or logging.getLogger(__name__)
         self.device = get_device()
+        self.logger.info(f"Using device: {self.device}")
 
         # Set random seed for reproducibility
         set_random_seed(config.training.random_seed)
