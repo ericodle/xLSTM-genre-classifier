@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-Train and evaluate an SVM on MFCC JSON datasets (GTZAN/FMA).
-
-Input JSON formats supported:
-1) New: {"features": [...], "labels": [...], "mapping": [...]} (variable-length features OK)
-2) Old: {"genre/path.wav": {"mfcc": [...]}, ...} (deprecated)
+Train and evaluate conventional ML models (SVM, Random Forest, Naive Bayes, KNN) on MFCC JSON datasets.
 
 Example usage:
-  # GTZAN
-  python src/training/train_svm.py --data mfccs/gtzan_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-gtzan
+  # SVM
+  python src/training/train_conventional_ml.py --data gtzan-data/mfccs_splits/train.json --model svm --kernel rbf --C 10 --output outputs/svm-gtzan
 
-  # FMA
-  python src/training/train_svm.py --data mfccs/fma_13.json --kernel rbf --C 10 --gamma scale --output outputs/svm-fma
+  # Random Forest
+  python src/training/train_conventional_ml.py --data gtzan-data/mfccs_splits/train.json --model rf --n-estimators 100 --output outputs/rf-gtzan
+
+  # Naive Bayes
+  python src/training/train_conventional_ml.py --data gtzan-data/mfccs_splits/train.json --model nb --output outputs/nb-gtzan
+
+  # KNN
+  python src/training/train_conventional_ml.py --data gtzan-data/mfccs_splits/train.json --model knn --n-neighbors 5 --output outputs/knn-gtzan
 """
 
 import argparse
@@ -19,7 +21,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import joblib
 import matplotlib.pyplot as plt
@@ -28,9 +30,9 @@ import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC, LinearSVC
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from models.conventional_ml import get_conventional_model
 
 
 def load_mfcc_json(json_path: str) -> Tuple[np.ndarray, np.ndarray, List[str]]:
