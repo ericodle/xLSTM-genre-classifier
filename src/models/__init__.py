@@ -149,12 +149,12 @@ def get_model(
         elif model_type == "GRU":
             return GRU_model(input_dim_int, hidden_dim, num_layers, output_dim, dropout)
         elif model_type == "xLSTM":
-            # Use xLSTM-specific parameters
-            from core.model_defaults import DEFAULTS
+            # Use xLSTM-specific parameters from constants
+            from core.constants import XLSTM_HIDDEN_SIZE, XLSTM_NUM_LAYERS, XLSTM_DROPOUT
 
-            xlstm_hidden = getattr(DEFAULTS, "xlstm_hidden_size", hidden_dim)
-            xlstm_layers = getattr(DEFAULTS, "xlstm_num_layers", num_layers)
-            xlstm_dropout = getattr(DEFAULTS, "xlstm_dropout", dropout)
+            xlstm_hidden = XLSTM_HIDDEN_SIZE if XLSTM_HIDDEN_SIZE else hidden_dim
+            xlstm_layers = XLSTM_NUM_LAYERS if XLSTM_NUM_LAYERS else num_layers
+            xlstm_dropout = XLSTM_DROPOUT if XLSTM_DROPOUT else dropout
             return xLSTM(
                 input_dim_int,
                 xlstm_hidden,

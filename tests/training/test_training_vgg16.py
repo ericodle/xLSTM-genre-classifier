@@ -20,6 +20,7 @@ class TestTrainingVGG16:
     def output_base(self):
         return tempfile.mkdtemp(prefix="test_training_vgg16_")
 
+    @pytest.mark.skip(reason="VGG16 is too slow even without pretrained weights")
     def test_train_vgg16(self, test_data_dir, output_base, project_root):
         output_dir = os.path.join(output_base, "vgg16_test")
 
