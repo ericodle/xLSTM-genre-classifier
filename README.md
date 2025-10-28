@@ -28,83 +28,38 @@ Our setup uses:
 - CUDA Toolkit: 13.0
 ```
 
-# What can you do with this project?
+## What can you do with this project?
 
-## You can process music data
-### GTZAN
+### You can process music data
+- GTZAN
 ```
 python src/data/MFCC_GTZAN_extract.py gtzan-data/processed-songs gtzan-data/splits gtzan-data/mfccs_splits
 ```
 
-### FMA
+- FMA
 ```
 python src/data/MFCC_FMA_extract.py fma-data/fma_medium src/data/fma_mp3_genres.json fma-data/splits fma-data/mfccs_splits
 ```
 
 
-# You can train a variety of models with our default settings in `src/core/constants.py`
+## You can train a variety of models with our default settings in `src/core/constants.py`
 
-### SVM
+- Fully Connected (FC) Model
 ```
-some code here
-```
-
-### FC
-```
-some code here
+python src/training/train_model.py --data gtzan-data/mfccs_splits --model FC --output outputs/gtzan-fc
 ```
 
-### CNN
-```
-some code here
-```
-
-### LSTM
-```
-some code here
-```
-
-### GRU
-```
-some code here
-```
-
-### xLSTM
-```
-some code here
-```
-
-### Transformer
-```
-some code here
-```
-
-### VGG16
-```
-some code here
-```
-
-### ViT
-```
-some code here
-```
-
-# You can customize single training runs using in-line arguments
-### lr
-```
-some code here
-```
-### pretrained
-```
-some code here
-```
-### and more
-```
-some code here
-```
+- Available types: ['FC', 'CNN', 'LSTM', 'GRU', 'xLSTM', 'Transformer', 'VGG16', 'ViT']
 
 
-# You can study the results of your training process with our evaluation and analysis tools
+
+## You can customize single training runs using in-line arguments
+```
+some code here
+
+```
+
+## You can study the results of your training process with our evaluation and analysis tools
 ### Tensorboard integation for checking gradients, etc.
 ### Accuracy and Loss plots during the training routine
 ### Evaluation confuson matrix and statistics
@@ -118,13 +73,13 @@ some code here
 ### How about making a Pull Request (PR) and contributing your own feature?
 ### How about helping us find and fix some bugs?
 
-# Contributors:
+## Contributors:
 Lab Leader: @peichunpclin
 Developer/Maintainer: @ericodle
 
-# TODO
+## TODO
 ### generate test set for FMA and add FMA preprocessing test
-### Add more tests
+### Add analysis tests
 ### Make new feature: src/hyperparameter_search
 ### Make new feature: src/fuzzy_logic
 ### Make new feature: src/multimodal_features
