@@ -54,9 +54,21 @@ python src/training/train_model.py --data gtzan-data/mfccs_splits --model FC --o
 
 
 ## You can customize single training runs using in-line arguments
-```
-some code here
 
+- Override specific hyperparameters (other parameters use defaults from constants.py)
+
+```
+python src/training/train_model.py --data gtzan-data/mfccs_splits --model FC --output outputs/gtzan-fc --epochs 50 --batch-size 32 --lr 0.001
+
+# Common customization options:
+# --epochs <int>           Maximum number of training epochs
+# --batch-size <int>       Batch size for training
+# --lr <float>             Learning rate
+# --dropout <float>        Dropout probability (0-1)
+# --hidden-size <int>      Hidden layer size
+# --num-layers <int>       Number of layers
+# --patience <int>         Early stopping patience
+# --verbose                Enable verbose logging
 ```
 
 ## You can study the results of your training process with our evaluation and analysis tools
