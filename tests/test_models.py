@@ -81,14 +81,19 @@ class TestCNN:
         assert model.model_name == "CNN_model"
     
     def test_cnn_forward_pass_2d(self):
-        """Test CNN forward pass with 2D input."""
-        pytest.skip("CNN with 2D flattened input causes pooling issues - use 3D input instead")
-        
-        model = CNN_model(num_classes=10)
+        """Test CNN forward pass with 2D input (MFCC flattened)."""
+        # Use fewer layers and smaller features to avoid pooling collapse
+        model = CNN_model(
+            num_classes=10, 
+            conv_layers=2,  # Only 2 layers to avoid pooling issues
+            base_filters=16  # Smaller filters
+        )
         batch_size = 16
         
-        # Input: (batch, features) - will be reshaped internally
-        # Use a larger input that won't collapse with pooling
+        # Input: (batch, features) - flattened MFCC features
+        # CNN reshapes this to (batch, 1, 1, features)
+        # Use a size that won't collapse during pooling
+        # With 2 conv layers and pooling every 2nd block, need at least 4 spatial dims
         x = torch.randn(batch_size, 200)
         output = model(x)
         
@@ -335,8 +340,6 @@ class TestVGG16:
     
     def test_vgg16_forward_pass(self):
         """Test VGG16 forward pass with MFCC input."""
-        pytest.skip("VGG16 pooling issues with small test inputs - tested in actual training runs")
-        
         model = VGG16Classifier(
             num_classes=10,
             pretrained=False,
@@ -345,8 +348,10 @@ class TestVGG16:
         )
         batch_size = 8
         # VGG16 expects 4D input: (batch, channels, height, width)
-        # Use a larger input size that works with VGG16 pooling
-        x = torch.randn(batch_size, 1, 500, 13)
+        # VGG16 uses asymmetric pooling (2,1) to preserve feature width
+        # With 5 pooling layers, we need: input_height >= 2^5 = 32
+        # Use a realistic MFCC size: ~1300 time steps (30s @ 22050Hz)
+        x = torch.randn(batch_size, 1, 1300, 13)
         output = model(x)
         
         assert output.shape == (batch_size, 10)
