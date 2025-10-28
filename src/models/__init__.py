@@ -1,5 +1,5 @@
 """
-Neural network models for GenreDiscern.
+Machine learning models for GenreDiscern (neural networks and conventional models).
 """
 
 from typing import Optional
@@ -12,6 +12,13 @@ from .transformer import Transformer
 from .xlstm import xLSTM
 from .vgg import VGG16Classifier
 from .vit import ViTClassifier
+from .conventional_ml import (
+    SVMModel,
+    RandomForestModel,
+    GaussianNBModel,
+    KNNModel,
+    get_conventional_model,
+)
 # Add src directory to path for imports
 import sys
 import os
@@ -40,6 +47,11 @@ __all__ = [
     "Transformer",
     "xLSTM",
     "get_model",
+    "SVMModel",
+    "RandomForestModel",
+    "GaussianNBModel",
+    "KNNModel",
+    "get_conventional_model",
 ]
 
 
