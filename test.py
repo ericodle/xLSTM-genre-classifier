@@ -101,14 +101,15 @@ def main():
     pytest_args = [
         sys.executable, "-m", "pytest",
         "tests/",
-        "-v",  # Verbose output
+        "-vv",  # Extra verbose: show all tests and their statuses
         "--tb=short",  # Short traceback format
+        "-ra",  # Show summary of skipped/xfailed/xpassed tests
         # "-x",  # Uncomment to stop at first failure
     ]
     
     # Run pytest
     try:
-        result = subprocess.run(pytest_args, cwd=project_root)
+        result = subprocess.run(pytest_args, cwd=project_root, capture_output=False)
         
         # Check final status
         print()
