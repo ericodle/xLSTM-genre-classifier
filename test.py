@@ -50,6 +50,7 @@ def main():
     # Parse arguments
     parser = argparse.ArgumentParser(description="Run tests and linters")
     parser.add_argument('--fix', action='store_true', help='Auto-fix linter issues')
+    parser.add_argument('--training', action='store_true', help='Include heavy training tests')
     args = parser.parse_args()
     
     # Ensure we're in the project root
@@ -98,14 +99,17 @@ def main():
     print("Running pytest...")
     print(f"{'=' * 70}\n")
     
-    pytest_args = [
+    base_args = [
         sys.executable, "-m", "pytest",
-        "tests/",
         "-vv",  # Extra verbose: show all tests and their statuses
         "--tb=short",  # Short traceback format
         "-ra",  # Show summary of skipped/xfailed/xpassed tests
-        # "-x",  # Uncomment to stop at first failure
     ]
+    if args.training:
+        pytest_args = base_args + ["tests/"]
+    else:
+        # Exclude heavy training tests directory by default
+        pytest_args = base_args + ["tests", "-k", "not training"]
     
     # Run pytest
     try:

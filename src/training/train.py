@@ -713,8 +713,6 @@ class ModelTrainer:
                 if self.config.model.class_weight == "auto":
                     # Calculate class weights automatically
                     if hasattr(self, "labels") and self.labels is not None:
-                        import numpy as np
-
                         labels_array = (
                             self.labels.values if hasattr(self.labels, "values") else self.labels
                         )
