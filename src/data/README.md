@@ -17,9 +17,10 @@ python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan
 This single command:
 1. Collects audio files from `gtzan-data/processed/` (organized by genre)
 2. Splits files into train/val/test sets (70%/15%/15% default)
-3. Copies WAV files to `gtzan-data/splits/train/`, `splits/val/`, `splits/test/`
-4. Extracts MFCC features for each split
-5. Saves training-ready JSON files: `gtzan-data/mfccs_splits/train.json`, `val.json`, `test.json`
+3. Generates `class_distribution.png` histogram and `split_statistics.txt` descriptive stats
+4. Copies WAV files to `gtzan-data/splits/train/`, `splits/val/`, `splits/test/`
+5. Extracts MFCC features for each split
+6. Saves training-ready JSON files: `gtzan-data/mfccs_splits/train.json`, `val.json`, `test.json`
 
 **Output structure:**
 ```
@@ -30,7 +31,9 @@ gtzan-data/
 │   │   ├── classical/
 │   │   └── ...
 │   ├── val/
-│   └── test/
+│   ├── test/
+│   ├── class_distribution.png (histogram)
+│   └── split_statistics.txt (descriptive stats)
 └── mfccs_splits/
     ├── train.json
     ├── val.json
@@ -52,14 +55,6 @@ gtzan-data/
   - What users run: `python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits`
 
 - **`MFCC_FMA_extract.py`** - FMA dataset MFCC extraction (when using FMA dataset)
-
-### Core Functions (Used by Production Scripts)
-
-- **`MFCC_GTZAN_extract.py`** - Core MFCC extraction functions (used by split_gtzan_data.py)
-  - `extract_mfcc_from_audio()` - Extract MFCC features from a single audio file
-  - `process_gtzan_dataset()` - Process entire GTZAN dataset
-  - `save_gtzan_data()` - Save extracted features to JSON
-  - ⚠️ Not meant to be called directly - use split_gtzan_data.py instead
 
 ### Helper Modules
 
