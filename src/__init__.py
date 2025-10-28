@@ -10,7 +10,7 @@ __author__ = "Eric and Rebecca"
 
 from .core.config import Config
 from .models import get_model
-from .training.trainer import ModelTrainer
+from .training.train import ModelTrainer
 
 __all__ = [
     "Config",

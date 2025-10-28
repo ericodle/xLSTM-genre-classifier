@@ -99,27 +99,35 @@ def flatten_features(X: np.ndarray) -> np.ndarray:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Train an SVM on MFCC JSON")
+    parser = argparse.ArgumentParser(description="Train conventional ML models on MFCC JSON")
     parser.add_argument("--data", required=True, help="Path to MFCC JSON file")
     parser.add_argument("--output", required=True, help="Output directory")
-    parser.add_argument("--kernel", default="rbf", choices=["linear", "rbf"], help="SVM kernel")
-    parser.add_argument("--C", type=float, default=10.0, help="Regularization parameter C")
     parser.add_argument(
-        "--gamma", default="scale", help="Gamma for RBF ('scale', 'auto', or float)"
+        "--model",
+        required=True,
+        choices=["svm", "rf", "nb", "knn"],
+        help="Model type: svm, rf (Random Forest), nb (Naive Bayes), knn (K-Nearest Neighbors)",
     )
-    parser.add_argument("--test-size", type=float, default=0.2, help="Test split size")
-    parser.add_argument(
-        "--val-size", type=float, default=0.15, help="Validation split size (from train)"
-    )
+
+    # Common arguments
     parser.add_argument("--random-state", type=int, default=42, help="Random seed")
+    parser.add_argument("--test-size", type=float, default=0.2, help="Test split size")
+    parser.add_argument("--val-size", type=float, default=0.15, help="Validation split size")
+
+    # SVM-specific arguments
+    parser.add_argument("--kernel", default="rbf", choices=["linear", "rbf"], help="SVM kernel")
+    parser.add_argument("--C", type=float, default=10.0, help="SVM regularization parameter C")
     parser.add_argument(
-        "--class-weight",
-        default="none",
-        choices=["none", "balanced"],
-        help="Handle class imbalance",
+        "--gamma", default="scale", help="SVM gamma for RBF ('scale', 'auto', or float)"
     )
-    parser.add_argument("--pca", type=int, default=0, help="PCA components (0 disables)")
-    parser.add_argument("--max-iter", type=int, default=1000, help="Max iterations for LinearSVC")
+
+    # Random Forest-specific arguments
+    parser.add_argument("--n-estimators", type=int, default=100, help="RF number of estimators")
+    parser.add_argument("--max-depth", type=int, default=None, help="RF max depth")
+
+    # KNN-specific arguments
+    parser.add_argument("--n-neighbors", type=int, default=5, help="KNN number of neighbors")
+
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
@@ -128,7 +136,7 @@ def main() -> int:
     X, y, mapping = load_mfcc_json(args.data)
     print(f"Loaded features: {X.shape}, classes: {len(mapping)}")
 
-    # Flatten time×features for SVM
+    # Flatten time×features for conventional ML models
     X = flatten_features(X)
 
     # Split train/val/test
@@ -140,41 +148,39 @@ def main() -> int:
         X_temp, y_temp, test_size=val_ratio, random_state=args.random_state, stratify=y_temp
     )
 
-    # Build pipeline: Standardize -> (optional PCA) -> SVM
-    steps = [("scaler", StandardScaler(with_mean=True, with_std=True))]
-    if args.pca and args.pca > 0:
-        steps.append(
-            ("pca", PCA(n_components=args.pca, svd_solver="auto", random_state=args.random_state))
-        )
+    # Prepare model-specific parameters
+    model_params = {}
 
-    if args.kernel == "linear":
-        svm = LinearSVC(
-            C=args.C,
-            random_state=args.random_state,
-            class_weight=None if args.class_weight == "none" else args.class_weight,
-            max_iter=args.max_iter,
-        )
-    else:
-        gamma_value = args.gamma
-        if gamma_value not in {"scale", "auto"}:
-            try:
-                gamma_value = float(gamma_value)
-            except ValueError:
-                raise ValueError("--gamma must be 'scale', 'auto', or a float")
-        svm = SVC(
-            kernel="rbf",
-            C=args.C,
-            gamma=gamma_value,
-            probability=False,
-            random_state=args.random_state,
-            class_weight=None if args.class_weight == "none" else args.class_weight,
-            decision_function_shape="ovr",
-        )
+    if args.model == "svm":
+        model_params = {
+            "kernel": args.kernel,
+            "C": args.C,
+            "gamma": args.gamma,
+            "random_state": args.random_state,
+        }
+    elif args.model == "rf":
+        model_params = {
+            "n_estimators": args.n_estimators,
+            "max_depth": args.max_depth,
+            "random_state": args.random_state,
+        }
+    elif args.model == "nb":
+        model_params = {
+            "random_state": args.random_state,
+        }
+    elif args.model == "knn":
+        model_params = {
+            "n_neighbors": args.n_neighbors,
+            "random_state": args.random_state,
+        }
 
-    steps.append(("svm", svm))
-    clf = Pipeline(steps)
+    # Create model using factory
+    model_name = {"svm": "SVM", "rf": "Random Forest", "nb": "Naive Bayes", "knn": "KNN"}[
+        args.model
+    ]
+    print(f"Training {model_name}...")
 
-    print("Training SVM...")
+    clf = get_conventional_model(args.model, **model_params)
     clf.fit(X_train, y_train)
 
     # Evaluation
@@ -194,20 +200,16 @@ def main() -> int:
         "test": evaluate("Test", X_test, y_test),
         "mapping": mapping,
         "params": {
-            "kernel": args.kernel,
-            "C": args.C,
-            "gamma": args.gamma,
+            "model": args.model,
             "test_size": args.test_size,
             "val_size": args.val_size,
             "random_state": args.random_state,
-            "class_weight": args.class_weight,
-            "pca": args.pca,
-            "max_iter": args.max_iter,
+            **model_params,
         },
     }
 
     # Save artifacts
-    model_path = Path(args.output) / "svm.joblib"
+    model_path = Path(args.output) / f"{args.model}.joblib"
     results_path = Path(args.output) / "results.json"
 
     # Ensure the output directory exists (defensive programming)
@@ -236,7 +238,7 @@ def main() -> int:
             xticklabels=[str(m) for m in mapping],
             yticklabels=[str(m) for m in mapping],
         )
-        plt.title("SVM Confusion Matrix (Test)")
+        plt.title(f"{model_name} Confusion Matrix (Test)")
         plt.ylabel("True Label")
         plt.xlabel("Predicted Label")
         plt.tight_layout()

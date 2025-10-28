@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from core.config import Config
 from core.utils import setup_logging
-from training.trainer import ModelTrainer
+from training.train import ModelTrainer
 
 
 def _run_automatic_evaluation(
