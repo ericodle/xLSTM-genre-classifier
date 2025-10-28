@@ -15,6 +15,8 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 
+# Project requires GTZAN be pre-processed to 30-second clips
+
 # What can you do with this project?
 
 ## You can process music data
@@ -59,3 +61,11 @@ pip install -r requirements.txt
 ## You can contribute to this project!
 ### How about making a Pull Request and contributing your own feature?
 ### How about helping find and fix our many bugs?
+
+## TODO
+### integrate new split preprocessing flow for FMA
+### Expand module tests
+### debug hyperparameter search
+### debug fuzzy logic
+### debug multimodal models
+### debug autoencoders
