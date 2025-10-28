@@ -18,36 +18,9 @@ pip install -r requirements.txt
 # What can you do with this project?
 
 ## You can process music data
-
-### Quick Start: Process GTZAN Data (Single Command)
-
-**One command to process GTZAN data from raw audio to training-ready format:**
-
-```bash
-python src/data/split_gtzan_data.py gtzan-data/processed gtzan-data/splits gtzan-data/mfccs_splits
-```
-
-This single command:
-1. ✅ Collects audio files from `gtzan-data/processed/` (organized by genre)
-2. ✅ Splits files into train/val/test sets (70%/15%/15% by default)
-3. ✅ Copies WAV files to `gtzan-data/splits/train/`, `splits/val/`, `splits/test/`
-4. ✅ Extracts MFCC features for each split
-5. ✅ Saves training-ready JSON files: `gtzan-data/mfccs_splits/train.json`, `val.json`, `test.json`
-
-**Then train your model:**
-```bash
-python src/training/train_model.py --data gtzan-data/mfccs_splits --model GRU --output outputs/my-run
-```
-
-### Why Pre-splitting?
-
-- **Reproducibility**: Same splits across all training runs
-- **Traceability**: You know exactly which WAV files are in train/val/test
-- **Consistency**: All models train on the same data splits for fair comparison
-- **Data integrity**: Train/val/test sets never overlap
-
+### GTZAN
 ### FMA
-Coming soon...
+### Crops songs, weeds out corrupted data, sorts music into train/val/test sets, and summarizes the distribution of your data.
 
 ## You can train a variety of original and commonly-used models
 ## SVM
