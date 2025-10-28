@@ -28,7 +28,6 @@ from .constants import (
     DEFAULT_LOSS_FUNCTION,
     DEFAULT_LR_SCHEDULER,
     DEFAULT_MAX_EPOCHS,
-    DEFAULT_N_MFCC,
     DEFAULT_NUM_CLASSES,
     DEFAULT_NUM_HEADS,
     DEFAULT_NUM_LAYERS,
@@ -48,25 +47,10 @@ from .constants import (
     GAN_N_CRITIC,
     GAN_NOISE_DIM,
     GAN_NUM_LAYERS,
-    HOP_LENGTH,
-    MAX_AUDIO_DURATION,
-    MIN_AUDIO_DURATION,
-    N_FFT,
-    SAMPLE_RATE,
 )
 from .model_defaults import DEFAULTS, get_defaults
 
 
-@dataclass
-class AudioConfig:
-    """Audio processing configuration."""
-
-    sample_rate: int = SAMPLE_RATE
-    hop_length: int = HOP_LENGTH
-    n_fft: int = N_FFT
-    n_mfcc: int = DEFAULT_N_MFCC  # Now configurable!
-    min_duration: float = MIN_AUDIO_DURATION
-    max_duration: float = MAX_AUDIO_DURATION
 
 
 @dataclass
@@ -133,25 +117,14 @@ class TrainingConfig:
     gradient_clip_norm: Optional[float] = DEFAULT_GRADIENT_CLIP_NORM
 
 
-@dataclass
-class PathConfig:
-    """Path configuration."""
-
-    data_dir: str = "data"
-    models_dir: str = "models"
-    output_dir: str = "output"
-    logs_dir: str = "logs"
-    cache_dir: str = "cache"
 
 
 class Config:
     """Main configuration class for GenreDiscern."""
 
     def __init__(self, config_path: Optional[str] = None):
-        self.audio = AudioConfig()
         self.model = ModelConfig()
         self.training = TrainingConfig()
-        self.paths = PathConfig()
 
         if config_path and os.path.exists(config_path):
             self.load_from_file(config_path)
@@ -163,11 +136,6 @@ class Config:
                 config_data = json.load(f)
 
             # Update nested configurations
-            if "audio" in config_data:
-                for key, value in config_data["audio"].items():
-                    if hasattr(self.audio, key):
-                        setattr(self.audio, key, value)
-
             if "model" in config_data:
                 for key, value in config_data["model"].items():
                     if hasattr(self.model, key):
@@ -178,11 +146,6 @@ class Config:
                     if hasattr(self.training, key):
                         setattr(self.training, key, value)
 
-            if "paths" in config_data:
-                for key, value in config_data["paths"].items():
-                    if hasattr(self.paths, key):
-                        setattr(self.paths, key, value)
-
         except Exception as e:
             print(f"Warning: Could not load config from {config_path}: {e}")
 
@@ -190,10 +153,8 @@ class Config:
         """Save configuration to JSON file."""
         try:
             config_data = {
-                "audio": self.audio.__dict__,
                 "model": self.model.__dict__,
                 "training": self.training.__dict__,
-                "paths": self.paths.__dict__,
             }
 
             with open(config_path, "w") as f:
@@ -215,22 +176,3 @@ class Config:
 
         # Note: Optimized parameters are loaded but may be overridden by user CLI arguments
 
-    def get_audio_config(self) -> Dict[str, Any]:
-        """Get audio configuration as dictionary."""
-        return self.audio.__dict__
-
-    def get_model_config(self) -> Dict[str, Any]:
-        """Get model configuration as dictionary."""
-        return self.model.__dict__
-
-    def get_training_config(self) -> Dict[str, Any]:
-        """Get training configuration as dictionary."""
-        return self.training.__dict__
-
-    def get_paths_config(self) -> Dict[str, Any]:
-        """Get paths configuration as dictionary."""
-        return self.paths.__dict__
-
-
-# Default configuration instance
-default_config = Config()
