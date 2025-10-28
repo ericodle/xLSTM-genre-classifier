@@ -22,7 +22,19 @@ def run_linter(linter_name, args):
     print(f"{'=' * 70}\n")
     
     try:
-        result = subprocess.run(args, cwd=Path(__file__).parent.absolute())
+        result = subprocess.run(
+            args, 
+            cwd=Path(__file__).parent.absolute(),
+            capture_output=True,
+            text=True
+        )
+        
+        # Print the output
+        if result.stdout:
+            print(result.stdout)
+        if result.stderr:
+            print(result.stderr)
+        
         if result.returncode == 0:
             print(f"✅ {linter_name} passed!\n")
         else:
@@ -109,10 +121,15 @@ def main():
             print("✅ All checks passed! (Linters + Tests)")
         elif tests_passed:
             print("⚠️  Tests passed but linters found issues")
+            if not args.fix:
+                print("\n💡 To auto-fix linter issues, run:")
+                print("   python test.py --fix")
         elif all_linters_passed:
             print("⚠️  Linters passed but tests failed")
+            print("\n💡 Check the test output above for details.")
         else:
             print("❌ Both linters and tests failed!")
+            print("\n💡 Try fixing linters first with: python test.py --fix")
         
         print("=" * 70)
         
