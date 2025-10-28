@@ -1,8 +1,3 @@
-"""
-Constants used throughout GenreDiscern.
-Single source of truth for all configuration values.
-"""
-
 # =============================================================================
 # AUDIO PROCESSING CONSTANTS
 # =============================================================================
@@ -16,7 +11,7 @@ MIN_AUDIO_DURATION = 0.1  # seconds
 MAX_AUDIO_DURATION = 30.0  # seconds
 
 # Audio file extensions
-AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac"}
+AUDIO_EXTENSIONS = {".mp3", ".wav"}
 
 # Audio constants (aliases for backward compatibility)
 MFCC_COEFFICIENTS = N_MFCC
@@ -32,20 +27,20 @@ DEFAULT_N_MFCC = N_MFCC
 # =============================================================================
 
 # Core model parameters
-BATCH_SIZE = 64  # Restored from working value
-LEARNING_RATE = 0.0001  # Restored from working value
+BATCH_SIZE = 64
+LEARNING_RATE = 0.0001
 MAX_EPOCHS = 500
-WEIGHT_DECAY = 1e-5  # Restored from working value
-OPTIMIZER = "adam"  # Restored from working value
+WEIGHT_DECAY = 1e-5
+OPTIMIZER = "adam"
 LOSS_FUNCTION = "crossentropy"
 LR_SCHEDULER = True
 CLASS_WEIGHT = "auto"
 NUM_CLASSES = 10
 
 # RNN/LSTM/GRU parameters
-HIDDEN_SIZE = 32  # Restored from working value
-NUM_LAYERS = 2  # Use 2 layers to allow dropout to work properly
-DROPOUT = 0.1  # Restored from working value
+HIDDEN_SIZE = 32
+NUM_LAYERS = 2
+DROPOUT = 0.1
 
 # CNN parameters
 CONV_LAYERS = 4
@@ -68,7 +63,7 @@ XLSTM_CONV_KERNEL_SIZE = 3
 
 # VGG parameters
 VGG_NUM_CLASSES = NUM_CLASSES
-VGG_PRETRAINED = False  # Default to training from scratch for better audio generalization
+VGG_PRETRAINED = False
 VGG_DROPOUT = DROPOUT
 
 # GAN parameters
@@ -81,7 +76,7 @@ GAN_LAMBDA_GP = 10.0
 GAN_LEARNING_RATE = 0.00005
 
 # FC model parameters
-FC_INPUT_DIM = 16796  # Default fallback for flattened MFCC
+FC_INPUT_DIM = 16796
 FC_HIDDEN_DIMS = [512, 256, 128]
 
 # =============================================================================
@@ -135,7 +130,6 @@ EPSILON = 1e-8
 # =============================================================================
 # DEFAULT CONSTANTS (for configuration)
 # =============================================================================
-# These reference the constants above to maintain DRY principle
 
 # Training parameters
 DEFAULT_BATCH_SIZE = BATCH_SIZE
@@ -166,7 +160,6 @@ DEFAULT_CNN_BASE_FILTERS = BASE_FILTERS
 DEFAULT_CNN_KERNEL_SIZE = KERNEL_SIZE
 DEFAULT_CNN_POOL_SIZE = POOL_SIZE
 DEFAULT_CNN_FC_HIDDEN = FC_HIDDEN
-DEFAULT_CNN_DROPOUT = 0.2  # Different from standard dropout
 
 # Transformer parameters
 DEFAULT_NUM_HEADS = NUM_HEADS

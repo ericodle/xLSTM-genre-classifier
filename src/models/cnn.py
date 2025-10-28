@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from core.constants import (
     DEFAULT_NUM_CLASSES,
-    DEFAULT_CNN_DROPOUT,
+    DEFAULT_DROPOUT,
     DEFAULT_CNN_CONV_LAYERS,
     DEFAULT_CNN_BASE_FILTERS,
     DEFAULT_CNN_KERNEL_SIZE,
@@ -32,7 +32,7 @@ class CNN_model(BaseModel):
         self,
         input_channels: int = 1,
         num_classes: int = DEFAULT_NUM_CLASSES,
-        dropout: float = DEFAULT_CNN_DROPOUT,
+        dropout: float = DEFAULT_DROPOUT,
         conv_layers: int = DEFAULT_CNN_CONV_LAYERS,
         base_filters: int = DEFAULT_CNN_BASE_FILTERS,
         kernel_size: int = DEFAULT_CNN_KERNEL_SIZE,
