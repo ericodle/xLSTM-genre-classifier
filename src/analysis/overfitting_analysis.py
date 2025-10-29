@@ -17,17 +17,34 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .utils import (
-    AnalysisLogger,
-    ensure_output_directory,
-    get_model_display_name,
-    get_model_order,
-    infer_dataset_from_path,
-    infer_model_from_path,
-    load_json_data,
-    safe_divide,
-    save_dataframe,
-)
+# Handle both direct execution and module import
+try:
+    from .utils import (
+        AnalysisLogger,
+        ensure_output_directory,
+        get_model_display_name,
+        get_model_order,
+        infer_dataset_from_path,
+        infer_model_from_path,
+        load_json_data,
+        safe_divide,
+        save_dataframe,
+    )
+except ImportError:
+    # For direct execution, add the parent directory to path
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from analysis.utils import (
+        AnalysisLogger,
+        ensure_output_directory,
+        get_model_display_name,
+        get_model_order,
+        infer_dataset_from_path,
+        infer_model_from_path,
+        load_json_data,
+        safe_divide,
+        save_dataframe,
+    )
 
 # Initialize logger
 logger = AnalysisLogger("overfitting_analysis")

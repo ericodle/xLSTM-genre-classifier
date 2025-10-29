@@ -11,13 +11,27 @@ This script:
 import numpy as np
 import pandas as pd
 
-from .utils import (
-    AnalysisLogger,
-    ensure_output_directory,
-    get_model_display_name,
-    get_model_order,
-    save_dataframe,
-)
+# Handle both direct execution and module import
+try:
+    from .utils import (
+        AnalysisLogger,
+        ensure_output_directory,
+        get_model_display_name,
+        get_model_order,
+        save_dataframe,
+    )
+except ImportError:
+    # For direct execution, add the parent directory to path
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from analysis.utils import (
+        AnalysisLogger,
+        ensure_output_directory,
+        get_model_display_name,
+        get_model_order,
+        save_dataframe,
+    )
 
 # Initialize logger
 logger = AnalysisLogger("filter_best_models")

@@ -23,19 +23,38 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from .utils import (
-    AnalysisLogger,
-    ensure_output_directory,
-    get_dataset_colors,
-    get_model_display_name,
-    get_model_order,
-    infer_dataset_from_path,
-    infer_model_from_path,
-    load_json_data,
-    save_dataframe,
-    save_plot,
-    setup_plotting_style,
-)
+# Handle both direct execution and module import
+try:
+    from .utils import (
+        AnalysisLogger,
+        ensure_output_directory,
+        get_dataset_colors,
+        get_model_display_name,
+        get_model_order,
+        infer_dataset_from_path,
+        infer_model_from_path,
+        load_json_data,
+        save_dataframe,
+        save_plot,
+        setup_plotting_style,
+    )
+except ImportError:
+    # For direct execution, add the parent directory to path
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from analysis.utils import (
+        AnalysisLogger,
+        ensure_output_directory,
+        get_dataset_colors,
+        get_model_display_name,
+        get_model_order,
+        infer_dataset_from_path,
+        infer_model_from_path,
+        load_json_data,
+        save_dataframe,
+        save_plot,
+        setup_plotting_style,
+    )
 
 # Initialize logger and plotting
 logger = AnalysisLogger("analyze_results")
@@ -104,7 +123,7 @@ def collect_results(outputs_dir: str) -> pd.DataFrame:
                 roc_auc = np.nan
 
             dataset = infer_dataset_from_path(str(root_path))
-            model = infer_model_from_path_or_json(root_path, {})
+            model = infer_model_from_path(str(root_path), {})
             rows.append(
                 {
                     "run_dir": str(root_path),
@@ -192,7 +211,7 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     # Create figure with better proportions for conference presentation
     fig, ax = plt.subplots(figsize=(16, 8))
     df_plot = df.copy()
-    df_plot["model"] = df_plot["model"].replace(MODEL_LABEL_MAP)
+    df_plot["model"] = df_plot["model"].apply(get_model_display_name)
     # Drop rows with missing metric to avoid zero bars/labels
     df_plot = df_plot[~df_plot[metric].isna()]
     if df_plot.empty:
