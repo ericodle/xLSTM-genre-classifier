@@ -17,15 +17,27 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from .utils import (
+    AnalysisLogger,
+    ensure_output_directory,
+    get_model_display_name,
+    get_model_order,
+    infer_dataset_from_path,
+    infer_model_from_path,
+    load_json_data,
+    safe_divide,
+    save_dataframe,
+)
+
+# Initialize logger
+logger = AnalysisLogger("overfitting_analysis")
+
 
 def extract_model_info(run_dir):
     """Extract model information from directory name."""
-    parts = run_dir.split("-")
-    if len(parts) >= 3:
-        model = parts[0].upper()
-        dataset = parts[1].upper()
-        return model, dataset
-    return None, None
+    model = infer_model_from_path(run_dir)
+    dataset = infer_dataset_from_path(run_dir)
+    return model, dataset
 
 
 def load_test_accuracy_from_evaluation(run_dir):
@@ -66,8 +78,7 @@ def load_test_accuracy_from_evaluation(run_dir):
 def load_training_history(metadata_file):
     """Load training history from metadata file."""
     try:
-        with open(metadata_file, "r") as f:
-            data = json.load(f)
+        data = load_json_data(metadata_file)
 
         if "training_history" in data:
             history = data["training_history"]
@@ -264,7 +275,7 @@ def main():
     print("=" * 60)
 
     # Create output directory
-    os.makedirs("outputs/analysis", exist_ok=True)
+    ensure_output_directory("outputs/analysis")
 
     # Step 1: Create overfitting analysis
     print("\nStep 1: Generating overfitting analysis...")
@@ -276,7 +287,7 @@ def main():
 
     # Save raw analysis
     raw_output_file = "outputs/analysis/overfitting_analysis.csv"
-    analysis_df.to_csv(raw_output_file, index=False)
+    save_dataframe(analysis_df, raw_output_file)
     print(f"Raw analysis saved to: {raw_output_file}")
 
     # Step 2: Create final formatted table
@@ -292,7 +303,7 @@ def main():
 
     # Save final table
     final_output_file = "outputs/analysis/overfitting_analysis_final.csv"
-    final_df.to_csv(final_output_file, index=False)
+    save_dataframe(final_df, final_output_file)
     print(f"\nFinal table saved to: {final_output_file}")
 
     # Print summary

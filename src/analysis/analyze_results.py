@@ -22,76 +22,47 @@ from typing import Any, Dict, List, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
-# Set a clean theme with larger fonts for conference presentation
-sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
-plt.rcParams.update(
-    {
-        "font.family": "sans-serif",
-        "font.sans-serif": ["Arial", "DejaVu Sans", "Helvetica"],
-        "font.size": 12,
-        "axes.titlesize": 16,
-        "axes.labelsize": 14,
-        "xtick.labelsize": 12,
-        "ytick.labelsize": 12,
-        "legend.fontsize": 12,
-        "figure.titlesize": 18,
-        "axes.linewidth": 1.2,
-        "grid.linewidth": 0.8,
-        "lines.linewidth": 2,
-        "patch.linewidth": 1.2,
-    }
+from .utils import (
+    AnalysisLogger,
+    ensure_output_directory,
+    get_dataset_colors,
+    get_model_display_name,
+    get_model_order,
+    infer_dataset_from_path,
+    infer_model_from_path,
+    load_json_data,
+    save_dataframe,
+    save_plot,
+    setup_plotting_style,
 )
 
-# Display label mapping for models in plots
-MODEL_LABEL_MAP = {
-    "TRANSFORMER": "TR",
-}
-
-# Define the desired model order for plots (using display names after label mapping)
-MODEL_ORDER = ["SVM", "FC", "CNN", "LSTM", "XLSTM", "GRU", "TR", "VGG"]
-
-
-def infer_dataset_from_path(p: str) -> str:
-    s = p.lower()
-    if "gtzan" in s:
-        return "GTZAN"
-    if "fma" in s:
-        return "FMA"
-    return "UNKNOWN"
-
-
-def infer_model_from_path_or_json(dir_path: Path, payload: Dict[str, Any]) -> str:
-    # Try directory naming first (handles patterns like cnn-*, lstm-*, xlstm-*, tr-*)
-    name = dir_path.name.lower()
-    # Explicit short alias for Transformer
-    if name.startswith("tr-") or "-tr-" in name or name.endswith("-tr"):
-        return "TRANSFORMER"
-    # Order matters: check 'xlstm' before 'lstm' to avoid substring collisions
-    for m in ["xlstm", "transformer", "vgg", "cnn", "lstm", "gru", "svm", "fc"]:
-        if m in name:
-            return m.upper()
-    # Try JSON fields
-    # SVM script stores params but not model string, tag as SVM if present
-    if "params" in payload and "kernel" in payload["params"]:
-        return "SVM"
-    return payload.get("model_type", "UNKNOWN").upper()
+# Initialize logger and plotting
+logger = AnalysisLogger("analyze_results")
+setup_plotting_style()
 
 
 def collect_results(outputs_dir: str) -> pd.DataFrame:
+    """Collect results from all training runs."""
     rows: List[Dict[str, Any]] = []
+    
+    if not os.path.exists(outputs_dir):
+        logger.error(f"Outputs directory does not exist: {outputs_dir}")
+        return pd.DataFrame()
+    
+    logger.info(f"Scanning directory: {outputs_dir}")
+    
     for root, dirs, files in os.walk(outputs_dir):
         root_path = Path(root)
         if "results.json" in files:
             try:
-                with open(root_path / "results.json", "r") as f:
-                    data = json.load(f)
-            except Exception:
+                data = load_json_data(str(root_path / "results.json"))
+            except Exception as e:
+                logger.warning(f"Failed to load {root_path / 'results.json'}: {e}")
                 continue
 
             dataset = infer_dataset_from_path(str(root_path))
-            model = infer_model_from_path_or_json(root_path, data)
+            model = infer_model_from_path(str(root_path), data)
 
             # SVM format
             if all(k in data for k in ["train", "val", "test"]):
@@ -160,7 +131,7 @@ def collect_results(outputs_dir: str) -> pd.DataFrame:
                 roc_auc = np.nan
 
             dataset = infer_dataset_from_path(str(root_path))
-            model = infer_model_from_path_or_json(root_path, payload)
+            model = infer_model_from_path(str(root_path), payload)
             rows.append(
                 {
                     "run_dir": str(root_path),
@@ -183,7 +154,7 @@ def collect_results(outputs_dir: str) -> pd.DataFrame:
                 except Exception:
                     continue
                 dataset = infer_dataset_from_path(str(root_path))
-                model = infer_model_from_path_or_json(root_path, meta)
+                model = infer_model_from_path(str(root_path), meta)
                 rows.append(
                     {
                         "run_dir": str(root_path),
@@ -229,14 +200,11 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
         return
 
     # Filter to only include models in our desired order
-    df_plot = df_plot[df_plot["model"].isin(MODEL_ORDER)]
-
-    # Define colors for datasets
-    dataset_colors = {"GTZAN": "#2E86AB", "FMA": "#A23B72"}
+    df_plot = df_plot[df_plot["model"].isin(get_model_order())]
 
     # Get unique datasets and models
     datasets = df_plot["dataset"].unique()
-    models = MODEL_ORDER
+    models = get_model_order()
 
     # Set up bar positions
     x = np.arange(len(models))
@@ -244,6 +212,7 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
 
     # Create bars for each dataset
     bars = []
+    dataset_colors = get_dataset_colors()
     for i, dataset in enumerate(datasets):
         dataset_data = df_plot[df_plot["dataset"] == dataset]
         values = []
@@ -290,7 +259,7 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
 
     # Set x-axis labels
     ax.set_xticks(x)
-    ax.set_xticklabels(models, rotation=45, ha="right", fontsize=12)
+    ax.set_xticklabels([get_model_display_name(model) for model in models], rotation=45, ha="right", fontsize=12)
 
     # Add legend in top right
     ax.legend(loc="upper right", fontsize=12, framealpha=0.9)
@@ -311,8 +280,7 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     # Adjust layout and save
     plt.tight_layout()
     path = out_dir / f"{metric}_by_model_dataset.png"
-    plt.savefig(path, dpi=300, bbox_inches="tight", facecolor="white", edgecolor="none")
-    plt.close()
+    save_plot(plt.gcf(), str(path))
 
 
 def plot_model_grid(df: pd.DataFrame, out_dir: Path) -> None:
@@ -321,7 +289,7 @@ def plot_model_grid(df: pd.DataFrame, out_dir: Path) -> None:
         return
     for metric in ["train_acc", "val_acc", "test_acc"]:
         df_plot = df.copy()
-        df_plot["model"] = df_plot["model"].replace(MODEL_LABEL_MAP)
+        df_plot["model"] = df_plot["model"].apply(get_model_display_name)
         df_plot = df_plot[~df_plot[metric].isna()]
         if df_plot.empty:
             continue
@@ -345,8 +313,7 @@ def plot_model_grid(df: pd.DataFrame, out_dir: Path) -> None:
                 label.set_horizontalalignment("right")
         g.fig.suptitle(f"{metric} by model per dataset", y=1.05)
         path = out_dir / f"{metric}_by_model_per_dataset.png"
-        plt.savefig(path, dpi=300, bbox_inches="tight")
-        plt.close()
+        save_plot(plt.gcf(), str(path))
 
 
 def main() -> int:
@@ -365,34 +332,48 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    out_dir = Path(args.output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        # Validate input directory
+        if not os.path.exists(args.input_dir):
+            logger.error(f"Input directory does not exist: {args.input_dir}")
+            return 1
 
-    df = collect_results(args.input_dir)
-    if df.empty:
-        print("No results found.")
+        # Create output directory
+        out_dir = ensure_output_directory(args.output_dir)
+        logger.info(f"Output directory: {out_dir}")
+
+        # Collect results
+        df = collect_results(args.input_dir)
+        if df.empty:
+            logger.warning("No results found.")
+            return 0
+
+        logger.info(f"Found {len(df)} results")
+
+        # Save raw table
+        csv_path = out_dir / "results_summary.csv"
+        save_dataframe(df, str(csv_path))
+        logger.info(f"Saved summary: {csv_path}")
+
+        # Aggregate maximum (best) per (dataset, model)
+        agg = (
+            df.groupby(["dataset", "model"], dropna=False)[["train_acc", "val_acc", "test_acc"]]
+            .max(numeric_only=True)
+            .reset_index()
+        )
+        agg_csv = out_dir / "results_agg.csv"
+        save_dataframe(agg, str(agg_csv))
+        logger.info(f"Saved aggregates: {agg_csv}")
+
+        # Generate plots
+        plot_bars(agg, out_dir, "test_acc")
+        logger.info("Generated plots")
+
         return 0
 
-    # Save raw table
-    csv_path = out_dir / "results_summary.csv"
-    df.to_csv(csv_path, index=False)
-    print(f"Saved summary: {csv_path}")
-
-    # Aggregate maximum (best) per (dataset, model)
-    agg = (
-        df.groupby(["dataset", "model"], dropna=False)[["train_acc", "val_acc", "test_acc"]]
-        .max(numeric_only=True)
-        .reset_index()
-    )
-    agg_csv = out_dir / "results_agg.csv"
-    agg.to_csv(agg_csv, index=False)
-    print(f"Saved aggregates: {agg_csv}")
-
-    # Plots - only generate test_acc plot
-    plot_bars(agg, out_dir, "test_acc")
-
-    print(f"Plots saved to: {out_dir}")
-    return 0
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        return 1
 
 
 if __name__ == "__main__":

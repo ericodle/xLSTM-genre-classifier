@@ -11,6 +11,17 @@ This script:
 import numpy as np
 import pandas as pd
 
+from .utils import (
+    AnalysisLogger,
+    ensure_output_directory,
+    get_model_display_name,
+    get_model_order,
+    save_dataframe,
+)
+
+# Initialize logger
+logger = AnalysisLogger("filter_best_models")
+
 
 def get_best_models():
     """Identify the best performing model for each model type and dataset."""
@@ -155,8 +166,9 @@ def main():
     print_table("OVERFITTING ANALYSIS - GTZAN DATASET (Best Models Only)", gtzan_table)
 
     # Save filtered tables
-    fma_table.to_csv("outputs/analysis/overfitting_analysis_FMA_best.csv", index=False)
-    gtzan_table.to_csv("outputs/analysis/overfitting_analysis_GTZAN_best.csv", index=False)
+    ensure_output_directory("outputs/analysis")
+    save_dataframe(fma_table, "outputs/analysis/overfitting_analysis_FMA_best.csv")
+    save_dataframe(gtzan_table, "outputs/analysis/overfitting_analysis_GTZAN_best.csv")
 
     print(f"\nFiltered tables saved:")
     print(f"  - outputs/analysis/overfitting_analysis_FMA_best.csv")
