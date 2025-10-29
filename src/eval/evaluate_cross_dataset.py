@@ -14,67 +14,14 @@ warnings.filterwarnings("ignore", category=UserWarning, module="sklearn.metrics"
 sys.path.insert(0, "src")
 
 from eval.data_utils import DataLoaderUtils
+from eval.model_loader import UnifiedModelLoader
 from eval.plotting_utils import PlottingUtilities
 
 
 def load_model(model_path):
-    """Load a trained model from ONNX file."""
-    # Ensure we're working with ONNX files
-    if not model_path.endswith(".onnx"):
-        raise ValueError("Model file must be in ONNX format (.onnx)")
-
-    try:
-        import onnxruntime as ort
-
-        # Create inference session
-        session = ort.InferenceSession(model_path)
-
-        # Get input and output names
-        input_name = session.get_inputs()[0].name
-        output_name = session.get_outputs()[0].name
-
-        # Determine model type from input shape
-        input_shape = session.get_inputs()[0].shape
-        if len(input_shape) == 2:  # (batch_size, features)
-            model_type = "FC"
-        elif len(input_shape) == 3:  # (batch_size, time_steps, features)
-            model_type = "RNN"
-        elif len(input_shape) == 4:  # (batch_size, channels, height, width)
-            model_type = "CNN"
-        else:
-            model_type = "Unknown"
-
-        print(f"Loaded ONNX model: {model_path}")
-        print(f"Model type: {model_type}")
-        print(f"Input shape: {input_shape}")
-        print(f"Input name: {input_name}")
-        print(f"Output name: {output_name}")
-
-        return ONNXModelWrapper(session, model_type)
-
-    except ImportError:
-        raise ImportError(
-            "onnxruntime is required for ONNX model evaluation. Install it with: pip install onnxruntime"
-        )
-
-
-class ONNXModelWrapper:
-    """Wrapper for ONNX model to make it compatible with PyTorch-style evaluation."""
-
-    def __init__(self, session, model_type):
-        self.session = session
-        self.model_type = model_type
-        self.input_name = session.get_inputs()[0].name
-        self.output_name = session.get_outputs()[0].name
-
-    def __call__(self, x):
-        """Forward pass through the ONNX model."""
-        # Convert to numpy if needed
-        if isinstance(x, torch.Tensor):
-            x = x.cpu().numpy()
-
-        # Run inference
-        return torch.from_numpy(self.session.run(["output"], {"input": x})[0])
+    """Load a trained model from ONNX or joblib file."""
+    loader = UnifiedModelLoader()
+    return loader.load_model(model_path)
 
 
 def load_mfcc_data(json_path):
@@ -83,15 +30,16 @@ def load_mfcc_data(json_path):
     return data_utils.load_mfcc_data(json_path)
 
 
-def preprocess_features(features, flatten_for_rnn=False, is_cnn=False):
+def preprocess_features(features, model_type=None, flatten_for_rnn=False, is_cnn=False):
     """Preprocess features (normalization, reshaping, etc.)."""
     # Determine model type from parameters
-    if is_cnn:
-        model_type = "CNN"
-    elif flatten_for_rnn:
-        model_type = "FC"
-    else:
-        model_type = "RNN"
+    if model_type is None:
+        if is_cnn:
+            model_type = "CNN"
+        elif flatten_for_rnn:
+            model_type = "FC"
+        else:
+            model_type = "RNN"
 
     data_utils = DataLoaderUtils()
     return data_utils.preprocess_features(features, model_type)
@@ -235,7 +183,7 @@ def main():
         "--eval-secondary", required=True, help="Path to the secondary evaluation data JSON file"
     )
     parser.add_argument("--out", required=True, help="Output directory for results")
-    parser.add_argument("--model-type", required=True, help="Model type (FC, CNN, RNN)")
+    parser.add_argument("--model-type", help="Model type (auto-detected if not specified)")
     parser.add_argument("--batch-size", type=int, default=32, help="Batch size for evaluation")
 
     args = parser.parse_args()
@@ -246,6 +194,11 @@ def main():
     # Load model
     print(f"Loading model from {args.model}...")
     model = load_model(args.model)
+
+    # Get model type from loaded model
+    model_type = getattr(model, "model_type", args.model_type)
+    if model_type is None:
+        raise ValueError("Could not determine model type. Please specify --model-type")
 
     # Load training data to get the mapping
     print(f"Loading training data from {args.train_data}...")
@@ -259,18 +212,10 @@ def main():
     print(f"Loading secondary evaluation data from {args.eval_secondary}...")
     features_secondary, labels_secondary, secondary_mapping = load_mfcc_data(args.eval_secondary)
 
-    # Determine preprocessing parameters based on model type
-    flatten_for_rnn = args.model_type == "FC"
-    is_cnn = args.model_type == "CNN"
-
-    # Preprocess features
+    # Preprocess features based on model type
     print("Preprocessing features...")
-    features_primary = preprocess_features(
-        features_primary, flatten_for_rnn=flatten_for_rnn, is_cnn=is_cnn
-    )
-    features_secondary = preprocess_features(
-        features_secondary, flatten_for_rnn=flatten_for_rnn, is_cnn=is_cnn
-    )
+    features_primary = preprocess_features(features_primary, model_type=model_type)
+    features_secondary = preprocess_features(features_secondary, model_type=model_type)
 
     # Create datasets and dataloaders
     dataset_primary = SimpleDataset(features_primary, labels_primary)

@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -9,6 +9,7 @@ from sklearn.metrics import classification_report, confusion_matrix, roc_auc_sco
 from torch.utils.data import DataLoader
 
 from core.utils import get_device, setup_logging
+from eval.model_loader import UnifiedModelLoader
 from eval.plotting_utils import PlottingUtilities
 from models import BaseModel
 
@@ -18,22 +19,33 @@ class ModelEvaluator:
 
     def __init__(
         self,
-        model: BaseModel,
+        model: Union[BaseModel, str],
         device: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
     ):
-        self.model = model
-        self.device = get_device(device or "auto")
         self.logger = logger or setup_logging()
+        self.device = get_device(device or "auto")
 
-        # Move model to device
-        self.model = self.model.to(self.device)
+        # Handle both model objects and model paths
+        if isinstance(model, str):
+            # Load model from path
+            loader = UnifiedModelLoader(logger=self.logger)
+            self.model = loader.load_model(model)
+        else:
+            # Use provided model object
+            self.model = model
+            # Move to device if it's a PyTorch model
+            if hasattr(self.model, "to"):
+                self.model = self.model.to(self.device)
+
+        # Set to evaluation mode
         self.model.eval()
 
         # Initialize plotting utilities
         self.plotting = PlottingUtilities(logger=self.logger)
 
         self.logger.info(f"ModelEvaluator initialized on device: {self.device}")
+        self.logger.info(f"Model type: {getattr(self.model, 'model_type', 'Unknown')}")
 
     def evaluate_model(
         self, test_loader: DataLoader, class_names: Optional[List[str]] = None
