@@ -7,7 +7,7 @@ and creating comparative visualizations across multiple training runs.
 
 from .analyze_results import collect_results, plot_bars, plot_model_grid
 from .filter_best_models import filter_overfitting_analysis, get_best_models
-from .overfitting_analysis import create_overfitting_analysis, create_final_formatted_table
+from .overfitting_analysis import create_final_formatted_table, create_overfitting_analysis
 from .run_analysis import run_complete_analysis
 from .utils import (
     AnalysisLogger,
@@ -31,7 +31,7 @@ __all__ = [
     "run_complete_analysis",
     # Individual analysis functions
     "collect_results",
-    "plot_bars", 
+    "plot_bars",
     "plot_model_grid",
     "filter_overfitting_analysis",
     "get_best_models",

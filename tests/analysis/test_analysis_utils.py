@@ -44,6 +44,7 @@ class TestAnalysisUtils(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_setup_logging(self):
@@ -77,7 +78,7 @@ class TestAnalysisUtils(unittest.TestCase):
         """Test model inference from path with data."""
         data = {"model_type": "CNN"}
         self.assertEqual(infer_model_from_path("unknown", data), "CNN")
-        
+
         data = {"params": {"kernel": "rbf"}}
         self.assertEqual(infer_model_from_path("unknown", data), "SVM")
 
@@ -117,7 +118,7 @@ class TestAnalysisUtils(unittest.TestCase):
         """Test statistics calculation."""
         values = [1, 2, 3, 4, 5]
         stats = calculate_statistics(values)
-        
+
         self.assertAlmostEqual(stats["mean"], 3.0)
         self.assertAlmostEqual(stats["std"], 1.41, places=1)  # Corrected expected value
         self.assertEqual(stats["min"], 1.0)
@@ -135,7 +136,7 @@ class TestAnalysisUtils(unittest.TestCase):
         """Test output directory creation."""
         test_path = os.path.join(self.temp_dir, "test", "output")
         result = ensure_output_directory(test_path)
-        
+
         self.assertTrue(os.path.exists(test_path))
         self.assertEqual(str(result), test_path)
 
@@ -144,7 +145,7 @@ class TestAnalysisUtils(unittest.TestCase):
         test_file = os.path.join(self.temp_dir, "test.json")
         with open(test_file, "w") as f:
             json.dump(self.test_data, f)
-        
+
         loaded_data = load_json_data(test_file)
         self.assertEqual(loaded_data, self.test_data)
 
@@ -158,7 +159,7 @@ class TestAnalysisUtils(unittest.TestCase):
         test_file = os.path.join(self.temp_dir, "invalid.json")
         with open(test_file, "w") as f:
             f.write("invalid json content")
-        
+
         with self.assertRaises(ValueError):
             load_json_data(test_file)
 
@@ -166,7 +167,7 @@ class TestAnalysisUtils(unittest.TestCase):
         """Test JSON data saving."""
         test_file = os.path.join(self.temp_dir, "test", "output.json")
         save_json_data(self.test_data, test_file)
-        
+
         self.assertTrue(os.path.exists(test_file))
         with open(test_file, "r") as f:
             loaded_data = json.load(f)
@@ -176,7 +177,7 @@ class TestAnalysisUtils(unittest.TestCase):
         """Test analysis logger."""
         logger = AnalysisLogger("test")
         self.assertIsInstance(logger.logger, logging.Logger)
-        
+
         # Test that methods don't raise exceptions
         logger.info("Test info message")
         logger.warning("Test warning message")
@@ -194,6 +195,7 @@ class TestAnalysisIntegration(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_analysis_workflow(self):
@@ -202,33 +204,33 @@ class TestAnalysisIntegration(unittest.TestCase):
         results_data = {
             "train": {"accuracy": 0.95},
             "val": {"accuracy": 0.90},
-            "test": {"accuracy": 0.88}
+            "test": {"accuracy": 0.88},
         }
-        
+
         # Create mock directory structure
         model_dir = os.path.join(self.temp_dir, "fc-gtzan-test")
         os.makedirs(model_dir)
-        
+
         results_file = os.path.join(model_dir, "results.json")
         with open(results_file, "w") as f:
             json.dump(results_data, f)
-        
+
         # Test that we can load and process the data
         data = load_json_data(results_file)
         self.assertEqual(data["test"]["accuracy"], 0.88)
-        
+
         # Test model inference
         model = infer_model_from_path(model_dir, data)
         dataset = infer_dataset_from_path(model_dir)
-        
+
         self.assertEqual(model, "FC")
         self.assertEqual(dataset, "GTZAN")
 
-    @patch('src.analysis.utils.plt')
+    @patch("src.analysis.utils.plt")
     def test_plotting_setup(self, mock_plt):
         """Test plotting setup with mocked matplotlib."""
         setup_plotting_style()
-        
+
         # Verify that rcParams was updated
         mock_plt.rcParams.update.assert_called_once()
 

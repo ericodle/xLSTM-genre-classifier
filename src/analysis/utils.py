@@ -18,9 +18,7 @@ import seaborn as sns
 def setup_logging(level: int = logging.INFO) -> logging.Logger:
     """Set up logging for analysis scripts."""
     logging.basicConfig(
-        level=level,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        level=level, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
     return logging.getLogger(__name__)
 
@@ -29,21 +27,23 @@ def setup_plotting_style() -> None:
     """Set up consistent plotting style for analysis scripts."""
     # Set a clean theme with larger fonts for conference presentation
     sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
-    plt.rcParams.update({
-        "font.family": "sans-serif",
-        "font.sans-serif": ["Arial", "DejaVu Sans", "Helvetica"],
-        "font.size": 12,
-        "axes.titlesize": 16,
-        "axes.labelsize": 14,
-        "xtick.labelsize": 12,
-        "ytick.labelsize": 12,
-        "legend.fontsize": 12,
-        "figure.titlesize": 18,
-        "axes.linewidth": 1.2,
-        "grid.linewidth": 0.8,
-        "lines.linewidth": 2,
-        "patch.linewidth": 1.2,
-    })
+    plt.rcParams.update(
+        {
+            "font.family": "sans-serif",
+            "font.sans-serif": ["Arial", "DejaVu Sans", "Helvetica"],
+            "font.size": 12,
+            "axes.titlesize": 16,
+            "axes.labelsize": 14,
+            "xtick.labelsize": 12,
+            "ytick.labelsize": 12,
+            "legend.fontsize": 12,
+            "figure.titlesize": 18,
+            "axes.linewidth": 1.2,
+            "grid.linewidth": 0.8,
+            "lines.linewidth": 2,
+            "patch.linewidth": 1.2,
+        }
+    )
 
 
 def load_json_data(file_path: str) -> Dict[str, Any]:
@@ -106,18 +106,18 @@ def infer_model_from_path(path: str, data: Optional[Dict[str, Any]] = None) -> s
                 return "FC"
             elif "SVM" in model_type:
                 return "SVM"
-        
+
         # SVM script stores params but not model string
         if "params" in data and "kernel" in data["params"]:
             return "SVM"
-    
+
     # Try directory naming as fallback
     name = os.path.basename(path).lower()
-    
+
     # Handle special cases
     if name.startswith("tr-") or "-tr-" in name or name.endswith("-tr"):
         return "TRANSFORMER"
-    
+
     # Check for model types (order matters: check 'xlstm' before 'lstm', 'vit' before 'vgg')
     model_patterns = ["xlstm", "transformer", "vit", "vgg", "cnn", "lstm", "gru", "svm", "fc", "fv"]
     for pattern in model_patterns:
@@ -129,7 +129,7 @@ def infer_model_from_path(path: str, data: Optional[Dict[str, Any]] = None) -> s
                 return "ViT"
             else:
                 return pattern.upper()
-    
+
     return "UNKNOWN"
 
 
@@ -195,7 +195,7 @@ def calculate_statistics(values: List[float]) -> Dict[str, float]:
     """Calculate basic statistics for a list of values."""
     if not values:
         return {"mean": 0.0, "std": 0.0, "min": 0.0, "max": 0.0, "count": 0}
-    
+
     values_array = np.array(values)
     return {
         "mean": float(np.mean(values_array)),
@@ -208,32 +208,30 @@ def calculate_statistics(values: List[float]) -> Dict[str, float]:
 
 class AnalysisLogger:
     """Logger wrapper for analysis scripts."""
-    
+
     def __init__(self, name: str = "analysis"):
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.INFO)
-        
+
         # Add console handler if not already present
         if not self.logger.handlers:
             handler = logging.StreamHandler()
-            formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
+            formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
-    
+
     def info(self, message: str) -> None:
         """Log info message."""
         self.logger.info(message)
-    
+
     def warning(self, message: str) -> None:
         """Log warning message."""
         self.logger.warning(message)
-    
+
     def error(self, message: str) -> None:
         """Log error message."""
         self.logger.error(message)
-    
+
     def debug(self, message: str) -> None:
         """Log debug message."""
         self.logger.debug(message)

@@ -41,6 +41,7 @@ try:
 except ImportError:
     # For direct execution, add the parent directory to path
     import sys
+
     sys.path.insert(0, str(Path(__file__).parent.parent))
     from analysis.utils import (
         AnalysisLogger,
@@ -64,13 +65,13 @@ setup_plotting_style()
 def collect_results(outputs_dir: str) -> pd.DataFrame:
     """Collect results from all training runs."""
     rows: List[Dict[str, Any]] = []
-    
+
     if not os.path.exists(outputs_dir):
         logger.error(f"Outputs directory does not exist: {outputs_dir}")
         return pd.DataFrame()
-    
+
     logger.info(f"Scanning directory: {outputs_dir}")
-    
+
     for root, dirs, files in os.walk(outputs_dir):
         root_path = Path(root)
         if "results.json" in files:
@@ -278,7 +279,9 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
 
     # Set x-axis labels
     ax.set_xticks(x)
-    ax.set_xticklabels([get_model_display_name(model) for model in models], rotation=45, ha="right", fontsize=12)
+    ax.set_xticklabels(
+        [get_model_display_name(model) for model in models], rotation=45, ha="right", fontsize=12
+    )
 
     # Add legend in top right
     ax.legend(loc="upper right", fontsize=12, framealpha=0.9)
