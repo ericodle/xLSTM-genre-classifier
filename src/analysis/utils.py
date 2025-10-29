@@ -82,25 +82,53 @@ def infer_dataset_from_path(path: str) -> str:
 
 def infer_model_from_path(path: str, data: Optional[Dict[str, Any]] = None) -> str:
     """Infer model type from directory path or data."""
-    # Try directory naming first
+    # Try JSON fields first if data provided (most reliable)
+    if data:
+        # Check for model_type in various possible formats
+        model_type = data.get("model_type")
+        if model_type:
+            # Normalize class names to standard type names
+            if "ViT" in model_type or "Vision" in model_type:
+                return "ViT"
+            elif "VGG" in model_type or "vgg" in model_type.lower():
+                return "VGG16"
+            elif "Transformer" in model_type:
+                return "TRANSFORMER"
+            elif "xLSTM" in model_type:
+                return "XLSTM"
+            elif "GRU" in model_type:
+                return "GRU"
+            elif "LSTM" in model_type:
+                return "LSTM"
+            elif "CNN" in model_type:
+                return "CNN"
+            elif "FC" in model_type or "fc" in model_type.lower():
+                return "FC"
+            elif "SVM" in model_type:
+                return "SVM"
+        
+        # SVM script stores params but not model string
+        if "params" in data and "kernel" in data["params"]:
+            return "SVM"
+    
+    # Try directory naming as fallback
     name = os.path.basename(path).lower()
     
     # Handle special cases
     if name.startswith("tr-") or "-tr-" in name or name.endswith("-tr"):
         return "TRANSFORMER"
     
-    # Check for model types (order matters: check 'xlstm' before 'lstm')
-    model_patterns = ["xlstm", "transformer", "vgg", "cnn", "lstm", "gru", "svm", "fc"]
+    # Check for model types (order matters: check 'xlstm' before 'lstm', 'vit' before 'vgg')
+    model_patterns = ["xlstm", "transformer", "vit", "vgg", "cnn", "lstm", "gru", "svm", "fc", "fv"]
     for pattern in model_patterns:
         if pattern in name:
-            return pattern.upper()
-    
-    # Try JSON fields if data provided
-    if data:
-        # SVM script stores params but not model string
-        if "params" in data and "kernel" in data["params"]:
-            return "SVM"
-        return data.get("model_type", "UNKNOWN").upper()
+            # Map VGG16 variations to consistent name
+            if pattern == "vgg" or pattern == "fv":
+                return "VGG16"
+            elif pattern == "vit":
+                return "ViT"
+            else:
+                return pattern.upper()
     
     return "UNKNOWN"
 
@@ -137,6 +165,7 @@ def get_model_display_name(model: str) -> str:
     model_map = {
         "TRANSFORMER": "TR",
         "XLSTM": "XLSTM",
+        "VGG16": "VGG",
         "VGG": "VGG",
     }
     return model_map.get(model, model)

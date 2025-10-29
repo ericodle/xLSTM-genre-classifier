@@ -131,7 +131,7 @@ def run_complete_analysis(
         logger.info("=" * 60)
         
         overfitting_script = script_dir / "overfitting_analysis.py"
-        args = []  # overfitting_analysis.py doesn't take arguments
+        args = ["--input-dir", str(input_dir), "--output-dir", str(output_dir)]
         
         if run_script(str(overfitting_script), args, "Overfitting Analysis"):
             success_count += 1

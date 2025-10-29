@@ -57,9 +57,9 @@ def extract_model_info(run_dir):
     return model, dataset
 
 
-def load_test_accuracy_from_evaluation(run_dir):
+def load_test_accuracy_from_evaluation(run_dir, base_dir: str = "outputs"):
     """Load test accuracy from evaluation results."""
-    eval_dir = Path(f"outputs/{run_dir}/evaluation")
+    eval_dir = Path(f"{base_dir}/{run_dir}/evaluation")
 
     if not eval_dir.exists():
         return None
@@ -115,20 +115,20 @@ def load_training_history(metadata_file):
         return None, None, None
 
 
-def find_best_models():
+def find_best_models(base_dir: str = "outputs"):
     """Find the best performing model for each model type and dataset based on test accuracy."""
-    outputs_dir = Path("outputs")
+    outputs_dir = Path(base_dir)
     model_results = {}
 
     # Find all model directories
     for run_dir in outputs_dir.iterdir():
-        if run_dir.is_dir() and run_dir.name != "analysis":
+        if run_dir.is_dir() and run_dir.name not in ["analysis", "aiccc_2025"]:
             model, dataset = extract_model_info(run_dir.name)
             if not model or not dataset:
                 continue
 
             # Get test accuracy from evaluation results
-            test_acc = load_test_accuracy_from_evaluation(run_dir.name)
+            test_acc = load_test_accuracy_from_evaluation(run_dir.name, base_dir)
 
             if test_acc is not None:
                 key = (model, dataset)
@@ -138,10 +138,10 @@ def find_best_models():
     return model_results
 
 
-def create_overfitting_analysis():
+def create_overfitting_analysis(base_dir: str = "outputs"):
     """Create comprehensive overfitting analysis."""
     print("Finding best performing models...")
-    best_models = find_best_models()
+    best_models = find_best_models(base_dir)
 
     if not best_models:
         print("No model results found!")
@@ -159,7 +159,7 @@ def create_overfitting_analysis():
         print(f"Processing {model}-{dataset} (test_acc: {test_acc:.4f})")
 
         # Load training history
-        metadata_file = Path(f"outputs/{run_dir}/model_training_metadata.json")
+        metadata_file = Path(f"{base_dir}/{run_dir}/model_metadata.json")
         train_acc, val_acc, epochs = load_training_history(metadata_file)
 
         if train_acc is not None and val_acc is not None:
@@ -287,23 +287,40 @@ def print_final_table(df):
 
 def main():
     """Main function."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Overfitting Analysis Tool")
+    parser.add_argument(
+        "--input-dir",
+        default="./outputs",
+        help="Directory containing training results to analyze (default: ./outputs)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default="./outputs/analysis",
+        help="Directory where analysis results will be saved (default: ./outputs/analysis)",
+    )
+    args = parser.parse_args()
+
     print("=" * 60)
     print("COMPREHENSIVE OVERFITTING ANALYSIS")
     print("=" * 60)
+    print(f"Input directory: {args.input_dir}")
+    print(f"Output directory: {args.output_dir}")
 
     # Create output directory
-    ensure_output_directory("outputs/analysis")
+    ensure_output_directory(args.output_dir)
 
     # Step 1: Create overfitting analysis
     print("\nStep 1: Generating overfitting analysis...")
-    analysis_df = create_overfitting_analysis()
+    analysis_df = create_overfitting_analysis(args.input_dir)
 
     if analysis_df is None:
         print("Failed to generate overfitting analysis!")
         return 1
 
     # Save raw analysis
-    raw_output_file = "outputs/analysis/overfitting_analysis.csv"
+    raw_output_file = f"{args.output_dir}/overfitting_analysis.csv"
     save_dataframe(analysis_df, raw_output_file)
     print(f"Raw analysis saved to: {raw_output_file}")
 
@@ -319,7 +336,7 @@ def main():
     print_final_table(final_df)
 
     # Save final table
-    final_output_file = "outputs/analysis/overfitting_analysis_final.csv"
+    final_output_file = f"{args.output_dir}/overfitting_analysis_final.csv"
     save_dataframe(final_df, final_output_file)
     print(f"\nFinal table saved to: {final_output_file}")
 
