@@ -164,16 +164,16 @@ def get_model_display_name(model: str) -> str:
     """Get display name for model type."""
     model_map = {
         "TRANSFORMER": "TR",
-        "XLSTM": "XLSTM",
-        "VGG16": "VGG",
-        "VGG": "VGG",
+        "XLSTM": "xLSTM",
+        "VGG16": "VGG16",
+        "VGG": "VGG16",
     }
     return model_map.get(model, model)
 
 
 def get_model_order() -> List[str]:
     """Get standard model order for plots."""
-    return ["SVM", "FC", "CNN", "LSTM", "XLSTM", "GRU", "TR", "VGG"]
+    return ["SVM", "FC", "CNN", "LSTM", "XLSTM", "GRU", "TRANSFORMER", "VGG16"]
 
 
 def get_dataset_colors() -> Dict[str, str]:

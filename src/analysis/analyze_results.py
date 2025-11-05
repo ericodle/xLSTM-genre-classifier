@@ -212,19 +212,18 @@ def plot_bars(df: pd.DataFrame, out_dir: Path, metric: str) -> None:
     # Create figure with better proportions for conference presentation
     fig, ax = plt.subplots(figsize=(16, 8))
     df_plot = df.copy()
-    df_plot["model"] = df_plot["model"].apply(get_model_display_name)
     # Drop rows with missing metric to avoid zero bars/labels
     df_plot = df_plot[~df_plot[metric].isna()]
     if df_plot.empty:
         plt.close()
         return
 
-    # Filter to only include models in our desired order
-    df_plot = df_plot[df_plot["model"].isin(get_model_order())]
-
-    # Get unique datasets and models
-    datasets = df_plot["dataset"].unique()
+    # Filter to only include models in our desired order (using original names)
     models = get_model_order()
+    df_plot = df_plot[df_plot["model"].isin(models)]
+
+    # Get unique datasets
+    datasets = df_plot["dataset"].unique()
 
     # Set up bar positions
     x = np.arange(len(models))

@@ -85,7 +85,9 @@ class TestAnalysisUtils(unittest.TestCase):
     def test_get_model_display_name(self):
         """Test model display name mapping."""
         self.assertEqual(get_model_display_name("TRANSFORMER"), "TR")
-        self.assertEqual(get_model_display_name("XLSTM"), "XLSTM")
+        self.assertEqual(get_model_display_name("XLSTM"), "xLSTM")
+        self.assertEqual(get_model_display_name("VGG16"), "VGG16")
+        self.assertEqual(get_model_display_name("VGG"), "VGG16")
         self.assertEqual(get_model_display_name("FC"), "FC")
 
     def test_get_model_order(self):
