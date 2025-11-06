@@ -18,7 +18,7 @@ pip install -r requirements.txt
 ```
 
 ## Project requirements
-- Music files shoudl be trimmed to the middle 30-seconds.
+- Music files should be trimmed to the middle 30-seconds.
 - Versions of Python, PyTorch, NVIDIA drivers, and CUDA Toolkit that play well together
 Our setup uses:
 ```
